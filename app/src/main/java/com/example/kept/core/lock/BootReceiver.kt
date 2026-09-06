@@ -22,6 +22,8 @@ class BootReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 if (prefs.currentSettings().onboardingDone) {
+                    // Fresh heartbeat so the watchdog does not count the time the phone was off as a gap.
+                    prefs.heartbeat(System.currentTimeMillis())
                     ForegroundWatcherService.start(context)
                     scheduler.scheduleAll()
                 }

@@ -40,6 +40,7 @@ class AppViewModel @Inject constructor(
             val s = prefs.currentSettings()
             if (s.onboardingDone) {
                 rollover.runPending()
+                prefs.heartbeat(System.currentTimeMillis())
                 ForegroundWatcherService.start(ctx)
                 scheduler.scheduleAll()
             }
