@@ -54,6 +54,11 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
   (`buddyDoneOn(date)`), so the loop is demonstrable without a backend.
 - **`QUERY_ALL_PACKAGES` is declared** because default-deny needs the full launchable set both to
   decide what to lock and to build the exceptions picker. Justified in the manifest comment.
+- **`SYSTEM_ALERT_WINDOW` is required even though the lock is an Activity.** Android 10+ blocks
+  activity starts from a background/foreground service (`BAL_BLOCK`, seen in logcat on the API 35
+  emulator) unless the app holds "display over other apps". The handoff hoped the activity path
+  would avoid this permission; it does not. Onboarding asks for it as a required permission and the
+  protection monitor treats its absence like missing usage access.
 - **Emergency call uses `ACTION_DIAL`** which needs no permission; the dialer, telecom and
   emergency packages are in the static allowlist and role holders are added at runtime.
 - **Room `fallbackToDestructiveMigration`** is on for v1 (schema version 1, exported to

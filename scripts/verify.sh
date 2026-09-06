@@ -21,12 +21,14 @@ resumed() { "$ADB" shell dumpsys activity activities | grep -E "topResumedActivi
 echo "== install"
 "$ADB" install -r -g app/build/outputs/apk/debug/app-debug.apk >/dev/null
 "$ADB" shell appops set $PKG GET_USAGE_STATS allow
+"$ADB" shell appops set $PKG SYSTEM_ALERT_WINDOW allow
 "$ADB" shell pm grant $PKG android.permission.POST_NOTIFICATIONS 2>/dev/null
 "$ADB" shell dumpsys deviceidle whitelist +$PKG >/dev/null
 
 echo "== fresh onboarding"
 "$ADB" shell pm clear $PKG >/dev/null
 "$ADB" shell appops set $PKG GET_USAGE_STATS allow
+"$ADB" shell appops set $PKG SYSTEM_ALERT_WINDOW allow
 "$ADB" shell pm grant $PKG android.permission.POST_NOTIFICATIONS 2>/dev/null
 "$ADB" shell am start -W -n $PKG/.MainActivity >/dev/null
 shot 01_onboarding_habits 2.5
@@ -34,6 +36,7 @@ shot 01_onboarding_habits 2.5
 echo "== seeded home"
 "$ADB" shell pm clear $PKG >/dev/null
 "$ADB" shell appops set $PKG GET_USAGE_STATS allow
+"$ADB" shell appops set $PKG SYSTEM_ALERT_WINDOW allow
 "$ADB" shell pm grant $PKG android.permission.POST_NOTIFICATIONS 2>/dev/null
 "$ADB" shell am start -W -n $PKG/.MainActivity --ez seed true >/dev/null
 shot 03_home 3

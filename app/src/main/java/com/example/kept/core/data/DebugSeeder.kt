@@ -40,10 +40,10 @@ class DebugSeeder @Inject constructor(
         val exercise = habitDao.insert(HabitEntity(title = "Exercise", iconKey = "run", proofType = ProofType.TIMER, targetValue = 30, unit = "min", sortOrder = 0, createdAt = now))
         val read = habitDao.insert(HabitEntity(title = "Read", iconKey = "book", proofType = ProofType.MANUAL, targetValue = 10, unit = "pages", sortOrder = 1, createdAt = now))
 
-        // 12 finished days, streak building from 1 to 12, one shielded miss on day 5 (streak holds).
+        // 13 finished days, one shielded miss on day 5, so the streak reads 12.
         var streak = 0
         var level = 1
-        for (i in 12 downTo 1) {
+        for (i in 13 downTo 1) {
             val date = today.minusDays(i.toLong())
             val missed = i == 5
             val done = if (missed) 1 else 2
@@ -72,7 +72,7 @@ class DebugSeeder @Inject constructor(
             }
         }
         // Base form is always in the gallery.
-        sprig.insertUnlock(SprigForm.SPRIG, Variants.forDate(today.minusDays(12)), today.minusDays(12), 0, seen = true)
+        sprig.insertUnlock(SprigForm.SPRIG, Variants.forDate(today.minusDays(13)), today.minusDays(13), 0, seen = true)
 
         // Today: exercise 18/30 in progress, reading not done.
         val todayKey = today.toString()
@@ -95,7 +95,7 @@ class DebugSeeder @Inject constructor(
         )
         prefs.updateSettings {
             it.copy(
-                seeded = true, onboardingDone = true, firstUseDate = today.minusDays(12),
+                seeded = true, onboardingDone = true, firstUseDate = today.minusDays(13),
                 myInviteCode = "K4W-92B",
             )
         }

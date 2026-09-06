@@ -117,7 +117,7 @@ fun HomeScreen(
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
                         Text("Lock is off", style = MaterialTheme.typography.titleSmall, color = c.danger)
-                        Text("Usage access is missing. Today won't count until it's back on.", style = MaterialTheme.typography.bodySmall, color = c.textSecondary)
+                        Text("A required permission is missing. Today won't count until it's back on.", style = MaterialTheme.typography.bodySmall, color = c.textSecondary)
                     }
                     Text("Fix", style = MaterialTheme.typography.labelLarge, color = c.danger)
                 }

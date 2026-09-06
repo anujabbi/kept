@@ -127,14 +127,14 @@ class ForegroundWatcherService : LifecycleService() {
         val lockActive = LockPolicy.isLockActive(Instant.ofEpochMilli(now), LocalTime.now(), snapshot)
 
         // Protection monitoring: lock should be active but we cannot see the foreground app.
-        if (lockActive && !permissions.usageAccessGranted()) {
+        if (lockActive && !permissions.lockPermissionsGranted()) {
             if (gapStart == null) {
                 gapStart = now
-                notifications.protectionLost("Usage access was turned off")
+                notifications.protectionLost(if (!permissions.usageAccessGranted()) "Usage access was turned off" else "Display over other apps was turned off")
             }
             return
         } else if (gapStart != null) {
-            lockRepo.recordProtectionGap(gapStart!!, now, "Usage access was off")
+            lockRepo.recordProtectionGap(gapStart!!, now, "A lock permission was off")
             gapStart = null
             notifications.clearProtection()
         }

@@ -30,7 +30,7 @@ data class HabitToday(
     val progressLabel: String
         get() = when (habit.proofType) {
             ProofType.TIMER -> "${progress / 60}/${habit.targetValue}"
-            ProofType.MANUAL -> if (isDone) "Done" else habit.unit.ifBlank { "" }
+            ProofType.MANUAL -> if (isDone) "Done" else ""
             ProofType.PHOTO -> if (isDone) "Done" else "Photo"
         }
     val subtitle: String

@@ -58,7 +58,7 @@ class HomeAndBuddyTest {
             compose.onNodeWithTag("code_input").performTextInput("ABC-123")
             compose.onNodeWithTag("pair_button").performClick()
             compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("buddy_paired")).fetchSemanticsNodes().isNotEmpty() }
-            compose.onNodeWithText("Maya").assertIsDisplayed()
+            compose.onNodeWithText("9 day streak", substring = true).assertIsDisplayed()
         }
     }
 }

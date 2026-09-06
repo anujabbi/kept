@@ -48,6 +48,7 @@ data class PermissionCardInfo(val kind: PermissionKind, val title: String, val w
 
 val permissionCards = listOf(
     PermissionCardInfo(PermissionKind.USAGE_ACCESS, "Usage access", "Lets KEPT see which app is in front so it can lock it. Nothing is stored or shared.", true),
+    PermissionCardInfo(PermissionKind.OVERLAY, "Display over other apps", "Lets the lock screen step in front of a locked app. Without it Android blocks KEPT from appearing.", true),
     PermissionCardInfo(PermissionKind.NOTIFICATIONS, "Notifications", "The lock needs a quiet ongoing notification to stay alive. Also the daily recap.", true),
     PermissionCardInfo(PermissionKind.BATTERY, "Battery exemption", "Stops Android from killing the lock in the background.", false),
     PermissionCardInfo(PermissionKind.CAMERA, "Camera", "Only for photo check-in habits.", false),
@@ -86,6 +87,7 @@ fun PermissionCards(perms: Permissions, kinds: List<PermissionKind>, onChange: (
             PermissionCard(card, granted) {
                 when (card.kind) {
                     PermissionKind.USAGE_ACCESS -> ctx.startActivity(perms.usageAccessIntent())
+                    PermissionKind.OVERLAY -> ctx.startActivity(perms.overlayIntent())
                     PermissionKind.NOTIFICATIONS -> if (android.os.Build.VERSION.SDK_INT >= 33) requestNotif.launch(Manifest.permission.POST_NOTIFICATIONS) else ctx.startActivity(perms.appSettingsIntent())
                     PermissionKind.BATTERY -> ctx.startActivity(perms.batteryIntent())
                     PermissionKind.CAMERA -> requestCamera.launch(Manifest.permission.CAMERA)

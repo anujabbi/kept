@@ -274,20 +274,20 @@ private fun StepPermissions(s: OnboardingState, vm: OnboardingViewModel) {
     val ctx = LocalContext.current
     var states by remember { mutableStateOf<Map<PermissionKind, Boolean>>(emptyMap()) }
     val kinds = buildList {
-        add(PermissionKind.USAGE_ACCESS); add(PermissionKind.NOTIFICATIONS); add(PermissionKind.BATTERY)
+        add(PermissionKind.USAGE_ACCESS); add(PermissionKind.OVERLAY); add(PermissionKind.NOTIFICATIONS); add(PermissionKind.BATTERY)
         if (s.hasPhotoHabit && ctx.hasCamera()) add(PermissionKind.CAMERA)
     }
-    val requiredOk = (states[PermissionKind.USAGE_ACCESS] ?: vm.permissions.usageAccessGranted())
+    val requiredOk = (states[PermissionKind.USAGE_ACCESS] ?: vm.permissions.usageAccessGranted()) && (states[PermissionKind.OVERLAY] ?: vm.permissions.overlayGranted())
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).testTag("onboarding_permissions")) {
         Spacer(Modifier.height(8.dp))
-        ScreenTitle("Let KEPT do its job", "The lock needs to see which app is in front. That's it. KEPT never stores or shares what you use.")
+        ScreenTitle("Let KEPT do its job", "The lock needs to see which app is in front, and to step in front of it. KEPT never stores or shares what you use.")
         Spacer(Modifier.height(18.dp))
         PermissionCards(vm.permissions, kinds) { states = it }
         Spacer(Modifier.height(20.dp))
         PrimaryButton(if (requiredOk) "Continue" else "Continue without the lock", onClick = vm::next, modifier = Modifier.testTag("onboarding_next"))
         if (!requiredOk) {
             Spacer(Modifier.height(8.dp))
-            MutedText("Without usage access nothing locks and days won't count. You can grant it later in Settings.", Modifier.fillMaxWidth(), TextAlign.Center)
+            MutedText("Without usage access and display over other apps nothing locks and days won't count. You can grant them later in Settings.", Modifier.fillMaxWidth(), TextAlign.Center)
         }
         Spacer(Modifier.height(20.dp))
     }

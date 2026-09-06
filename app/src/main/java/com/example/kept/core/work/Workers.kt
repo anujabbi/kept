@@ -26,7 +26,10 @@ import com.example.kept.core.lock.Permissions
 import com.example.kept.core.notify.KeptNotifications
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
-import dagger.hilt.android.AndroidEntryPoint
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.components.SingletonComponent
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -87,38 +90,42 @@ class WatchdogWorker @AssistedInject constructor(
             lockRepo.recordProtectionGap(settings.lastServiceHeartbeat, time.nowMillis(), "Lock service was stopped")
             notifications.protectionLost("The lock was stopped")
         }
-        if (shouldBeLocking && !permissions.usageAccessGranted()) {
-            notifications.protectionLost("Usage access is off")
+        if (shouldBeLocking && !permissions.lockPermissionsGranted()) {
+            notifications.protectionLost("A lock permission is off")
         }
         ForegroundWatcherService.start(ctx)
         return Result.success()
     }
 }
 
-@AndroidEntryPoint
 class AlarmReceiver : BroadcastReceiver() {
-    @Inject lateinit var habits: HabitRepository
-    @Inject lateinit var prefs: KeptPreferences
-    @Inject lateinit var notifications: KeptNotifications
-    @Inject lateinit var scheduler: WorkScheduler
-    @Inject lateinit var sprigPrefs: KeptPreferences
+
+    @EntryPoint
+    @InstallIn(SingletonComponent::class)
+    interface Deps {
+        fun habits(): HabitRepository
+        fun prefs(): KeptPreferences
+        fun notifications(): KeptNotifications
+        fun scheduler(): WorkScheduler
+    }
 
     override fun onReceive(context: Context, intent: Intent) {
+        val deps = runCatching { EntryPointAccessors.fromApplication(context.applicationContext, Deps::class.java) }.getOrNull() ?: return
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val settings = prefs.currentSettings()
+                val settings = deps.prefs().currentSettings()
                 if (settings.onboardingDone && settings.remindersEnabled) {
-                    val today = habits.today()
+                    val today = deps.habits().today()
                     if (!today.allDone && today.total > 0) {
-                        val streak = sprigPrefs.currentSprig().streakDays
+                        val streak = deps.prefs().currentSprig().streakDays
                         val left = today.remaining
                         val title = "2 hours left. ${if (streak > 0) "$streak-day streak on the line." else "Sprig is waiting."}"
                         val body = "$left habit${if (left == 1) "" else "s"} to go. Apps stay locked until then."
-                        notifications.reminder(title, body)
+                        deps.notifications().reminder(title, body)
                     }
                 }
-                scheduler.scheduleReminder()
+                deps.scheduler().scheduleReminder()
             } finally {
                 pending.finish()
             }
@@ -132,7 +139,7 @@ class WorkScheduler @Inject constructor(
     private val prefs: KeptPreferences,
     private val time: TimeSource,
 ) {
-    private val wm get() = WorkManager.getInstance(ctx)
+    private val wm: WorkManager? get() = runCatching { WorkManager.getInstance(ctx) }.getOrNull()
 
     fun scheduleAll() {
         scheduleWatchdog()
@@ -142,7 +149,7 @@ class WorkScheduler @Inject constructor(
 
     fun scheduleWatchdog() {
         val req = PeriodicWorkRequestBuilder<WatchdogWorker>(15, TimeUnit.MINUTES).build()
-        wm.enqueueUniquePeriodicWork("kept_watchdog", ExistingPeriodicWorkPolicy.KEEP, req)
+        wm?.enqueueUniquePeriodicWork("kept_watchdog", ExistingPeriodicWorkPolicy.KEEP, req)
     }
 
     fun scheduleNextRollover() {
@@ -153,7 +160,7 @@ class WorkScheduler @Inject constructor(
         }
         val delay = Duration.between(now, target).coerceAtLeast(Duration.ofMinutes(1))
         val req = OneTimeWorkRequestBuilder<RolloverWorker>().setInitialDelay(delay.toMillis(), TimeUnit.MILLISECONDS).build()
-        wm.enqueueUniqueWork("kept_rollover", ExistingWorkPolicy.REPLACE, req)
+        wm?.enqueueUniqueWork("kept_rollover", ExistingWorkPolicy.REPLACE, req)
     }
 
     /** Exact-ish alarm at due - 2h. Re-scheduled after each firing. */

@@ -14,7 +14,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
-enum class PermissionKind { USAGE_ACCESS, NOTIFICATIONS, BATTERY, CAMERA }
+enum class PermissionKind { USAGE_ACCESS, OVERLAY, NOTIFICATIONS, BATTERY, CAMERA }
 
 @Singleton
 class Permissions @Inject constructor(@ApplicationContext private val ctx: Context) {
@@ -31,6 +31,11 @@ class Permissions @Inject constructor(@ApplicationContext private val ctx: Conte
             (mode == AppOpsManager.MODE_DEFAULT && ctx.checkCallingOrSelfPermission(Manifest.permission.PACKAGE_USAGE_STATS) == PackageManager.PERMISSION_GRANTED)
     }
 
+    fun overlayGranted(): Boolean = Settings.canDrawOverlays(ctx)
+
+    /** Both permissions the lock cannot work without. */
+    fun lockPermissionsGranted(): Boolean = usageAccessGranted() && overlayGranted()
+
     fun notificationsGranted(): Boolean =
         Build.VERSION.SDK_INT < 33 || ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
 
@@ -42,12 +47,16 @@ class Permissions @Inject constructor(@ApplicationContext private val ctx: Conte
 
     fun granted(kind: PermissionKind): Boolean = when (kind) {
         PermissionKind.USAGE_ACCESS -> usageAccessGranted()
+        PermissionKind.OVERLAY -> overlayGranted()
         PermissionKind.NOTIFICATIONS -> notificationsGranted()
         PermissionKind.BATTERY -> batteryExempt()
         PermissionKind.CAMERA -> cameraGranted()
     }
 
     fun usageAccessIntent(): Intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+    fun overlayIntent(): Intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${ctx.packageName}"))
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
     fun batteryIntent(): Intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${ctx.packageName}"))
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

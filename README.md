@@ -44,11 +44,13 @@ app/src/main/java/com/example/kept/
 
 ## Granting the special permissions from the command line
 
-The lock needs usage access; the emulator's settings UI is slow to click through, so grant it
+The lock needs usage access and "display over other apps" (Android blocks activity starts from a
+background service without it); the emulator's settings UI is slow to click through, so grant it
 with adb:
 
 ```
 adb shell appops set com.example.kept GET_USAGE_STATS allow
+adb shell appops set com.example.kept SYSTEM_ALERT_WINDOW allow
 adb shell pm grant com.example.kept android.permission.POST_NOTIFICATIONS
 adb shell dumpsys deviceidle whitelist +com.example.kept
 ```
@@ -98,9 +100,12 @@ Instrumented tests (need a running emulator):
 ./gradlew connectedDebugAndroidTest
 ```
 
-Covers: onboarding completes and persists; home reflects seeded state; timer advances and awards
-the finish bonus; lock screen renders with habits remaining; break-lock countdown gates
+Six tests: onboarding completes and persists; home reflects seeded state; timer advances and
+awards the finish bonus; lock screen renders with habits remaining; break-lock countdown gates
 "Unlock anyway"; buddy empty state shows a code and pairing moves to the paired state.
+
+`scripts/verify.sh` drives the emulator end to end with adb (install, grant, seed, block Chrome,
+assert `LockActivity` is on top) and writes screenshots to `verification/`.
 
 ## How the lock works
 

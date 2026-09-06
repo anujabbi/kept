@@ -75,7 +75,7 @@ class HomeViewModel @Inject constructor(
     ) { s, unseen, seven, todayRec, b ->
         s.copy(
             unseenUnlock = unseen.firstOrNull(),
-            usageAccessMissing = !permissions.usageAccessGranted(),
+            usageAccessMissing = !permissions.lockPermissionsGranted(),
             lastSeven = seven,
             todayRecord = todayRec,
             buddyDoneToday = b?.doneToday,
