@@ -1,11 +1,9 @@
 package com.example.kept.core.lock
 
-import android.app.role.RoleManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
 import android.provider.AlarmClock
 import android.provider.MediaStore
 import android.provider.Settings
@@ -44,17 +42,6 @@ class AllowlistResolver @Inject constructor(@ApplicationContext private val ctx:
             }
         }
 
-        if (Build.VERSION.SDK_INT >= 29) {
-            val rm = ctx.getSystemService(RoleManager::class.java)
-            listOf(RoleManager.ROLE_DIALER, RoleManager.ROLE_SMS, RoleManager.ROLE_HOME, RoleManager.ROLE_EMERGENCY, RoleManager.ROLE_ASSISTANT)
-                .forEach { role ->
-                    runCatching {
-                        if (rm.isRoleAvailable(role)) {
-                            // getRoleHolders needs a system permission; fall back to intent resolution below.
-                        }
-                    }
-                }
-        }
         resolveAll(Intent(Intent.ACTION_DIAL))
         resolveAll(Intent(Intent.ACTION_DIAL, Uri.parse("tel:112")))
         resolveAll(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME))

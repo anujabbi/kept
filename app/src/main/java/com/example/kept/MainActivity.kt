@@ -30,7 +30,10 @@ class MainActivity : ComponentActivity() {
             val start by vm.startDestination.collectAsStateWithLifecycle()
             KeptTheme {
                 start?.let { s ->
-                    KeptApp(startDestination = s, pendingRoute = pendingRoute, consumeRoute = { pendingRoute = null })
+                    // Re-create the nav graph if the start destination changes (e.g. after seeding).
+                    androidx.compose.runtime.key(s) {
+                        KeptApp(startDestination = s, pendingRoute = pendingRoute, consumeRoute = { pendingRoute = null })
+                    }
                 }
             }
         }
