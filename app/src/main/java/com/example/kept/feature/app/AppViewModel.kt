@@ -47,6 +47,13 @@ class AppViewModel @Inject constructor(
         }
     }
 
+    /** Debug helper: -1 leaves a value unchanged. */
+    fun setLockWindow(from: Int, due: Int) {
+        viewModelScope.launch {
+            prefs.updateSettings { it.copy(lockFromMinute = if (from >= 0) from else it.lockFromMinute, dueMinute = if (due >= 0) due else it.dueMinute) }
+        }
+    }
+
     fun seedDemo() {
         viewModelScope.launch {
             seeder.seedIfNeeded()

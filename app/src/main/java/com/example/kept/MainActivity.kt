@@ -46,6 +46,10 @@ class MainActivity : ComponentActivity() {
 
     private fun handleIntent(intent: Intent?) {
         if (intent?.getBooleanExtra("seed", false) == true && BuildConfig.DEBUG_SEED) vm.seedDemo()
+        // Debug-only: adb shell am start ... --ei lock_from 420 --ei due 1439 (minutes of day) to test the lock at any hour.
+        if (BuildConfig.DEBUG_SEED && intent != null && (intent.hasExtra("lock_from") || intent.hasExtra("due"))) {
+            vm.setLockWindow(intent.getIntExtra("lock_from", -1), intent.getIntExtra("due", -1))
+        }
         intent?.getStringExtra(KeptNotifications.EXTRA_ROUTE)?.let { pendingRoute = it }
     }
 
