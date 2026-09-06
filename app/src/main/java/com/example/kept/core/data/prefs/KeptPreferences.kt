@@ -61,43 +61,41 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
         val PAIR_STREAK = intPreferencesKey("sprig_pair_streak")
     }
 
-    val settings: Flow<Settings> = context.dataStore.data.map { p ->
-        Settings(
-            onboardingDone = p[K.ONBOARDING_DONE] ?: false,
-            onboardingStep = p[K.ONBOARDING_STEP] ?: 0,
-            lockFromMinute = p[K.LOCK_FROM] ?: (7 * 60),
-            dueMinute = p[K.DUE] ?: (21 * 60),
-            breakDurationMin = p[K.BREAK_MIN] ?: 30,
-            firstUseDate = p[K.FIRST_USE]?.let(LocalDate::parse),
-            remindersEnabled = p[K.REMINDERS] ?: true,
-            seeded = p[K.SEEDED] ?: false,
-            lastServiceHeartbeat = p[K.HEARTBEAT] ?: 0L,
-            pendingRecapDate = p[K.PENDING_RECAP],
-            myInviteCode = p[K.INVITE_CODE] ?: "",
-        )
-    }
+    private fun Preferences.toSettings() = Settings(
+        onboardingDone = this[K.ONBOARDING_DONE] ?: false,
+        onboardingStep = this[K.ONBOARDING_STEP] ?: 0,
+        lockFromMinute = this[K.LOCK_FROM] ?: (7 * 60),
+        dueMinute = this[K.DUE] ?: (21 * 60),
+        breakDurationMin = this[K.BREAK_MIN] ?: 30,
+        firstUseDate = this[K.FIRST_USE]?.let(LocalDate::parse),
+        remindersEnabled = this[K.REMINDERS] ?: true,
+        seeded = this[K.SEEDED] ?: false,
+        lastServiceHeartbeat = this[K.HEARTBEAT] ?: 0L,
+        pendingRecapDate = this[K.PENDING_RECAP],
+        myInviteCode = this[K.INVITE_CODE] ?: "",
+    )
 
-    val sprigState: Flow<SprigState> = context.dataStore.data.map { p ->
-        SprigState(
-            level = p[K.LEVEL] ?: 1,
-            points = p[K.POINTS] ?: 0L,
-            streakDays = p[K.STREAK] ?: 0,
-            bestStreak = p[K.BEST_STREAK] ?: 0,
-            shieldAvailable = p[K.SHIELD] ?: true,
-            shieldWeekKey = p[K.SHIELD_WEEK] ?: "",
-            lastRolloverDate = p[K.LAST_ROLLOVER]?.let(LocalDate::parse),
-            wilted = p[K.WILTED] ?: false,
-            pairStreak = p[K.PAIR_STREAK] ?: 0,
-        )
-    }
+    private fun Preferences.toSprig() = SprigState(
+        level = this[K.LEVEL] ?: 1,
+        points = this[K.POINTS] ?: 0L,
+        streakDays = this[K.STREAK] ?: 0,
+        bestStreak = this[K.BEST_STREAK] ?: 0,
+        shieldAvailable = this[K.SHIELD] ?: true,
+        shieldWeekKey = this[K.SHIELD_WEEK] ?: "",
+        lastRolloverDate = this[K.LAST_ROLLOVER]?.let(LocalDate::parse),
+        wilted = this[K.WILTED] ?: false,
+        pairStreak = this[K.PAIR_STREAK] ?: 0,
+    )
+
+    val settings: Flow<Settings> = context.dataStore.data.map { it.toSettings() }
+    val sprigState: Flow<SprigState> = context.dataStore.data.map { it.toSprig() }
 
     suspend fun currentSettings(): Settings = settings.first()
     suspend fun currentSprig(): SprigState = sprigState.first()
 
     suspend fun updateSettings(block: (Settings) -> Settings) {
         context.dataStore.edit { p ->
-            val cur = settings.first()
-            val n = block(cur)
+            val n = block(p.toSettings())
             p[K.ONBOARDING_DONE] = n.onboardingDone
             p[K.ONBOARDING_STEP] = n.onboardingStep
             p[K.LOCK_FROM] = n.lockFromMinute
@@ -114,8 +112,7 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
 
     suspend fun updateSprig(block: (SprigState) -> SprigState) {
         context.dataStore.edit { p ->
-            val cur = sprigState.first()
-            val n = block(cur)
+            val n = block(p.toSprig())
             p[K.LEVEL] = n.level
             p[K.POINTS] = n.points
             p[K.STREAK] = n.streakDays
@@ -126,6 +123,11 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
             p[K.WILTED] = n.wilted
             p[K.PAIR_STREAK] = n.pairStreak
         }
+    }
+
+    /** Test helper: wipe everything. */
+    suspend fun clearAll() {
+        context.dataStore.edit { it.clear() }
     }
 
     suspend fun heartbeat(now: Long) {
