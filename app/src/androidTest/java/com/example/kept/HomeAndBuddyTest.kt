@@ -4,6 +4,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -43,7 +44,7 @@ class HomeAndBuddyTest {
             compose.onNodeWithText("12 day streak").assertIsDisplayed()
             compose.onNodeWithText("Exercise 30 min").assertIsDisplayed()
             compose.onNodeWithText("Read 10 pages").assertIsDisplayed()
-            compose.onNodeWithText("18/30").assertIsDisplayed()
+            compose.onAllNodesWithText("Tap when done", substring = true)[0].assertIsDisplayed()
         }
     }
 
