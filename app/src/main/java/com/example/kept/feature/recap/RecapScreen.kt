@@ -26,7 +26,6 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
-import com.example.kept.core.data.BuddyRepository
 import com.example.kept.core.data.DayRepository
 import com.example.kept.core.data.SprigRepository
 import com.example.kept.core.data.db.DayRecordEntity
@@ -43,22 +42,21 @@ import com.example.kept.core.ui.sprig.SprigSpec
 import com.example.kept.core.ui.sprig.SprigView
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
-data class RecapUi(val record: DayRecordEntity? = null, val buddyName: String? = null, val date: LocalDate = LocalDate.now())
+data class RecapUi(val record: DayRecordEntity? = null, val date: LocalDate = LocalDate.now())
 
 @HiltViewModel
 class RecapViewModel @Inject constructor(
     dayRepo: DayRepository,
-    buddy: BuddyRepository,
     saved: SavedStateHandle,
 ) : ViewModel() {
     private val date: LocalDate = LocalDate.parse(saved.get<String>("date")!!)
-    val state = combine(dayRepo.observe(date), buddy.observeBuddy()) { r, b -> RecapUi(r, b?.displayName, date) }
+    val state = dayRepo.observe(date).map { r -> RecapUi(r, date) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RecapUi(date = date))
 }
 
@@ -115,7 +113,7 @@ fun RecapScreen(date: String, onClose: () -> Unit, vm: RecapViewModel = hiltView
         }
         Spacer(Modifier.height(18.dp))
         SecondaryButton(
-            if (s.buddyName != null) "Share with ${s.buddyName}" else "Share",
+            "Share",
             onClick = {
                 ShareCard.share(
                     ctx,
