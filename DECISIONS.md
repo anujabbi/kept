@@ -150,3 +150,28 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
   habits-done) in `LockStateTest`; the guard itself (`SettingsViewModel.guard`) is a two-line
   branch on that boolean and wasn't separately unit-tested since constructing the ViewModel needs
   Hilt-heavy dependencies with no existing test harness in this codebase.
+- **Exceptions take effect everywhere, immediately (issue #4).** The author reported that an
+  exception ticked after onboarding did not exempt the app. That exact report could not be
+  reproduced on the emulator — an exception added mid-lock reaches
+  `LockRepository.observeState` and the watcher service within one poll — but three real defects
+  around it, each of which reads to a user as "my exception was ignored", are fixed.
+  - **The lock screen now answers to the app it is covering, not just to the global lock.**
+    `LockActivity` used to watch only `lockActive`, so excepting the very app it was sitting on
+    top of left the lock screen up until the user backed out and relaunched. It now dismisses
+    itself (to the launcher, as Back always did) as soon as its package stops being blocked, via
+    the pure `LockPolicy.lockScreenShouldStay(pkg, ...)`.
+  - **A newly installed app is lockable straight away.** `InstalledAppsSource` cached the
+    launchable set for five minutes and nothing ever called its `invalidate()`, so a just-installed
+    app was invisible to the lock for up to five minutes and the picker and the lock disagreed
+    about which apps exist. The watcher service now registers a runtime receiver for
+    `PACKAGE_ADDED` / `PACKAGE_REPLACED` / `PACKAGE_REMOVED` (runtime, not manifest: since
+    Android 8 a manifest receiver is never delivered `PACKAGE_ADDED`) that drops both the
+    launchable cache and the resolved hard-allowlist cache, and the exceptions picker rebuilds
+    itself from an `InstalledAppsSource.revision` counter, so installing or removing an app while
+    that screen is open updates it in place.
+  - **The picker reads the exceptions from the repository.** `SettingsViewModel.loadApps` took the
+    exempt set from `state.value`, a `WhileSubscribed` StateFlow: on any screen not collecting
+    `state` that value is still the empty initial one, so stored exceptions could render as
+    un-exempt. It now reads `lockRepo.observeExceptions().first()`.
+  - **PostHog `exception_added` / `exception_removed`** (property `package`) fire from the
+    settings toggle.

@@ -30,6 +30,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -45,6 +47,14 @@ data class SettingsUi(
 )
 
 data class PickableApp(val app: InstalledApp, val allowed: Boolean)
+
+/**
+ * Builds the exceptions picker: every installed app the user is allowed to exempt, flagged with
+ * whether it is exempt already. Pure so the flag can be tested without a device (issue #4: the
+ * flags used to be read from a possibly-cold StateFlow and came back all-false).
+ */
+fun pickableApps(installed: List<InstalledApp>, hard: Set<String>, allowed: Set<String>): List<PickableApp> =
+    Allowlist.pickable(installed, { it.packageName }, hard).map { PickableApp(it, it.packageName in allowed) }
 
 /** A lock-affecting settings change (issue #1), snake_case matching the PostHog `setting` property. */
 enum class LockAffectingSetting(val eventValue: String) {
@@ -89,16 +99,31 @@ class SettingsViewModel @Inject constructor(
     val apps: StateFlow<List<PickableApp>?> = _apps
     val hardAllowlistLabels: StateFlow<List<String>> = MutableStateFlow(emptyList())
 
+    init {
+        // Installing or removing an app invalidates the cached list (issue #4); rebuild the picker
+        // so it never shows a list the lock no longer agrees with.
+        viewModelScope.launch {
+            appsSource.revision.drop(1).collect { if (_apps.value != null) loadApps().join() }
+        }
+    }
+
     fun loadApps() = viewModelScope.launch {
         val hard = withContext(Dispatchers.IO) { allowlist.hardAllowlist() }
         val installed = appsSource.listLaunchable()
-        val allowed = state.value.exceptions.map { it.packageName }.toSet()
-        _apps.value = Allowlist.pickable(installed, { it.packageName }, hard).map { PickableApp(it, it.packageName in allowed) }
+        // Read the exceptions from the repository, not from `state`: that is a WhileSubscribed
+        // StateFlow, so on a screen that does not collect it `state.value` is still the empty
+        // initial value and every app would render as un-exempt (issue #4).
+        val allowed = lockRepo.observeExceptions().first().map { it.packageName }.toSet()
+        _apps.value = pickableApps(installed, hard, allowed)
         (hardAllowlistLabels as MutableStateFlow).value = installed.filter { it.packageName in hard }.map { it.label }.distinct().sorted()
     }
 
     fun toggleException(app: InstalledApp, allow: Boolean) = viewModelScope.launch {
         if (allow) lockRepo.addException(app.packageName, app.label) else lockRepo.removeException(app.packageName)
+        PostHog.capture(
+            if (allow) "exception_added" else "exception_removed",
+            properties = mapOf("package" to app.packageName),
+        )
         _apps.value = _apps.value?.map { if (it.app.packageName == app.packageName) it.copy(allowed = allow) else it }
     }
 

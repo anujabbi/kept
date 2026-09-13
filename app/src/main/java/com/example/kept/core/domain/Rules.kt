@@ -152,6 +152,20 @@ object LockPolicy {
         if (launchable != null && pkg !in launchable) return false
         return isLockActive(now, localTime, s)
     }
+
+    /**
+     * True when a lock screen already on top for [pkg] should stay there (issue #4). The lock
+     * screen must answer to the package it is covering, not just to the global lock: adding that
+     * package as an exception from Settings has to take the lock screen away immediately, rather
+     * than leaving it up until the user backs out and relaunches the app.
+     *
+     * [pkg] is null or blank only when the lock screen was started without a package, in which
+     * case the global lock is the whole answer. Launchability plays no part: the package already
+     * got in front of the user, so whether the installed-apps source lists it is irrelevant here.
+     */
+    fun lockScreenShouldStay(pkg: String?, now: Instant, localTime: LocalTime, s: Snapshot): Boolean =
+        if (pkg.isNullOrBlank()) isLockActive(now, localTime, s)
+        else shouldLock(pkg, now, localTime, s.copy(launchable = null))
 }
 
 /** Formats minute-of-day as "7:00 am". */

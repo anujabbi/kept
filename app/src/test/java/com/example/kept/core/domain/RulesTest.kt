@@ -137,6 +137,47 @@ class LockPolicyTest {
         assertTrue(LockPolicy.shouldLock("com.instagram.android", now.plusSeconds(601), LocalTime.of(12, 10), s))
     }
 
+    /**
+     * Issue #4: an exception added while the lock is running must be honoured on the very next
+     * decision, from nothing but the snapshot the service recombines. No restart, no cache.
+     */
+    @Test fun `an exception added after the fact exempts the package immediately`() {
+        assertTrue(LockPolicy.shouldLock("com.instagram.android", now, LocalTime.of(12, 0), base))
+        val afterAdding = base.copy(userExceptions = base.userExceptions + "com.instagram.android")
+        assertFalse(LockPolicy.shouldLock("com.instagram.android", now, LocalTime.of(12, 0), afterAdding))
+        // and removing it again puts the package straight back under the lock
+        val afterRemoving = afterAdding.copy(userExceptions = afterAdding.userExceptions - "com.instagram.android")
+        assertTrue(LockPolicy.shouldLock("com.instagram.android", now, LocalTime.of(12, 0), afterRemoving))
+    }
+
+    /** Issue #4: the lock screen on top of a package must come down when that package is excepted. */
+    @Test fun `the lock screen comes down as soon as its package is excepted`() {
+        assertTrue(LockPolicy.lockScreenShouldStay("com.instagram.android", now, LocalTime.of(12, 0), base))
+        val excepted = base.copy(userExceptions = base.userExceptions + "com.instagram.android")
+        assertFalse(LockPolicy.lockScreenShouldStay("com.instagram.android", now, LocalTime.of(12, 0), excepted))
+    }
+
+    @Test fun `the lock screen still comes down when the lock itself lifts`() {
+        assertFalse(LockPolicy.lockScreenShouldStay("com.instagram.android", now, LocalTime.of(12, 0), base.copy(habitsIncomplete = false)))
+        assertFalse(LockPolicy.lockScreenShouldStay("com.instagram.android", now, LocalTime.of(21, 0), base))
+        assertFalse(LockPolicy.lockScreenShouldStay("com.instagram.android", now, LocalTime.of(12, 0), base.copy(breakActiveUntil = now.plusSeconds(600))))
+    }
+
+    /**
+     * A package the installed-apps source has not caught up with yet (issue #4: the launchable set
+     * was cached for five minutes and never invalidated) is still covered by the lock screen that
+     * is already showing for it; only the exception list may take it away.
+     */
+    @Test fun `the lock screen ignores launchability`() {
+        assertTrue(LockPolicy.lockScreenShouldStay("com.newly.installed", now, LocalTime.of(12, 0), base))
+        assertFalse(LockPolicy.shouldLock("com.newly.installed", now, LocalTime.of(12, 0), base))
+    }
+
+    @Test fun `without a package the lock screen follows the global lock`() {
+        assertTrue(LockPolicy.lockScreenShouldStay(null, now, LocalTime.of(12, 0), base))
+        assertFalse(LockPolicy.lockScreenShouldStay("", now, LocalTime.of(12, 0), base.copy(habitsIncomplete = false)))
+    }
+
     @Test fun `allowlist filters the picker`() {
         val apps = listOf("com.instagram.android", "com.google.android.dialer", Allowlist.OWN_PACKAGE)
         val pickable = Allowlist.pickable(apps, { it }, base.hardAllowlist)

@@ -37,8 +37,9 @@ class LockActivity : ComponentActivity() {
             val s by vm.state.collectAsStateWithLifecycle()
             var breaking by androidx.compose.runtime.remember { mutableStateOf(false) }
 
-            // Lock lifted (habits done, break granted, window ended): get out of the way.
-            LaunchedEffect(s.lockActive, s.loaded) { if (s.loaded && !s.lockActive) goHome() }
+            // Lock lifted (habits done, break granted, window ended) or this very package added as
+            // an exception from Settings (issue #4): get out of the way.
+            LaunchedEffect(s.shouldDismiss) { if (s.shouldDismiss) goHome() }
 
             BackHandler { if (breaking) breaking = false else goHome() }
 
@@ -71,6 +72,9 @@ class LockActivity : ComponentActivity() {
     private fun readIntent(i: Intent?) {
         blockedPackage = i?.getStringExtra(EXTRA_PKG) ?: blockedPackage
         blockedLabel = i?.getStringExtra(EXTRA_LABEL) ?: blockedLabel
+        // Tell the ViewModel which package this screen is covering so it can drop the screen the
+        // moment that package stops being blocked (issue #4).
+        vm.setBlockedPackage(blockedPackage)
     }
 
     private fun goHome() {

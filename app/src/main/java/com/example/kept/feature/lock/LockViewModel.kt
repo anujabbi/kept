@@ -14,6 +14,7 @@ import com.example.kept.core.domain.WeekVariant
 import com.example.kept.core.domain.minuteOfDayLabel
 import com.posthog.PostHog
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -27,8 +28,16 @@ data class LockUi(
     val sprig: SprigState = SprigState(),
     val variant: WeekVariant = Variants.table[0],
     val lockActive: Boolean = true,
+    /**
+     * Whether the package this lock screen was raised for is still blocked (issue #4). Goes false
+     * the moment the user adds it as an exception, even though the lock itself stays on.
+     */
+    val blockedStillLocked: Boolean = true,
     val breaking: Boolean = false,
 ) {
+    /** True once the lock screen has nothing left to cover and should get out of the way. */
+    val shouldDismiss: Boolean get() = loaded && (!lockActive || !blockedStillLocked)
+
     val remaining: Int get() = lock?.today?.remaining ?: 0
     val dueLabel: String get() = lock?.settings?.dueMinute?.minuteOfDayLabel() ?: ""
     val breaksLeft: Int get() = lock?.breaksRemaining ?: 0
@@ -44,9 +53,21 @@ class LockViewModel @Inject constructor(
     private val time: TimeSource,
 ) : ViewModel() {
 
-    val state: StateFlow<LockUi> = combine(lockRepo.observeState(), sprigRepo.state, time.ticker(1_000)) { lock, sprig, _ ->
-        val active = LockPolicy.isLockActive(time.now(), time.localTime(), lock.snapshot(emptySet(), null))
-        LockUi(loaded = true, lock = lock, sprig = sprig, variant = Variants.forDate(time.today()), lockActive = active)
+    private val blockedPackage = MutableStateFlow<String?>(null)
+
+    /** The package this lock screen is covering, so the screen can answer to it (issue #4). */
+    fun setBlockedPackage(pkg: String?) { blockedPackage.value = pkg }
+
+    val state: StateFlow<LockUi> = combine(
+        lockRepo.observeState(), sprigRepo.state, time.ticker(1_000), blockedPackage,
+    ) { lock, sprig, _, blocked ->
+        val snapshot = lock.snapshot(emptySet(), null)
+        val active = LockPolicy.isLockActive(time.now(), time.localTime(), snapshot)
+        LockUi(
+            loaded = true, lock = lock, sprig = sprig, variant = Variants.forDate(time.today()),
+            lockActive = active,
+            blockedStillLocked = LockPolicy.lockScreenShouldStay(blocked, time.now(), time.localTime(), snapshot),
+        )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LockUi())
 
     fun complete(habitId: Long) = viewModelScope.launch { actions.complete(habitId) }

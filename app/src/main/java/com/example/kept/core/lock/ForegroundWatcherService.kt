@@ -1,13 +1,15 @@
 package com.example.kept.core.lock
 
-import android.app.Service
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.os.Build
 import androidx.core.app.ServiceCompat
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import com.example.kept.core.data.LockRepository
@@ -52,9 +54,22 @@ class ForegroundWatcherService : LifecycleService() {
     private var lastAccrual = 0L
     private var gapStart: Long? = null
 
+    /**
+     * Installing, replacing or removing an app changes which packages the lock can see (issue #4).
+     * Registered here at runtime rather than in the manifest: since Android 8 a manifest receiver
+     * is not delivered ACTION_PACKAGE_ADDED at all, while a context-registered one still is.
+     */
+    private val packageChanges = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            apps.invalidate()
+            allowlist.invalidate()
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         startInForeground("KEPT is running", "Checking today's habits")
+        registerPackageChanges()
         lifecycleScope.launch {
             lockRepo.observeState().collectLatest { s ->
                 state = s
@@ -68,6 +83,18 @@ class ForegroundWatcherService : LifecycleService() {
         super.onStartCommand(intent, flags, startId)
         if (pollJob?.isActive != true) startPolling()
         return START_STICKY
+    }
+
+    private fun registerPackageChanges() {
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_PACKAGE_ADDED)
+            addAction(Intent.ACTION_PACKAGE_REPLACED)
+            addAction(Intent.ACTION_PACKAGE_REMOVED)
+            addDataScheme("package")
+        }
+        runCatching {
+            ContextCompat.registerReceiver(this, packageChanges, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+        }
     }
 
     private fun startInForeground(title: String, text: String) {
@@ -179,6 +206,7 @@ class ForegroundWatcherService : LifecycleService() {
 
     override fun onDestroy() {
         pollJob?.cancel()
+        runCatching { unregisterReceiver(packageChanges) }
         super.onDestroy()
     }
 

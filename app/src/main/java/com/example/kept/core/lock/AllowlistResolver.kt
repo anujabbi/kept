@@ -31,6 +31,12 @@ class AllowlistResolver @Inject constructor(@ApplicationContext private val ctx:
         return cached
     }
 
+    /** Drops the cached role holders: installing or removing an app can change any of them (issue #4). */
+    fun invalidate() {
+        cached = Allowlist.STATIC
+        cachedAt = 0L
+    }
+
     private fun resolve(): List<String> {
         val pm = ctx.packageManager
         val out = mutableListOf<String>()
