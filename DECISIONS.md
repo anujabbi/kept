@@ -83,3 +83,17 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
   (`MIGRATION_2_3`) recreates `day_records` without `pointsEarned` (SQLite on minSdk 26 predates
   `ALTER TABLE ... DROP COLUMN`), copying every other column across. Level stays for now per the
   5 Sep review decision.
+- **Buddy tab hidden outside debug builds (issue #6).** "Maya" is seeded stub data presented as a
+  real person: pairing accepts any `XXX-XXX` code, "Nudge sent" sends nothing, and the
+  cheer-after-break coroutine in `LockViewModel.breakLock` was cancelled by
+  `finishAndRemoveTask()` before it could ever fire, so a real user could never see it revive
+  Sprig. Rather than build the real pairing/notification backend now, we hide the tab: a new
+  `FeatureFlags.showBuddy` (`= BuildConfig.DEBUG`) drops the Buddy destination from the bottom
+  nav and the nav graph outside debug, so QA and development still see it but no shipped build
+  does. The dead revive-after-break launch and the wizard-added `buddy_paired`/`buddy_unpaired`/
+  `buddy_nudge_sent`/`buddy_cheer_sent` PostHog captures are removed since the feature is no
+  longer reachable; onboarding and home copy that referenced a buddy reviving/cheering Sprig is
+  cut. `BuddyRepository`, `BuddyScreen`, and the local stub are left in the tree for later. The
+  instrumented `buddy_empty_state_pairs_with_a_code` test is guarded with
+  `assumeTrue(FeatureFlags.showBuddy)` instead of deleted, since it still runs (and should still
+  pass) against debug builds.

@@ -319,7 +319,7 @@ private fun StepMeetSprig(s: OnboardingState, vm: OnboardingViewModel, onDone: (
         Spacer(Modifier.height(8.dp))
         MutedText("Each form you reach stays in your collection, in this week's look only. Share them anywhere.", Modifier.fillMaxWidth(), TextAlign.Center)
         Spacer(Modifier.height(20.dp))
-        InfoBox("One weekly shield forgives a missed day. A buddy can cheer Sprig back to health. Everything else is on you.")
+        InfoBox("One weekly shield forgives a missed day. Everything else is on you.")
         Spacer(Modifier.height(20.dp))
         PrimaryButton(if (s.saving) "Starting…" else "Start today", enabled = !s.saving, onClick = { vm.finish(onDone) }, modifier = Modifier.testTag("onboarding_finish"))
         Spacer(Modifier.height(20.dp))

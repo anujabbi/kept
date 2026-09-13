@@ -65,7 +65,6 @@ import com.example.kept.core.ui.SecondaryButton
 import com.example.kept.core.ui.SectionLabel
 import com.example.kept.core.ui.WeekDots
 import com.example.kept.core.ui.sprig.SprigView
-import com.posthog.PostHog
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -105,21 +104,17 @@ class BuddyViewModel @Inject constructor(
 
     fun pair(input: String) = viewModelScope.launch {
         val ok = repo.pair(input)
-        if (ok) PostHog.capture("buddy_paired")
         error.value = if (ok) null else "That code doesn't look right. It's two groups of three, like K4W-92B."
     }
     fun unpair() = viewModelScope.launch {
         repo.unpair()
-        PostHog.capture("buddy_unpaired")
     }
     fun nudge() = viewModelScope.launch {
         repo.nudge()
-        PostHog.capture("buddy_nudge_sent")
         toast.value = "Nudge sent"
     }
     fun cheer() = viewModelScope.launch {
         repo.cheer()
-        PostHog.capture("buddy_cheer_sent")
         toast.value = "Cheer sent"
     }
     fun clearToast() { toast.value = null }

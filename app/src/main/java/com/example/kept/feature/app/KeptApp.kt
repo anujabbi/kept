@@ -48,6 +48,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.kept.core.FeatureFlags
 import com.example.kept.core.ui.KeptTheme
 import com.example.kept.feature.buddy.BuddyScreen
 import com.example.kept.feature.gallery.EvolutionRevealScreen
@@ -80,10 +81,10 @@ object Routes {
 
 private data class Tab(val route: String, val label: String, val icon: ImageVector, val selectedIcon: ImageVector)
 
-private val tabs = listOf(
+private val tabs = listOfNotNull(
     Tab(Routes.HOME, "Today", Icons.Outlined.Home, Icons.Rounded.Home),
     Tab(Routes.GALLERY, "Sprig", Icons.Outlined.Spa, Icons.Rounded.Spa),
-    Tab(Routes.BUDDY, "Buddy", Icons.Outlined.People, Icons.Rounded.People),
+    if (FeatureFlags.showBuddy) Tab(Routes.BUDDY, "Buddy", Icons.Outlined.People, Icons.Rounded.People) else null,
     Tab(Routes.SETTINGS, "Settings", Icons.Outlined.Settings, Icons.Rounded.Settings),
 )
 
@@ -99,7 +100,7 @@ fun KeptApp(startDestination: String, pendingRoute: String?, consumeRoute: () ->
         val r = pendingRoute ?: return@LaunchedEffect
         when {
             r == "recap" -> nav.navigate(Routes.HOME) { popUpTo(Routes.HOME) { inclusive = true } }
-            r == "buddy" -> nav.navigate(Routes.BUDDY) { launchSingleTop = true }
+            r == "buddy" && FeatureFlags.showBuddy -> nav.navigate(Routes.BUDDY) { launchSingleTop = true }
             r == "settings" -> nav.navigate(Routes.SETTINGS) { launchSingleTop = true }
             else -> nav.navigate(Routes.HOME) { launchSingleTop = true }
         }
@@ -123,7 +124,9 @@ fun KeptApp(startDestination: String, pendingRoute: String?, consumeRoute: () ->
                         )
                     }
                     composable(Routes.GALLERY) { GalleryScreen(onOpenRoadmap = { nav.navigate(Routes.ROADMAP) }) }
-                    composable(Routes.BUDDY) { BuddyScreen() }
+                    if (FeatureFlags.showBuddy) {
+                        composable(Routes.BUDDY) { BuddyScreen() }
+                    }
                     composable(Routes.SETTINGS) {
                         SettingsScreen(
                             onOpenExceptions = { nav.navigate(Routes.EXCEPTIONS) },

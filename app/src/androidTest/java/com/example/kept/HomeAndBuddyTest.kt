@@ -10,12 +10,14 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.example.kept.core.FeatureFlags
 import com.example.kept.core.data.DebugSeeder
 import com.example.kept.core.data.db.KeptDatabase
 import com.example.kept.core.data.prefs.KeptPreferences
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import kotlinx.coroutines.runBlocking
+import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -46,6 +48,9 @@ class HomeAndBuddyTest {
     }
 
     @Test fun buddy_empty_state_pairs_with_a_code() {
+        // The Buddy tab only exists behind FeatureFlags.showBuddy (debug builds); skip rather
+        // than fail if this ever runs against a build where it's hidden. See issue #6.
+        assumeTrue(FeatureFlags.showBuddy)
         runBlocking {
             prefs.updateSettings { it.copy(onboardingDone = true, firstUseDate = java.time.LocalDate.now()) }
         }

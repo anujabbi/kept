@@ -2,7 +2,6 @@ package com.example.kept.feature.lock
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.kept.core.data.BuddyRepository
 import com.example.kept.core.data.HabitActions
 import com.example.kept.core.data.LockRepository
 import com.example.kept.core.data.LockState
@@ -15,7 +14,6 @@ import com.example.kept.core.domain.WeekVariant
 import com.example.kept.core.domain.minuteOfDayLabel
 import com.posthog.PostHog
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -43,7 +41,6 @@ class LockViewModel @Inject constructor(
     private val lockRepo: LockRepository,
     private val sprigRepo: SprigRepository,
     private val actions: HabitActions,
-    private val buddy: BuddyRepository,
     private val time: TimeSource,
 ) : ViewModel() {
 
@@ -58,11 +55,5 @@ class LockViewModel @Inject constructor(
         lockRepo.breakLock()
         PostHog.capture("lock_broken")
         then()
-        // The stub buddy notices and cheers a little later, which revives Sprig.
-        launch {
-            delay(90_000)
-            buddy.simulateBuddyReaction("break")
-            sprigRepo.revive()
-        }
     }
 }

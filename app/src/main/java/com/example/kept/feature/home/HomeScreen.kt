@@ -204,7 +204,7 @@ private fun SprigPanel(s: HomeUiState, onOpenRoadmap: () -> Unit) {
             Text(headline, style = MaterialTheme.typography.titleMedium, color = fg)
             Spacer(Modifier.height(2.dp))
             val detail = when {
-                s.sprig.wilted -> "Finish today's habits, or a buddy cheer, and Sprig recovers."
+                s.sprig.wilted -> "Finish today's habits and Sprig recovers."
                 s.nextForm == null -> "${s.form.displayName} · Lv ${s.sprig.level} · the final form"
                 else -> "${s.form.displayName} · Lv ${s.sprig.level} · ${s.daysToNext} day${if (s.daysToNext == 1) "" else "s"} to ${s.nextForm!!.displayName}"
             }
