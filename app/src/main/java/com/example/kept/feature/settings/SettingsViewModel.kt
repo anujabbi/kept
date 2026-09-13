@@ -7,6 +7,7 @@ import com.example.kept.core.data.DayRepository
 import com.example.kept.core.data.HabitRepository
 import com.example.kept.core.data.LockRepository
 import com.example.kept.core.data.SprigRepository
+import com.example.kept.core.data.TimeSource
 import com.example.kept.core.data.db.AllowedAppEntity
 import com.example.kept.core.data.db.DayRecordEntity
 import com.example.kept.core.data.db.HabitEntity
@@ -45,6 +46,16 @@ data class SettingsUi(
 
 data class PickableApp(val app: InstalledApp, val allowed: Boolean)
 
+/** A lock-affecting settings change (issue #1), snake_case matching the PostHog `setting` property. */
+enum class LockAffectingSetting(val eventValue: String) {
+    LOCK_WINDOW("lock_window"),
+    HABIT_REMOVED("habit_removed"),
+    EXCEPTION_ON("exception_on"),
+}
+
+/** A guarded change waiting on the user to confirm it while a lock is active. */
+data class PendingLockChange(val setting: LockAffectingSetting, val message: String, val apply: () -> Unit)
+
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     @ApplicationContext private val ctx: Context,
@@ -56,6 +67,7 @@ class SettingsViewModel @Inject constructor(
     private val appsSource: InstalledAppsSource,
     private val allowlist: AllowlistResolver,
     private val scheduler: WorkScheduler,
+    private val time: TimeSource,
     val permissions: Permissions,
 ) : ViewModel() {
 
@@ -64,6 +76,14 @@ class SettingsViewModel @Inject constructor(
     ) { s, h, e, sp, hist -> SettingsUi(s, h, e, sp, hist) }
         .combine(lockRepo.observeBreaksThisWeek()) { s, b -> s.copy(breaksThisWeek = b.size) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUi())
+
+    /** Re-checked every 30s in addition to whenever the underlying lock state changes (issue #1). */
+    val lockActive: StateFlow<Boolean> = combine(lockRepo.observeState(), time.ticker(30_000)) { s, _ ->
+        s.isLockActiveNow(time.now(), time.localTime())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    private val _pendingLockChange = MutableStateFlow<PendingLockChange?>(null)
+    val pendingLockChange: StateFlow<PendingLockChange?> = _pendingLockChange
 
     private val _apps = MutableStateFlow<List<PickableApp>?>(null)
     val apps: StateFlow<List<PickableApp>?> = _apps
@@ -82,10 +102,25 @@ class SettingsViewModel @Inject constructor(
         _apps.value = _apps.value?.map { if (it.app.packageName == app.packageName) it.copy(allowed = allow) else it }
     }
 
+    /** Adding an exception (or turning one on) opens an app early during an active lock (issue #1). */
+    fun requestToggleException(app: InstalledApp, allow: Boolean) {
+        if (!allow) { toggleException(app, false); return }
+        guard(
+            LockAffectingSetting.EXCEPTION_ON,
+            "Your apps are locked right now. Adding ${app.label} as an exception opens it early. Still add it?",
+        ) { toggleException(app, true) }
+    }
+
     fun setLockWindow(from: Int, due: Int) = viewModelScope.launch {
         prefs.updateSettings { it.copy(lockFromMinute = from, dueMinute = due) }
         scheduler.scheduleReminder()
     }
+
+    /** Moving the give-up time or lock start opens apps early during an active lock (issue #1). */
+    fun requestSetLockWindow(from: Int, due: Int) = guard(
+        LockAffectingSetting.LOCK_WINDOW,
+        "Your apps are locked right now. Changing the give-up time opens them early. Still change it?",
+    ) { setLockWindow(from, due) }
 
     fun setBreakDuration(min: Int) = viewModelScope.launch { prefs.updateSettings { it.copy(breakDurationMin = min) } }
     fun setReminders(on: Boolean) = viewModelScope.launch { prefs.updateSettings { it.copy(remindersEnabled = on) }; scheduler.scheduleReminder() }
@@ -98,6 +133,32 @@ class SettingsViewModel @Inject constructor(
     fun removeHabit(id: Long) = viewModelScope.launch {
         habitsRepo.removeHabit(id)
         PostHog.capture("habit_removed")
+    }
+
+    /** Removing the last undone habit opens apps early during an active lock (issue #1). */
+    fun requestRemoveHabit(id: Long) = guard(
+        LockAffectingSetting.HABIT_REMOVED,
+        "Your apps are locked right now. Removing this habit opens them early. Still remove it?",
+    ) { removeHabit(id) }
+
+    /**
+     * Runs [action] immediately unless a lock is active right now, in which case it is held until
+     * the user confirms via [confirmPendingLockChange] (issue #1). No cost, no delay: this is
+     * friction and self-awareness, not enforcement.
+     */
+    private fun guard(setting: LockAffectingSetting, message: String, action: () -> Unit) {
+        if (lockActive.value) _pendingLockChange.value = PendingLockChange(setting, message, action) else action()
+    }
+
+    fun confirmPendingLockChange() {
+        val pending = _pendingLockChange.value ?: return
+        _pendingLockChange.value = null
+        PostHog.capture("settings_changed_during_lock", properties = mapOf("setting" to pending.setting.eventValue))
+        pending.apply()
+    }
+
+    fun cancelPendingLockChange() {
+        _pendingLockChange.value = null
     }
 
     fun restartService() = ForegroundWatcherService.start(ctx)

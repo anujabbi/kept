@@ -100,11 +100,13 @@ fun ExceptionsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel()
                     Text(p.app.label, style = MaterialTheme.typography.bodyMedium, color = c.textPrimary)
                     Text(if (p.allowed) "Stays open" else "Locked", style = MaterialTheme.typography.bodySmall, color = if (p.allowed) c.teal600 else c.textMuted)
                 }
-                Switch(checked = p.allowed, onCheckedChange = { vm.toggleException(p.app, it) }, colors = SwitchDefaults.colors(checkedTrackColor = c.teal600))
+                Switch(checked = p.allowed, onCheckedChange = { vm.requestToggleException(p.app, it) }, colors = SwitchDefaults.colors(checkedTrackColor = c.teal600))
             }
         }
         item { Spacer(Modifier.height(24.dp)) }
     }
+
+    LockChangeConfirmDialog(vm)
 }
 
 @Composable

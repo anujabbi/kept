@@ -131,3 +131,22 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     "Ticked, but too late" instead of cheering. Onboarding and Settings copy was tightened to match.
   - **PostHog `habit_completed` gained a `before_due` boolean** so we can see how much of the
     checklist is being finished after the deadline.
+- **Lock-affecting settings changes are confirmed, not blocked (issue #1).** Because KEPT is in
+  the hard allowlist, `LockRepository.observeState` recombines live, so a teen mid-lock could open
+  Settings and instantly move the give-up time to now, delete the only undone habit, or add the
+  locked app as an exception, unlocking everything with zero cost while the 60-second break flow
+  sat unused. Rather than defer these changes or route them through the break flow, `SettingsViewModel`
+  now shows a confirmation dialog ("Your apps are locked right now. ... Still change it?" / Cancel
+  / "Change it anyway") whenever one of the four guarded actions is attempted while the lock is
+  active: changing the lock-window start or give-up time, removing a habit, adding an exception, or
+  turning an exception on. Confirming applies the change immediately, same as today; declining
+  leaves things as they were. Turning an exception off, adding a habit, and any change made outside
+  an active lock window are unaffected. `LockState.isLockActiveNow(now, localTime)` (in
+  `core/data/LockRepository.kt`) wraps the existing `LockPolicy.isLockActive` — the same function
+  `ForegroundWatcherService` uses for real enforcement — so the dialog's notion of "locked" can
+  never disagree with the lock itself. A static `PostHog.capture("settings_changed_during_lock",
+  properties = mapOf("setting" to ...))` fires only when a change is confirmed during an active
+  lock. Unit tests cover `isLockActiveNow` (window, wrap-around, break suspension, onboarding,
+  habits-done) in `LockStateTest`; the guard itself (`SettingsViewModel.guard`) is a two-line
+  branch on that boolean and wasn't separately unit-tested since constructing the ViewModel needs
+  Hilt-heavy dependencies with no existing test harness in this codebase.

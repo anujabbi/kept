@@ -75,7 +75,7 @@ fun HabitsEditScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel()
                             style = MaterialTheme.typography.bodySmall, color = c.textSecondary,
                         )
                     }
-                    IconButton(onClick = { vm.removeHabit(h.id) }, enabled = s.habits.size > 1) { Icon(Icons.Outlined.Delete, "Remove", tint = if (s.habits.size > 1) c.textMuted else c.border) }
+                    IconButton(onClick = { vm.requestRemoveHabit(h.id) }, enabled = s.habits.size > 1) { Icon(Icons.Outlined.Delete, "Remove", tint = if (s.habits.size > 1) c.textMuted else c.border) }
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -91,6 +91,8 @@ fun HabitsEditScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel()
         }
         Spacer(Modifier.height(24.dp))
     }
+
+    LockChangeConfirmDialog(vm)
 }
 
 @OptIn(ExperimentalLayoutApi::class)

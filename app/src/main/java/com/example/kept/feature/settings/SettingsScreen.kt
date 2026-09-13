@@ -75,9 +75,9 @@ fun SettingsScreen(
         SectionLabel("Lock window")
         Spacer(Modifier.height(8.dp))
         KeptCard {
-            TimeRow("Lock apps from", s.settings.lockFromMinute) { vm.setLockWindow(it, s.settings.dueMinute) }
+            TimeRow("Lock apps from", s.settings.lockFromMinute) { vm.requestSetLockWindow(it, s.settings.dueMinute) }
             Spacer(Modifier.height(10.dp))
-            TimeRow("Give-up time", s.settings.dueMinute) { vm.setLockWindow(s.settings.lockFromMinute, it) }
+            TimeRow("Give-up time", s.settings.dueMinute) { vm.requestSetLockWindow(s.settings.lockFromMinute, it) }
             Spacer(Modifier.height(6.dp))
             Text("Apps lock between these times until today's habits are done. After the give-up time they open, and anything you tick counts for nothing: the day is missed.", style = MaterialTheme.typography.bodySmall, color = c.textMuted)
         }
@@ -138,6 +138,29 @@ fun SettingsScreen(
         Text("KEPT never shares your app usage, screen time, or location with anyone. Your buddy sees only your streak, today's done flag and Sprig's form.", style = MaterialTheme.typography.bodySmall, color = c.textMuted)
         Spacer(Modifier.height(28.dp))
     }
+
+    LockChangeConfirmDialog(vm)
+}
+
+/**
+ * Shown on any settings screen that guards a change with [SettingsViewModel.pendingLockChange]
+ * (issue #1). Also keeps [SettingsViewModel.lockActive] subscribed while such a screen is on
+ * screen, since its `WhileSubscribed` StateFlow would otherwise sit on its stale initial value.
+ */
+@Composable
+fun LockChangeConfirmDialog(vm: SettingsViewModel) {
+    vm.lockActive.collectAsStateWithLifecycle()
+    val pending by vm.pendingLockChange.collectAsStateWithLifecycle()
+    val current = pending ?: return
+    val c = KeptTheme.colors
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = vm::cancelPendingLockChange,
+        title = { Text("Apps are locked right now") },
+        text = { Text(current.message) },
+        confirmButton = { androidx.compose.material3.TextButton(onClick = vm::confirmPendingLockChange) { Text("Change it anyway", color = c.danger) } },
+        dismissButton = { androidx.compose.material3.TextButton(onClick = vm::cancelPendingLockChange) { Text("Cancel") } },
+        containerColor = c.surface2,
+    )
 }
 
 @Composable
