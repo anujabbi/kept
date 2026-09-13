@@ -109,14 +109,22 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     day was running. We do not version the setting per day; the simpler rule is easier to explain
     and the only way to abuse it is to move the give-up time later, which also lengthens the lock
     window tomorrow. Task 5 puts a confirm dialog in front of that change during an active lock.
-  - **The day boundary stays the calendar date.** A completion counts for `date` when it lands
-    before `date` at `dueMinute` local time. For a lock window that wraps midnight (e.g. 22:00 →
-    06:00) that means the give-up time is judged on the same calendar day the rollover already
-    uses, rather than 06:00 the next morning.
-  - **A late day earns no level either.** `HabitEvent.Completed` gained `beforeDue`, and the
-    same-day level-up now requires `allDoneNow && beforeDue`. `HabitEvent.Undone.wasAllDone` became
-    "was all done *on time*", so undoing a late tick cannot refund a level that was never granted,
-    and undoing an on-time tick after the give-up time still takes back the level it did grant.
+  - **A lock window that wraps midnight expires the next morning.** `LockPolicy.isWindowActive`
+    has always supported `lockFrom > due` (e.g. 22:00 → 06:00) and nothing in Settings or
+    onboarding blocks it. Judging such a day's give-up time at 06:00 on the morning it *started*
+    would make every tick from 06:01 onwards permanently late. `GiveUpTime` (in `core/domain`)
+    resolves the give-up moment for a date: same day for a normal window, `date.plusDays(1)` for a
+    wrapping one. `RolloverRunner`, `HabitRepository` and the Home `pastDue` flag all go through
+    it, so the rollover and the UI cannot disagree. A wrapping window is therefore never "too late
+    for today" during its own calendar day, which is correct: the deadline has not arrived yet.
+  - **A late day earns no level either, and the grant is stored rather than recomputed.**
+    `HabitEvent.Completed` gained `beforeDue`, and the same-day level-up requires
+    `allDoneNow && beforeDue`. The grant is then *recorded*: `SprigState.levelGrantedDate` holds
+    the ISO date whose completion paid out, and an undo refunds only when that date is today
+    (`LevelRules.grantForDay` / `revokeForDay`). Recomputing eligibility at undo time was wrong in
+    both directions, because the give-up time is a setting the user can move mid-day: moving it
+    earlier and then undoing kept a level that had been granted, and moving it later and then
+    undoing took back a level that never was. The grant is also now idempotent per day.
   - **Home stays usable after the give-up time.** Habits can still be ticked, but an InfoBox reads
     "Too late for today. You can still tick these off, but today won't count.", a late row shows
     "Too late" / "Doesn't count today. Hold to undo." in muted rather than green, and Sprig says

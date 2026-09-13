@@ -14,6 +14,7 @@ import com.example.kept.core.data.TimeSource
 import com.example.kept.core.data.TodaySummary
 import com.example.kept.core.data.db.DayRecordEntity
 import com.example.kept.core.data.prefs.KeptPreferences
+import com.example.kept.core.domain.GiveUpTime
 import com.example.kept.core.domain.LockPolicy
 import com.example.kept.core.domain.SprigForm
 import com.example.kept.core.domain.SprigState
@@ -66,8 +67,8 @@ class HomeViewModel @Inject constructor(
 
     private val core = combine(habits.observeToday(), sprigRepo.state, lockRepo.observeState(), prefs.settings, time.observeToday()) { today, sprig, lock, settings, date ->
         val active = LockPolicy.isLockActive(time.now(), time.localTime(), lock.snapshot(emptySet(), null))
-        // Same rule the rollover uses: a tick counts only while the clock is before the give-up minute.
-        val pastDue = time.minuteOfDay() >= settings.dueMinute
+        // Same rule the rollover uses, wrapping windows included.
+        val pastDue = GiveUpTime.isPastDue(time.minuteOfDay(), settings.lockFromMinute, settings.dueMinute)
         HomeUiState(
             loaded = true, today = today, sprig = sprig, lock = lock, lockActive = active, pastDue = pastDue,
             variant = Variants.forDate(date), date = date, pendingRecapDate = settings.pendingRecapDate,

@@ -5,6 +5,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
+import java.time.ZoneId
 
 class RolloverEngineTest {
     private fun day(
@@ -131,6 +132,33 @@ class RolloverEngineTest {
         assertTrue(out.summary.streakReset)
         // The record still shows what was actually ticked.
         assertEquals(2, out.summary.habitsDone)
+    }
+
+    @Test fun `a wrapping lock window keeps a day ticked before the next morning`() {
+        // 22:00 -> 06:00. The same counting the runner does: a completion counts when it lands
+        // before that day's give-up moment, which for a wrapping window is the next morning.
+        val zone = ZoneId.of("Europe/London")
+        val d = LocalDate.of(2026, 9, 5)
+        val from = 22 * 60
+        val due = 6 * 60
+        val dueMillis = GiveUpTime.instantFor(d, from, due, zone).toEpochMilli()
+        fun at(date: LocalDate, minute: Int) =
+            date.atTime(minute / 60, minute % 60).atZone(zone).toInstant().toEpochMilli()
+
+        val completions = listOf(at(d, 23 * 60), at(d.plusDays(1), 2 * 60))
+        val beforeDue = completions.count { it < dueMillis }
+        assertEquals(2, beforeDue)
+
+        val out = RolloverEngine.rollover(
+            SprigState(streakDays = 4),
+            day(d, done = completions.size, beforeDue = beforeDue),
+        )
+        assertTrue(out.summary.countedForStreak)
+        assertEquals(5, out.state.streakDays)
+
+        // The same ticks against a normal 07:00 -> 21:00 window are both too late.
+        val normalDue = GiveUpTime.instantFor(d, 7 * 60, 21 * 60, zone).toEpochMilli()
+        assertEquals(0, completions.count { it < normalDue })
     }
 
     @Test fun `nothing done at all is a missed day`() {

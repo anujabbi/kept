@@ -87,6 +87,11 @@ data class SprigState(
     val lastRolloverDate: LocalDate? = null,
     val wilted: Boolean = false,
     val pairStreak: Int = 0,
+    /**
+     * ISO date of the day whose completion granted the same-day level, or null. Stored rather than
+     * recomputed so an undo can only take back a level that was actually given (issue #7).
+     */
+    val levelGrantedDate: String? = null,
 ) {
     val form: SprigForm get() = SprigForm.forStreak(streakDays)
 }

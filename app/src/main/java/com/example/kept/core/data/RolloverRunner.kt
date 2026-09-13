@@ -7,6 +7,7 @@ import com.example.kept.core.data.db.HabitEntryDao
 import com.example.kept.core.data.db.LockBreakDao
 import com.example.kept.core.data.db.ProtectionGapDao
 import com.example.kept.core.data.prefs.KeptPreferences
+import com.example.kept.core.domain.GiveUpTime
 import com.example.kept.core.domain.RolloverEngine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -48,7 +49,7 @@ class RolloverRunner @Inject constructor(
         val pending = RolloverEngine.pendingDates(state.lastRolloverDate, yesterday, firstUse)
         val outputs = mutableListOf<RolloverEngine.Output>()
         for (date in pending) {
-            val input = buildInput(date, settings.dueMinute)
+            val input = buildInput(date, settings.lockFromMinute, settings.dueMinute)
             val out = RolloverEngine.rollover(state, input)
             persist(out)
             state = out.state
@@ -65,15 +66,16 @@ class RolloverRunner @Inject constructor(
     }
 
     /**
-     * [dueMinute] is the give-up time in effect right now, not the one that was set while the day
-     * was running: a day's completions are judged against the current setting (issue #7).
+     * The give-up time used is the one in effect right now, not the one that was set while the day
+     * was running: a day's completions are judged against the current setting (issue #7). A lock
+     * window that wraps midnight expires the next morning, which [GiveUpTime] resolves.
      */
-    private suspend fun buildInput(date: LocalDate, dueMinute: Int): RolloverEngine.DayInput {
+    private suspend fun buildInput(date: LocalDate, lockFromMinute: Int, dueMinute: Int): RolloverEngine.DayInput {
         val key = date.toString()
         val record = dayDao.get(key)
         val habitsTotal = record?.habitsTotal?.takeIf { it > 0 } ?: habitDao.active().size
         val entries = entryDao.forDate(key)
-        val dueMillis = time.instantAt(date, dueMinute).toEpochMilli()
+        val dueMillis = GiveUpTime.instantFor(date, lockFromMinute, dueMinute, time.zone()).toEpochMilli()
         val done = entries.count { it.completedAt != null }
         val doneBeforeDue = entries.count { it.completedAt?.let { at -> at < dueMillis } == true }
         val gaps = gapDao.countForDate(key)

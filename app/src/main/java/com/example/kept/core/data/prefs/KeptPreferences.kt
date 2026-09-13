@@ -58,6 +58,7 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
         val LAST_ROLLOVER = stringPreferencesKey("sprig_last_rollover")
         val WILTED = booleanPreferencesKey("sprig_wilted")
         val PAIR_STREAK = intPreferencesKey("sprig_pair_streak")
+        val LEVEL_GRANTED = stringPreferencesKey("sprig_level_granted_date")
     }
 
     private fun Preferences.toSettings() = Settings(
@@ -83,6 +84,7 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
         lastRolloverDate = this[K.LAST_ROLLOVER]?.let(LocalDate::parse),
         wilted = this[K.WILTED] ?: false,
         pairStreak = this[K.PAIR_STREAK] ?: 0,
+        levelGrantedDate = this[K.LEVEL_GRANTED],
     )
 
     val settings: Flow<Settings> = context.dataStore.data.map { it.toSettings() }
@@ -119,6 +121,7 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
             if (n.lastRolloverDate == null) p.remove(K.LAST_ROLLOVER) else p[K.LAST_ROLLOVER] = n.lastRolloverDate.toString()
             p[K.WILTED] = n.wilted
             p[K.PAIR_STREAK] = n.pairStreak
+            if (n.levelGrantedDate == null) p.remove(K.LEVEL_GRANTED) else p[K.LEVEL_GRANTED] = n.levelGrantedDate
         }
     }
 

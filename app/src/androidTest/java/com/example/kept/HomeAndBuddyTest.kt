@@ -49,10 +49,13 @@ class HomeAndBuddyTest {
     }
 
     @Test fun home_says_it_is_too_late_once_the_give_up_time_has_passed() {
-        // Give-up time at midnight, so "now" is always after it (issue #7).
+        // A non-wrapping window whose give-up minute is the current one, so "now" is always at or
+        // after it (issue #7). Keeping lockFrom <= due matters: a wrapping window does not expire
+        // during its own calendar day, so it is never too late.
         runBlocking {
             seeder.seedIfNeeded()
-            prefs.updateSettings { it.copy(dueMinute = 0) }
+            val nowMinute = java.time.LocalTime.now().let { it.hour * 60 + it.minute }
+            prefs.updateSettings { it.copy(lockFromMinute = 0, dueMinute = nowMinute) }
         }
         ActivityScenario.launch(MainActivity::class.java).use {
             compose.waitUntil(10_000) {

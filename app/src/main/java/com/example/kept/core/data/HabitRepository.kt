@@ -7,6 +7,8 @@ import com.example.kept.core.data.db.HabitEntity
 import com.example.kept.core.data.db.HabitEntryDao
 import com.example.kept.core.data.db.HabitEntryEntity
 import com.example.kept.core.data.prefs.KeptPreferences
+import com.example.kept.core.data.prefs.Settings
+import com.example.kept.core.domain.GiveUpTime
 import com.example.kept.core.domain.ProofType
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -59,8 +61,7 @@ data class TodaySummary(val habits: List<HabitToday>) {
 sealed interface HabitEvent {
     /** [beforeDue] is false when the tick landed after the give-up time, so it counts for nothing. */
     data class Completed(val habit: HabitEntity, val allDoneNow: Boolean, val beforeDue: Boolean) : HabitEvent
-    /** [wasAllDone] means the day was complete *and* on time before the undo, i.e. a level was owed. */
-    data class Undone(val habit: HabitEntity, val wasAllDone: Boolean) : HabitEvent
+    data class Undone(val habit: HabitEntity) : HabitEvent
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -72,23 +73,23 @@ class HabitRepository @Inject constructor(
     private val prefs: KeptPreferences,
     private val time: TimeSource,
 ) {
-    /** Epoch millis of the give-up time on [date], from the setting in effect now. */
-    private fun dueMillis(date: LocalDate, dueMinute: Int): Long =
-        time.instantAt(date, dueMinute).toEpochMilli()
+    /** Epoch millis of [date]'s give-up time, from the settings in effect now. */
+    private fun dueMillis(date: LocalDate, settings: Settings): Long =
+        GiveUpTime.instantFor(date, settings.lockFromMinute, settings.dueMinute, time.zone()).toEpochMilli()
 
     fun observeHabits(): Flow<List<HabitEntity>> = habitDao.observeActive()
 
     fun observeToday(): Flow<TodaySummary> = time.observeToday().flatMapLatest { date ->
         combine(habitDao.observeActive(), entryDao.observeForDate(date.toString()), prefs.settings) { habits, entries, settings ->
             val byHabit = entries.associateBy { it.habitId }
-            val due = dueMillis(date, settings.dueMinute)
+            val due = dueMillis(date, settings)
             TodaySummary(habits.map { HabitToday(it, byHabit[it.id], due) })
         }
     }
 
     fun observeHabit(id: Long): Flow<HabitToday?> = time.observeToday().flatMapLatest { date ->
         combine(habitDao.observeById(id), entryDao.observeForHabitOnDate(id, date.toString()), prefs.settings) { h, e, settings ->
-            h?.let { HabitToday(it, e, dueMillis(date, settings.dueMinute)) }
+            h?.let { HabitToday(it, e, dueMillis(date, settings)) }
         }
     }
 
@@ -96,7 +97,7 @@ class HabitRepository @Inject constructor(
         val date = time.today()
         val habits = habitDao.active()
         val entries = entryDao.forDate(date.toString()).associateBy { it.habitId }
-        val due = dueMillis(date, prefs.currentSettings().dueMinute)
+        val due = dueMillis(date, prefs.currentSettings())
         return TodaySummary(habits.map { HabitToday(it, entries[it.id], due) })
     }
 
@@ -130,7 +131,7 @@ class HabitRepository @Inject constructor(
         syncCounts(date, summary)
         // Time only moves forward within a day, so "this tick was on time and everything is now
         // ticked" is the same thing as "the whole day was done on time".
-        return HabitEvent.Completed(habit, summary.allDone, beforeDue = now < dueMillis(time.today(), prefs.currentSettings().dueMinute))
+        return HabitEvent.Completed(habit, summary.allDone, beforeDue = now < dueMillis(time.today(), prefs.currentSettings()))
     }
 
     suspend fun undo(habitId: Long): HabitEvent.Undone? {
@@ -138,11 +139,9 @@ class HabitRepository @Inject constructor(
         val date = time.todayKey()
         val cur = entryDao.forHabitOnDate(habitId, date) ?: return null
         if (cur.completedAt == null) return null
-        // Only an on-time complete day ever granted a level, so only that can be taken back.
-        val wasAllDone = today().allDoneOnTime
         entryDao.upsert(cur.copy(progressValue = 0, completedAt = null, photoPath = null))
         syncCounts(date)
-        return HabitEvent.Undone(habit, wasAllDone)
+        return HabitEvent.Undone(habit)
     }
 
     suspend fun syncCounts(date: String, summary: TodaySummary? = null) {

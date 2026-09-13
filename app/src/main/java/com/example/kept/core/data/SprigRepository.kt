@@ -47,20 +47,14 @@ class SprigRepository @Inject constructor(
     suspend fun onHabitEvent(event: HabitEvent) {
         val date = time.todayKey()
         when (event) {
-            is HabitEvent.Completed -> {
-                // A day finished after the give-up time counts for nothing, so it earns no level
-                // either (issue #7).
-                prefs.updateSprig { s ->
-                    s.copy(level = if (event.allDoneNow && event.beforeDue) LevelRules.up(s.level) else s.level)
-                }
-            }
-            is HabitEvent.Undone -> {
-                // `wasAllDone` is already "was all done on time", so an undo after the give-up
-                // time cannot take back a level that was never granted.
-                prefs.updateSprig { s ->
-                    s.copy(level = if (event.wasAllDone) LevelRules.down(s.level) else s.level)
-                }
-            }
+            // A day finished after the give-up time counts for nothing, so it earns no level
+            // either. The grant is recorded against the date (issue #7).
+            is HabitEvent.Completed ->
+                prefs.updateSprig { s -> LevelRules.grantForDay(s, date, event.allDoneNow && event.beforeDue) }
+            // Only a recorded grant can be taken back, so moving the give-up time during the day
+            // cannot make the refund wrong in either direction.
+            is HabitEvent.Undone ->
+                prefs.updateSprig { s -> LevelRules.revokeForDay(s, date) }
         }
     }
 

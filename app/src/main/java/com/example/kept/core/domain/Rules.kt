@@ -4,12 +4,29 @@ import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.ZoneId
 import java.time.temporal.IsoFields
 
 object LevelRules {
     const val FLOOR = 1
     fun up(level: Int): Int = level + 1
     fun down(level: Int): Int = maxOf(FLOOR, level - 1)
+
+    /**
+     * Finishing every habit before the give-up time grants one level, once per day. The grant is
+     * recorded against [today] because the give-up time is a mutable setting: recomputing
+     * eligibility when the user undoes would refund the wrong way whenever the setting moved
+     * during the day (issue #7).
+     */
+    fun grantForDay(state: SprigState, today: String, allDoneOnTime: Boolean): SprigState = when {
+        !allDoneOnTime -> state
+        state.levelGrantedDate == today -> state
+        else -> state.copy(level = up(state.level), levelGrantedDate = today)
+    }
+
+    /** Takes the day's level back only if that day actually granted one. */
+    fun revokeForDay(state: SprigState, today: String): SprigState =
+        if (state.levelGrantedDate == today) state.copy(level = down(state.level), levelGrantedDate = null) else state
 }
 
 object BreakCap {
@@ -62,6 +79,34 @@ object StreakRules {
         }
         return Result(0, shieldAvailable, shieldConsumed = false, counted = false, reset = streak > 0)
     }
+}
+
+/**
+ * When a day's promise expires (issue #7). The lock window may wrap midnight (e.g. 22:00 -> 06:00,
+ * see [LockPolicy.isWindowActive]), and then the give-up time belongs to the *next* calendar
+ * morning: judging it on the same date would make every tick after 06:01 permanently late.
+ */
+object GiveUpTime {
+    /** True when the lock window runs past midnight. */
+    fun wraps(lockFromMinute: Int, dueMinute: Int): Boolean = lockFromMinute > dueMinute
+
+    /** The calendar date on which [date]'s give-up minute falls. */
+    fun dateOf(date: LocalDate, lockFromMinute: Int, dueMinute: Int): LocalDate =
+        if (wraps(lockFromMinute, dueMinute)) date.plusDays(1) else date
+
+    /** The exact moment [date]'s promise expires. Ticks strictly before this count for [date]. */
+    fun instantFor(date: LocalDate, lockFromMinute: Int, dueMinute: Int, zone: ZoneId): Instant =
+        dateOf(date, lockFromMinute, dueMinute)
+            .atTime(dueMinute / 60, dueMinute % 60)
+            .atZone(zone)
+            .toInstant()
+
+    /**
+     * True when today's give-up time has already passed. A wrapping window never expires during
+     * the calendar day it belongs to, so it is never "too late" for today.
+     */
+    fun isPastDue(minuteOfDay: Int, lockFromMinute: Int, dueMinute: Int): Boolean =
+        !wraps(lockFromMinute, dueMinute) && minuteOfDay >= dueMinute
 }
 
 /**
