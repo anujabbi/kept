@@ -13,6 +13,7 @@ import com.example.kept.core.domain.SprigState
 import com.example.kept.core.domain.Variants
 import com.example.kept.core.domain.WeekVariant
 import com.example.kept.core.domain.minuteOfDayLabel
+import com.posthog.PostHog
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
@@ -59,6 +60,7 @@ class LockViewModel @Inject constructor(
 
     fun breakLock(then: () -> Unit) = viewModelScope.launch {
         lockRepo.breakLock()
+        PostHog.capture("lock_broken")
         then()
         // The stub buddy notices and cheers a little later, which revives Sprig.
         launch {

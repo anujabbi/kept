@@ -76,6 +76,7 @@ import com.example.kept.feature.settings.HabitEditor
 import com.example.kept.feature.settings.PermissionCards
 import com.example.kept.feature.settings.TimeRow
 import com.example.kept.feature.settings.hasCamera
+import com.posthog.PostHog
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -130,6 +131,7 @@ class OnboardingViewModel @Inject constructor(
         prefs.updateSettings { it.copy(onboardingDone = true, onboardingStep = 5) }
         ForegroundWatcherService.start(ctx)
         scheduler.scheduleAll()
+        PostHog.capture("onboarding_completed", properties = mapOf("habit_count" to _state.value.chosen.size))
         onDone()
     }
 }

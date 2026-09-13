@@ -21,6 +21,7 @@ import com.example.kept.core.lock.InstalledApp
 import com.example.kept.core.lock.InstalledAppsSource
 import com.example.kept.core.lock.Permissions
 import com.example.kept.core.work.WorkScheduler
+import com.posthog.PostHog
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -91,9 +92,13 @@ class SettingsViewModel @Inject constructor(
 
     fun addHabit(title: String, iconKey: String, proof: ProofType, target: Int, unit: String) = viewModelScope.launch {
         habitsRepo.addHabit(title, iconKey, proof, target, unit)
+        PostHog.capture("habit_added", properties = mapOf("proof_type" to proof.name.lowercase()))
     }
     fun updateHabit(h: HabitEntity) = viewModelScope.launch { habitsRepo.updateHabit(h) }
-    fun removeHabit(id: Long) = viewModelScope.launch { habitsRepo.removeHabit(id) }
+    fun removeHabit(id: Long) = viewModelScope.launch {
+        habitsRepo.removeHabit(id)
+        PostHog.capture("habit_removed")
+    }
 
     fun restartService() = ForegroundWatcherService.start(ctx)
 }

@@ -1,5 +1,6 @@
 package com.example.kept.core.data
 
+import com.posthog.PostHog
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -12,18 +13,21 @@ class HabitActions @Inject constructor(
 ) {
     suspend fun complete(habitId: Long, photoPath: String? = null): HabitEvent? {
         val event = habits.markDone(habitId, photoPath) ?: return null
+        PostHog.capture("habit_completed")
         react(event)
         return event
     }
 
     suspend fun addTimerSeconds(habitId: Long, seconds: Int): HabitEvent? {
         val event = habits.addTimerSeconds(habitId, seconds) ?: return null
+        PostHog.capture("habit_completed")
         react(event)
         return event
     }
 
     suspend fun undo(habitId: Long): HabitEvent? {
         val event = habits.undo(habitId) ?: return null
+        PostHog.capture("habit_completion_undone")
         sprig.onHabitEvent(event)
         return event
     }

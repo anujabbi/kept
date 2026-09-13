@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -5,6 +7,14 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
 }
+
+val posthogProperties = Properties().apply {
+    rootProject.file(".env").takeIf { it.exists() }?.inputStream()?.use(::load)
+}
+val posthogProjectToken = providers.environmentVariable("POSTHOG_PROJECT_TOKEN").orNull
+    ?: posthogProperties.getProperty("POSTHOG_PROJECT_TOKEN").orEmpty()
+val posthogHost = providers.environmentVariable("POSTHOG_HOST").orNull
+    ?: posthogProperties.getProperty("POSTHOG_HOST").orEmpty()
 
 android {
     namespace = "com.example.kept"
@@ -17,6 +27,8 @@ android {
         versionCode = 1
         versionName = "1.0"
         testInstrumentationRunner = "com.example.kept.HiltTestRunner"
+        buildConfigField("String", "POSTHOG_PROJECT_TOKEN", "\"$posthogProjectToken\"")
+        buildConfigField("String", "POSTHOG_HOST", "\"$posthogHost\"")
         vectorDrawables { useSupportLibrary = true }
     }
 
@@ -89,6 +101,7 @@ dependencies {
     ksp(libs.hilt.androidx.compiler)
 
     implementation(libs.coroutines.android)
+    implementation("com.posthog:posthog-android:3.64.0")
 
     testImplementation(libs.junit)
     testImplementation(libs.turbine)
