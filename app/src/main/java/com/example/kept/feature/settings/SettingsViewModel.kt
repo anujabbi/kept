@@ -31,7 +31,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.drop
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -95,27 +94,37 @@ class SettingsViewModel @Inject constructor(
     private val _pendingLockChange = MutableStateFlow<PendingLockChange?>(null)
     val pendingLockChange: StateFlow<PendingLockChange?> = _pendingLockChange
 
-    private val _apps = MutableStateFlow<List<PickableApp>?>(null)
-    val apps: StateFlow<List<PickableApp>?> = _apps
+    /** What [loadApps] found on the device. Null until the first load finishes. */
+    private val installed = MutableStateFlow<List<InstalledApp>?>(null)
+    private val hardAllowlist = MutableStateFlow<Set<String>>(emptySet())
     val hardAllowlistLabels: StateFlow<List<String>> = MutableStateFlow(emptyList())
 
+    /**
+     * The exceptions picker. Derived from the stored exceptions rather than kept in sync by hand
+     * (issue #4): an optimistic local edit could be overwritten by a reload that started before
+     * the insert landed, flipping a toggle back in the user's face, and a hand-maintained copy is
+     * one more thing that can disagree with what the lock actually enforces.
+     */
+    val apps: StateFlow<List<PickableApp>?> =
+        combine(installed, hardAllowlist, lockRepo.observeExceptions()) { apps, hard, exceptions ->
+            apps?.let { pickableApps(it, hard, exceptions.map { e -> e.packageName }.toSet()) }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
     init {
-        // Installing or removing an app invalidates the cached list (issue #4); rebuild the picker
-        // so it never shows a list the lock no longer agrees with.
+        // Installing or removing an app invalidates the cached list (issue #4); re-read it so the
+        // picker never shows a list the lock no longer agrees with.
         viewModelScope.launch {
-            appsSource.revision.drop(1).collect { if (_apps.value != null) loadApps().join() }
+            appsSource.revision.drop(1).collect { if (installed.value != null) loadApps().join() }
         }
     }
 
+    /** Re-reads what is on the device. Which of those are exempt comes from [apps], not from here. */
     fun loadApps() = viewModelScope.launch {
         val hard = withContext(Dispatchers.IO) { allowlist.hardAllowlist() }
-        val installed = appsSource.listLaunchable()
-        // Read the exceptions from the repository, not from `state`: that is a WhileSubscribed
-        // StateFlow, so on a screen that does not collect it `state.value` is still the empty
-        // initial value and every app would render as un-exempt (issue #4).
-        val allowed = lockRepo.observeExceptions().first().map { it.packageName }.toSet()
-        _apps.value = pickableApps(installed, hard, allowed)
-        (hardAllowlistLabels as MutableStateFlow).value = installed.filter { it.packageName in hard }.map { it.label }.distinct().sorted()
+        val found = appsSource.listLaunchable()
+        hardAllowlist.value = hard
+        installed.value = found
+        (hardAllowlistLabels as MutableStateFlow).value = found.filter { it.packageName in hard }.map { it.label }.distinct().sorted()
     }
 
     fun toggleException(app: InstalledApp, allow: Boolean) = viewModelScope.launch {
@@ -124,7 +133,6 @@ class SettingsViewModel @Inject constructor(
             if (allow) "exception_added" else "exception_removed",
             properties = mapOf("package" to app.packageName),
         )
-        _apps.value = _apps.value?.map { if (it.app.packageName == app.packageName) it.copy(allowed = allow) else it }
     }
 
     /** Adding an exception (or turning one on) opens an app early during an active lock (issue #1). */

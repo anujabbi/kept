@@ -9,6 +9,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -51,7 +52,7 @@ class InstalledAppsSource @Inject constructor(@ApplicationContext private val ct
     fun invalidate() {
         launchableCache = null
         cacheAt = 0L
-        _revision.value = _revision.value + 1
+        _revision.update { it + 1 }
     }
 
     suspend fun listLaunchable(): List<InstalledApp> = withContext(Dispatchers.IO) {

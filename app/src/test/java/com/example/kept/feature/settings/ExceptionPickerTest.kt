@@ -8,10 +8,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The exceptions picker (issue #4). `SettingsViewModel.loadApps` used to take the exempt set from
- * `state.value`, a `WhileSubscribed` StateFlow: on a screen that never collects it the value is
- * still the empty initial one, so every app rendered as un-exempt however many exceptions were
- * stored. The mapping now takes the exempt set as a parameter, and this pins its behaviour.
+ * Characterization of [pickableApps], the pure mapping behind the exceptions picker: which
+ * installed apps may be offered, and which of them are flagged exempt.
+ *
+ * This covers the mapping only. It says nothing about where the exempt set comes from, which is
+ * where the real issue-#4 defect lived (`SettingsViewModel` read it from a cold `WhileSubscribed`
+ * StateFlow); that is covered on-device by `ExceptionPickerSourceTest`.
  */
 class ExceptionPickerTest {
 
@@ -35,7 +37,6 @@ class ExceptionPickerTest {
         assertFalse(picker.single { it.app.packageName == "com.instagram.android" }.allowed)
     }
 
-    /** The regression itself: an empty exempt set must only ever come from there being none. */
     @Test fun `an empty exempt set leaves everything locked`() {
         assertTrue(pickableApps(installed, hard, emptySet()).none { it.allowed })
     }
