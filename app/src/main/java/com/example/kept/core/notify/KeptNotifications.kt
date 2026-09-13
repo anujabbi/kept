@@ -31,6 +31,8 @@ class KeptNotifications @Inject constructor(@ApplicationContext private val ctx:
         const val ID_BUDDY = 3
         const val ID_REMINDER = 4
         const val ID_PROTECTION = 5
+        const val ID_LOCK_OFF = 6
+        const val ID_RESTART = 7
         const val EXTRA_ROUTE = "route"
     }
 
@@ -79,6 +81,7 @@ class KeptNotifications @Inject constructor(@ApplicationContext private val ctx:
     fun recap(summary: RolloverEngine.DaySummary, unlocks: List<RolloverEngine.Unlock>) {
         val title = when {
             unlocks.isNotEmpty() -> "Sprig evolved into ${unlocks.last().form.displayName}"
+            summary.hollow -> "The lock was off. Streak held at ${summary.streakEnd}"
             summary.countedForStreak -> "Yesterday's promise was kept"
             summary.shieldConsumed -> "Shield used. Streak held at ${summary.streakEnd}"
             summary.streakReset -> "Streak reset. Today is a fresh start"
@@ -92,10 +95,46 @@ class KeptNotifications @Inject constructor(@ApplicationContext private val ctx:
 
     fun reminder(title: String, body: String) = post(ID_REMINDER, base(CH_REMINDER, title, body, "home").build())
 
+    /**
+     * The day could not be protected. Distinct from [lockOff], which is about the service being
+     * down: this one is about the day, and it now says the streak survives (issue #2).
+     */
     fun protectionLost(reason: String) =
-        post(ID_PROTECTION, base(CH_REMINDER, "Lock is off", "$reason. Today won't count until it's fixed.", "settings").build())
+        post(ID_PROTECTION, base(CH_REMINDER, "The lock stopped", "$reason. Today won't count, but your streak is safe.", "settings").build())
 
     fun clearProtection() = NotificationManagerCompat.from(ctx).cancel(ID_PROTECTION)
+
+    /**
+     * Last resort when the lock service could not be restarted (issue #2). Ongoing and without an
+     * auto-cancel, so it stays until the lock is actually running again: tapping it opens KEPT,
+     * which starts the service on resume.
+     */
+    fun lockOff() = post(
+        ID_LOCK_OFF,
+        NotificationCompat.Builder(ctx, CH_REMINDER)
+            .setSmallIcon(R.drawable.ic_stat_kept)
+            .setContentTitle("Lock is off")
+            .setContentText("Tap to turn it back on.")
+            .setStyle(NotificationCompat.BigTextStyle().bigText("Tap to turn it back on."))
+            .setOngoing(true)
+            .setAutoCancel(false)
+            .setContentIntent(openApp("home"))
+            .build(),
+    )
+
+    fun clearLockOff() = NotificationManagerCompat.from(ctx).cancel(ID_LOCK_OFF)
+
+    /** Shown only while an expedited restart runs as a foreground worker (API < 31). */
+    fun restartingNotification(): android.app.Notification =
+        NotificationCompat.Builder(ctx, CH_LOCK)
+            .setSmallIcon(R.drawable.ic_stat_kept)
+            .setContentTitle("KEPT")
+            .setContentText("Turning the lock back on")
+            .setSilent(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .setContentIntent(openApp(null))
+            .build()
 
     private fun base(channel: String, title: String, body: String, route: String) =
         NotificationCompat.Builder(ctx, channel)

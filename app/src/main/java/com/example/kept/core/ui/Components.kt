@@ -169,7 +169,8 @@ fun WeekDots(days: List<DayDot>, color: Color, modifier: Modifier = Modifier, si
                 DayDot.TODAY -> Color.Transparent
             }
             var m = Modifier.size(size).clip(RoundedCornerShape(6.dp)).background(bg)
-            if (d == DayDot.UNPROTECTED) m = m.border(1.5.dp, KeptTheme.colors.danger, RoundedCornerShape(6.dp))
+            // Hollow, not red: a day the lock was off is KEPT's failure, and it costs nothing (issue #2).
+            if (d == DayDot.UNPROTECTED) m = m.border(1.5.dp, KeptTheme.colors.textMuted, RoundedCornerShape(6.dp))
             if (d == DayDot.TODAY) m = m.border(1.5.dp, color, RoundedCornerShape(6.dp))
             Box(m)
         }

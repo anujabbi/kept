@@ -175,3 +175,54 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     un-exempt. It now reads `lockRepo.observeExceptions().first()`.
   - **PostHog `exception_added` / `exception_removed`** (property `package`) fire from the
     settings toggle.
+- **The lock service restarts itself, and an unprotected day is hollow rather than fatal
+  (issue #2).** Three separate failures were fixed together because they share one story: what
+  happens when KEPT's own enforcement stops.
+  - **Restart mechanism: a direct `startForegroundService`, then expedited work, then a
+    notification.** The watchdog used to call `ForegroundWatcherService.start()` inside a
+    `runCatching` that swallowed `ForegroundServiceStartNotAllowedException`, so on Android 12+ an
+    OEM-killed service stayed dead until the user next opened the app. `start()` now *returns*
+    whether the platform accepted it. The direct start is tried first because KEPT holds
+    `SYSTEM_ALERT_WINDOW` — required anyway for the lock screen (see the earlier entry), and one of
+    the documented exemptions from the background foreground-service start restriction — so it
+    normally succeeds and costs nothing. Exact alarms were rejected as the primary mechanism:
+    `SCHEDULE_EXACT_ALARM` is denied by default on API 33+ and needs a special-access grant the
+    user can refuse, and `USE_EXACT_ALARM` was deliberately dropped in bd3a5f5 because a habit app
+    does not qualify for it. When the direct start is refused (the overlay permission revoked, or
+    an OEM being stricter), `WorkScheduler.requestServiceRestart()` enqueues `ServiceRestartWorker`
+    with `setExpedited(RUN_AS_NON_EXPEDITED_WORK_REQUEST)`, which needs no permission grant and
+    degrades to ordinary work rather than being dropped when the quota is gone. If that start is
+    refused too, the persistent, ongoing "Lock is off / Tap to turn it back on" notification is the
+    fallback: tapping it opens KEPT, which starts the service from the foreground on resume. The
+    service clears that notification the moment it comes up. `service_restart_attempted` (`method`
+    = `direct` or `expedited_work`, `success`) and `lock_off_notification_shown` are captured.
+  - **Doze staleness is not a protection gap.** The heartbeat is only written while the poll loop
+    is awake, and in deep Doze that loop is frozen, so a phone face-down on a desk produced a stale
+    heartbeat, a `ProtectionGap`, and a burned day for a user who did nothing. The decision is now
+    a pure function, `GapRules.evaluate` in `core/domain/GapRules.kt`: a stale heartbeat during a
+    lock window is a gap only if the screen was interactive during the stale window, or a package
+    the lock covers was resumed during it. Everything else is `DOZE_NOT_A_GAP` — still worth a
+    restart (`Verdict.serviceLooksDead`), never worth marking the day. The Android-side evidence is
+    gathered by `UsageWindowProbe` (usage `SCREEN_INTERACTIVE` events plus `ACTIVITY_RESUMED` for
+    packages `LockPolicy.isProtectedPackage` covers, falling back to `PowerManager.isInteractive`
+    on API < 28, where no screen events are delivered). `protection_gap_recorded` carries the
+    verdict as its `reason`.
+  - **The heartbeat is written inside `tick`, past the permission gate.** It now means "the lock is
+    being enforced right now" rather than "a process is alive": revoking usage access mid-window
+    makes `tick` return early, the heartbeat goes stale, and the watchdog sees a stopped lock. It is
+    deliberately *not* gated on the lock window being open, because a heartbeat that only ticked
+    inside the window would look hours stale the moment the window opened and would have manufactured
+    the very false gap this issue is about.
+  - **An unprotected day is hollow: recorded, not counted, and free.** It used to fall through to
+    the ordinary miss path, so the app's own failure to keep the service alive consumed the weekly
+    shield or reset the streak. `StreakRules.DayOutcome.hollow` (unprotected and not written off)
+    now short-circuits: the streak holds, the shield is untouched, nothing is unlocked, the wilt is
+    not healed and the pair streak still resets, because the day genuinely did not count. A day that
+    also broke the break cap keeps its penalty — breaking the lock past the cap is deliberate, and a
+    gap on the same day does not launder it. The week strip already drew unprotected days as an
+    empty square; the outline is now muted instead of red (it is not a punishment) and a line under
+    the strip explains it: "Hollow days are days the lock was off. They don't count, and they don't
+    break your streak." The recap says "Lock was off" / "That one is on us. The day doesn't count,
+    but your N-day streak is safe.", Sprig no longer wilts for it, and the recap notification and
+    the permissions screen were brought in line. No schema change: `day_records.unprotected` and
+    `writtenOff` already carry everything the UI needs.

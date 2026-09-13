@@ -159,6 +159,16 @@ fun HomeScreen(
                 WeekDots(s.lastSeven.map { (d, r) -> dotFor(d == s.date, r, s.today.allDoneOnTime) }, c.purple400)
                 Text("Best ${s.sprig.bestStreak}", style = MaterialTheme.typography.labelMedium, color = c.textSecondary)
             }
+            // A hollow square is a day KEPT could not watch. It is explained rather than left to
+            // look like a miss, because it costs nothing (issue #2).
+            if (s.lastSeven.any { (d, r) -> d != s.date && r != null && r.unprotected && !r.writtenOff }) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Hollow days are days the lock was off. They don't count, and they don't break your streak.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = c.textMuted,
+                )
+            }
         }
         Spacer(Modifier.height(28.dp))
     }
@@ -341,7 +351,7 @@ private fun LockStatusBox(s: HomeUiState) {
 private fun dotFor(isToday: Boolean, r: com.example.kept.core.data.db.DayRecordEntity?, allDoneToday: Boolean): DayDot = when {
     isToday -> if (allDoneToday) DayDot.DONE else DayDot.TODAY
     r == null -> DayDot.MISSED
-    r.unprotected -> DayDot.UNPROTECTED
+    r.unprotected && !r.writtenOff -> DayDot.UNPROTECTED
     r.countedForStreak -> DayDot.DONE
     r.shieldConsumed -> DayDot.SHIELDED
     else -> DayDot.MISSED

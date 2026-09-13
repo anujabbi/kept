@@ -10,7 +10,9 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
+import androidx.work.ForegroundInfo
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
@@ -20,10 +22,15 @@ import com.example.kept.core.data.LockRepository
 import com.example.kept.core.data.RolloverRunner
 import com.example.kept.core.data.TimeSource
 import com.example.kept.core.data.prefs.KeptPreferences
+import com.example.kept.core.domain.GapRules
 import com.example.kept.core.domain.LockPolicy
 import com.example.kept.core.lock.ForegroundWatcherService
 import com.example.kept.core.lock.Permissions
+import com.example.kept.core.lock.RestartMethod
+import com.example.kept.core.lock.ServiceRestarter
+import com.example.kept.core.lock.UsageWindowProbe
 import com.example.kept.core.notify.KeptNotifications
+import com.posthog.PostHog
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import dagger.hilt.EntryPoint
@@ -67,11 +74,13 @@ class WatchdogWorker @AssistedInject constructor(
     private val prefs: KeptPreferences,
     private val runner: RolloverRunner,
     private val lockRepo: LockRepository,
-    private val habits: HabitRepository,
     private val permissions: Permissions,
     private val notifications: KeptNotifications,
     private val buddy: LocalStubBuddyRepository,
     private val time: TimeSource,
+    private val restarter: ServiceRestarter,
+    private val probe: UsageWindowProbe,
+    private val scheduler: WorkScheduler,
 ) : CoroutineWorker(ctx, params) {
     override suspend fun doWork(): Result {
         val settings = prefs.currentSettings()
@@ -79,21 +88,73 @@ class WatchdogWorker @AssistedInject constructor(
         runner.runPending()
         buddy.tickDaily()
 
-        val today = habits.today()
-        val snap = LockPolicy.Snapshot(
-            settings.lockFromMinute, settings.dueMinute, habitsIncomplete = !today.allDone && today.total > 0,
-            breakActiveUntil = null, hardAllowlist = emptySet(), userExceptions = emptySet(), launchable = null,
+        val lockState = lockRepo.currentState()
+        val snapshot = lockState.snapshot(hardAllowlist = emptySet(), launchable = null)
+        val shouldBeLocking = LockPolicy.isLockActive(time.now(), time.localTime(), snapshot)
+
+        val now = time.nowMillis()
+        val heartbeat = settings.lastServiceHeartbeat
+        val probeInput = GapRules.Input(
+            lockShouldBeActive = shouldBeLocking,
+            heartbeatAgeMillis = now - heartbeat,
+            everHeartbeat = heartbeat > 0,
+            screenInteractiveDuringWindow = false,
+            lockedAppResumedDuringWindow = false,
         )
-        val shouldBeLocking = LockPolicy.isLockActive(time.now(), time.localTime(), snap)
-        val heartbeatAge = time.nowMillis() - settings.lastServiceHeartbeat
-        if (shouldBeLocking && heartbeatAge > 2 * 60_000 && settings.lastServiceHeartbeat > 0) {
-            lockRepo.recordProtectionGap(settings.lastServiceHeartbeat, time.nowMillis(), "Lock service was stopped")
-            notifications.protectionLost("The lock was stopped")
+        // Only look at usage events once the heartbeat is actually stale: the query is not free and
+        // nothing else can turn into a gap.
+        val verdict = if (probeInput.stale && shouldBeLocking) {
+            val activity = probe.activityDuring(heartbeat, now, snapshot)
+            GapRules.evaluate(
+                probeInput.copy(
+                    screenInteractiveDuringWindow = activity.screenInteractive,
+                    lockedAppResumedDuringWindow = activity.lockedAppResumed,
+                ),
+            )
+        } else {
+            GapRules.evaluate(probeInput)
+        }
+
+        if (verdict.serviceLooksDead) {
+            // A direct start normally works because KEPT holds SYSTEM_ALERT_WINDOW; when it does
+            // not, the expedited worker retries and owns the "Lock is off" fallback (issue #2).
+            if (!restarter.restart(RestartMethod.DIRECT)) scheduler.requestServiceRestart()
+        } else {
+            ForegroundWatcherService.start(ctx)
+        }
+
+        if (verdict.isGap) {
+            lockRepo.recordProtectionGap(heartbeat, now, verdict.reason)
+            notifications.protectionLost(verdict.reason)
+            PostHog.capture("protection_gap_recorded", properties = mapOf("reason" to verdict.name.lowercase()))
         }
         if (shouldBeLocking && !permissions.lockPermissionsGranted()) {
             notifications.protectionLost("A lock permission is off")
         }
-        ForegroundWatcherService.start(ctx)
+        return Result.success()
+    }
+}
+
+/**
+ * Restarts the watcher service from an expedited job, for the case where a direct
+ * `startForegroundService` was refused (issue #2). Expedited work needs no permission the user can
+ * refuse, unlike `SCHEDULE_EXACT_ALARM` on API 31+. If this fails as well, the persistent
+ * "Lock is off" notification is the fallback.
+ */
+@HiltWorker
+class ServiceRestartWorker @AssistedInject constructor(
+    @Assisted ctx: Context,
+    @Assisted params: WorkerParameters,
+    private val restarter: ServiceRestarter,
+    private val notifications: KeptNotifications,
+) : CoroutineWorker(ctx, params) {
+
+    /** Only used on API < 31, where expedited work runs as a foreground worker instead. */
+    override suspend fun getForegroundInfo(): ForegroundInfo =
+        ForegroundInfo(KeptNotifications.ID_RESTART, notifications.restartingNotification())
+
+    override suspend fun doWork(): Result {
+        if (!restarter.restart(RestartMethod.EXPEDITED_WORK)) restarter.showLockOff()
         return Result.success()
     }
 }
@@ -150,6 +211,17 @@ class WorkScheduler @Inject constructor(
     fun scheduleWatchdog() {
         val req = PeriodicWorkRequestBuilder<WatchdogWorker>(15, TimeUnit.MINUTES).build()
         wm?.enqueueUniquePeriodicWork("kept_watchdog", ExistingPeriodicWorkPolicy.KEEP, req)
+    }
+
+    /**
+     * Expedited one-time work that retries the service start (issue #2). Out of quota it runs as
+     * ordinary work rather than being dropped, so the restart still happens, just later.
+     */
+    fun requestServiceRestart() {
+        val req = OneTimeWorkRequestBuilder<ServiceRestartWorker>()
+            .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+            .build()
+        wm?.enqueueUniqueWork("kept_service_restart", ExistingWorkPolicy.REPLACE, req)
     }
 
     fun scheduleNextRollover() {

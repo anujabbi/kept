@@ -62,6 +62,13 @@ object StreakRules {
         val writtenOff: Boolean, // break cap exceeded that day
     ) {
         val counts: Boolean get() = allHabitsDone && !unprotected && !writtenOff
+
+        /**
+         * A day the lock could not be enforced on (issue #2). KEPT failed, not the teen, so the
+         * day is skipped: recorded, never counted, and free. Breaking the lock past the cap is a
+         * deliberate act, so a day that was also written off keeps its penalty.
+         */
+        val hollow: Boolean get() = unprotected && !writtenOff
     }
 
     data class Result(
@@ -70,10 +77,15 @@ object StreakRules {
         val shieldConsumed: Boolean,
         val counted: Boolean,
         val reset: Boolean,
+        /** The day passed through without counting and without costing anything. */
+        val hollow: Boolean = false,
     )
 
     fun apply(streak: Int, shieldAvailable: Boolean, outcome: DayOutcome): Result {
         if (outcome.counts) return Result(streak + 1, shieldAvailable, shieldConsumed = false, counted = true, reset = false)
+        if (outcome.hollow) {
+            return Result(streak, shieldAvailable, shieldConsumed = false, counted = false, reset = false, hollow = true)
+        }
         if (shieldAvailable && streak > 0) {
             return Result(streak, shieldAvailable = false, shieldConsumed = true, counted = false, reset = false)
         }
@@ -145,13 +157,21 @@ object LockPolicy {
         return true
     }
 
-    fun shouldLock(pkg: String, now: Instant, localTime: LocalTime, s: Snapshot): Boolean {
+    /**
+     * True when [pkg] is one the lock covers, ignoring the clock. Separated from [shouldLock] so
+     * the watchdog can ask, after the fact, whether an app resumed during a protection gap was one
+     * that should have been stopped (issue #2).
+     */
+    fun isProtectedPackage(pkg: String, s: Snapshot): Boolean {
         if (pkg in s.hardAllowlist) return false
         if (pkg in s.userExceptions) return false
         val launchable = s.launchable
         if (launchable != null && pkg !in launchable) return false
-        return isLockActive(now, localTime, s)
+        return true
     }
+
+    fun shouldLock(pkg: String, now: Instant, localTime: LocalTime, s: Snapshot): Boolean =
+        isProtectedPackage(pkg, s) && isLockActive(now, localTime, s)
 
     /**
      * True when a lock screen already on top for [pkg] should stay there (issue #4). The lock

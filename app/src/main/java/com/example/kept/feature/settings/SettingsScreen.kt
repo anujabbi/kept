@@ -122,7 +122,7 @@ fun SettingsScreen(
                 s.history.take(14).forEachIndexed { i, r ->
                     val d = LocalDate.parse(r.date)
                     Row(Modifier.fillMaxWidth().clickable { onOpenRecap(r.date) }.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        WeekDots(listOf(when { r.unprotected -> DayDot.UNPROTECTED; r.countedForStreak -> DayDot.DONE; r.shieldConsumed -> DayDot.SHIELDED; else -> DayDot.MISSED }), c.purple400, size = 14.dp)
+                        WeekDots(listOf(when { r.unprotected && !r.writtenOff -> DayDot.UNPROTECTED; r.countedForStreak -> DayDot.DONE; r.shieldConsumed -> DayDot.SHIELDED; else -> DayDot.MISSED }), c.purple400, size = 14.dp)
                         Spacer(Modifier.width(12.dp))
                         Text(d.format(DateTimeFormatter.ofPattern("EEE d MMM")), style = MaterialTheme.typography.bodyMedium, color = c.textPrimary, modifier = Modifier.weight(1f))
                         Text("${r.habitsDone}/${r.habitsTotal}" + if (r.breaksUsed > 0) " · ${r.breaksUsed} break" else "", style = MaterialTheme.typography.bodySmall, color = c.textSecondary)

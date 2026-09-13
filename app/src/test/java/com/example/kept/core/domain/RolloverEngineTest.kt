@@ -75,6 +75,49 @@ class RolloverEngineTest {
         assertFalse(out.state.wilted)
     }
 
+    @Test fun `an unprotected day is hollow - recorded, not counted, nothing lost`() {
+        // Issue #2: the lock stopping is the app's failure, not the teen's. The day is recorded so
+        // the week strip can show it hollow, but the streak holds and the shield is untouched.
+        val d = LocalDate.of(2026, 9, 5)
+        val state = SprigState(streakDays = 9, shieldAvailable = true, shieldWeekKey = StreakRules.weekKey(d))
+        val out = RolloverEngine.rollover(state, day(d, unprotected = true))
+        assertEquals(9, out.state.streakDays)
+        assertTrue(out.state.shieldAvailable)
+        assertFalse(out.summary.shieldConsumed)
+        assertFalse(out.summary.streakReset)
+        assertFalse(out.summary.countedForStreak)
+        assertTrue(out.summary.hollow)
+        assertTrue(out.summary.unprotected)
+        assertEquals(2, out.summary.habitsDone)
+        assertTrue(out.unlocks.isEmpty())
+    }
+
+    @Test fun `an unprotected day with nothing done still holds the streak`() {
+        val d = LocalDate.of(2026, 9, 5)
+        val state = SprigState(streakDays = 9, shieldAvailable = false, shieldWeekKey = StreakRules.weekKey(d))
+        val out = RolloverEngine.rollover(state, day(d, done = 0, unprotected = true))
+        assertEquals(9, out.state.streakDays)
+        assertFalse(out.summary.streakReset)
+        assertTrue(out.summary.hollow)
+    }
+
+    @Test fun `a hollow day does not heal a wilt or advance the pair streak`() {
+        val d = LocalDate.of(2026, 9, 5)
+        val state = SprigState(streakDays = 4, wilted = true, pairStreak = 3)
+        val out = RolloverEngine.rollover(state, day(d, unprotected = true, buddy = true))
+        assertTrue(out.state.wilted)
+        assertEquals(0, out.state.pairStreak)
+    }
+
+    @Test fun `an unprotected day that broke the cap is still written off`() {
+        val d = LocalDate.of(2026, 9, 5)
+        val state = SprigState(streakDays = 5, shieldAvailable = false, shieldWeekKey = StreakRules.weekKey(d))
+        val out = RolloverEngine.rollover(state, day(d, breaks = 4, writtenOff = true, unprotected = true))
+        assertEquals(0, out.state.streakDays)
+        assertFalse(out.summary.hollow)
+        assertTrue(out.summary.writtenOff)
+    }
+
     @Test fun `an over-cap day is written off`() {
         val d = LocalDate.of(2026, 9, 5)
         val out = RolloverEngine.rollover(SprigState(streakDays = 1, shieldAvailable = false, shieldWeekKey = StreakRules.weekKey(d)), day(d, breaks = 4, writtenOff = true))

@@ -51,7 +51,7 @@ class ForegroundWatcherService : LifecycleService() {
     private var lastLockShownAt = 0L
     private var lastLockedPkg: String? = null
     private var lockedSince: Long? = null
-    private var lastAccrual = 0L
+    private var lastHeartbeat = 0L
     private var gapStart: Long? = null
 
     /**
@@ -69,6 +69,8 @@ class ForegroundWatcherService : LifecycleService() {
     override fun onCreate() {
         super.onCreate()
         startInForeground("KEPT is running", "Checking today's habits")
+        // The lock is running again, so the "Lock is off" fallback has done its job (issue #2).
+        runCatching { notifications.clearLockOff() }
         registerPackageChanges()
         lifecycleScope.launch {
             lockRepo.observeState().collectLatest { s ->
@@ -139,10 +141,6 @@ class ForegroundWatcherService : LifecycleService() {
                 val now = System.currentTimeMillis()
                 runCatching { tick(usm, lastQuery, now) }
                 lastQuery = now
-                if (now - lastAccrual > 30_000) {
-                    prefs.heartbeat(now)
-                    lastAccrual = now
-                }
                 delay(1_000)
             }
         }
@@ -166,6 +164,14 @@ class ForegroundWatcherService : LifecycleService() {
             lockRepo.recordProtectionGap(gapStart!!, now, "A lock permission was off")
             gapStart = null
             notifications.clearProtection()
+        }
+
+        // The heartbeat lives inside tick, past the permission gate (issue #2): it says "the lock
+        // is being enforced right now", not merely "a process is alive". Revoking usage access
+        // mid-window returns above, the heartbeat goes stale, and the watchdog notices.
+        if (now - lastHeartbeat > 30_000) {
+            prefs.heartbeat(now)
+            lastHeartbeat = now
         }
 
         // Accrue locked time in whole-minute chunks.
@@ -212,12 +218,16 @@ class ForegroundWatcherService : LifecycleService() {
     }
 
     companion object {
-        fun start(ctx: Context) {
+        /**
+         * Starts the watcher. Returns false when the platform refused, which on Android 12+ means
+         * `ForegroundServiceStartNotAllowedException` from the background (issue #2). KEPT is
+         * normally exempt because it holds SYSTEM_ALERT_WINDOW, but that permission can be revoked
+         * and OEMs vary, so the caller has to be able to see the failure and fall back.
+         */
+        fun start(ctx: Context): Boolean = runCatching {
             val i = Intent(ctx, ForegroundWatcherService::class.java)
-            runCatching {
-                if (Build.VERSION.SDK_INT >= 26) ctx.startForegroundService(i) else ctx.startService(i)
-            }
-        }
+            if (Build.VERSION.SDK_INT >= 26) ctx.startForegroundService(i) else ctx.startService(i)
+        }.isSuccess
 
         fun stop(ctx: Context) {
             ctx.stopService(Intent(ctx, ForegroundWatcherService::class.java))

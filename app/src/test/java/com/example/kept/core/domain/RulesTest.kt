@@ -58,9 +58,24 @@ class StreakRulesTest {
         assertEquals(0, r.streak); assertTrue(r.reset)
     }
 
-    @Test fun `unprotected day does not count even if habits done`() {
-        val r = StreakRules.apply(3, false, StreakRules.DayOutcome(true, unprotected = true, writtenOff = false))
-        assertEquals(0, r.streak); assertFalse(r.counted)
+    @Test fun `unprotected day is hollow - it does not count, but it costs nothing`() {
+        // Issue #2: the lock being off is not the teen's fault, so the day is recorded and skipped
+        // rather than burning the streak or the shield.
+        val r = StreakRules.apply(3, true, StreakRules.DayOutcome(true, unprotected = true, writtenOff = false))
+        assertEquals(3, r.streak); assertFalse(r.counted); assertTrue(r.hollow)
+        assertTrue(r.shieldAvailable); assertFalse(r.shieldConsumed); assertFalse(r.reset)
+    }
+
+    @Test fun `an unprotected day with no shield left still does not reset the streak`() {
+        val r = StreakRules.apply(3, false, StreakRules.DayOutcome(false, unprotected = true, writtenOff = false))
+        assertEquals(3, r.streak); assertTrue(r.hollow); assertFalse(r.reset); assertFalse(r.shieldAvailable)
+    }
+
+    @Test fun `an unprotected day that was also written off is still written off`() {
+        // Breaking the lock past the cap is a deliberate act; a gap on the same day does not
+        // launder it.
+        val r = StreakRules.apply(3, false, StreakRules.DayOutcome(true, unprotected = true, writtenOff = true))
+        assertEquals(0, r.streak); assertFalse(r.hollow); assertTrue(r.reset)
     }
 
     @Test fun `written off day does not count`() {
@@ -109,6 +124,17 @@ class LockPolicyTest {
 
     @Test fun `user exceptions are not locked`() {
         assertFalse(LockPolicy.shouldLock("com.spotify.music", now, LocalTime.of(12, 0), base))
+    }
+
+    @Test fun `a protected package is one the lock covers whenever the window is open`() {
+        // Used to decide, after the fact, whether a package resumed during a gap was one the lock
+        // would have stopped (issue #2). Time plays no part: the window is judged separately.
+        assertTrue(LockPolicy.isProtectedPackage("com.instagram.android", base))
+        assertFalse(LockPolicy.isProtectedPackage("com.spotify.music", base))
+        assertFalse(LockPolicy.isProtectedPackage("com.google.android.dialer", base))
+        assertFalse(LockPolicy.isProtectedPackage("com.android.providers.media", base))
+        // Launchability unknown: assume anything could have been locked.
+        assertTrue(LockPolicy.isProtectedPackage("com.android.providers.media", base.copy(launchable = null)))
     }
 
     @Test fun `non-launchable system packages are ignored`() {

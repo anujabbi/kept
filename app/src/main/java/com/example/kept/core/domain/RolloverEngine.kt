@@ -35,6 +35,8 @@ object RolloverEngine {
         val lockedMillis: Long,
         val breaksUsed: Int,
         val unprotected: Boolean,
+        /** Unprotected and not written off: shown hollow, costs nothing (issue #2). */
+        val hollow: Boolean,
         val broken: Boolean,
         val writtenOff: Boolean,
         val countedForStreak: Boolean,
@@ -101,6 +103,7 @@ object RolloverEngine {
             lockedMillis = input.lockedMillis,
             breaksUsed = input.breaksUsed,
             unprotected = input.unprotected,
+            hollow = streakResult.hollow,
             broken = input.breaksUsed > 0,
             writtenOff = input.writtenOff,
             countedForStreak = streakResult.counted,

@@ -92,7 +92,8 @@ Unit tests (pure Kotlin, no emulator):
 Covers level up/down/floor, streak increment, shield consumption and Monday refill, break cap
 over a rolling 7-day window, rollover across a year boundary and multi-day gaps, evolution
 thresholds and weekly variant determinism, lock policy (window, wrap-around, break suspension),
-and the allowlist (the dialer can never be locked).
+the allowlist (the dialer can never be locked), gap detection (a heartbeat that went stale in Doze
+is not a protection gap), and hollow days (a day the lock was off costs neither streak nor shield).
 
 Instrumented tests (need a running emulator):
 

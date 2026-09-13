@@ -67,6 +67,8 @@ fun RecapScreen(date: String, onClose: () -> Unit, vm: RecapViewModel = hiltView
     val ctx = LocalContext.current
     val r = s.record
     val kept = r?.countedForStreak == true
+    // Hollow: the lock was off and the day was not also written off, so it cost nothing (issue #2).
+    val hollow = r != null && r.unprotected && !r.writtenOff
     // Everything was ticked and nothing else went wrong, so the only thing that can have cost the
     // day is the give-up time (issue #7).
     val tooLate = r != null && !kept && !r.unprotected && !r.writtenOff && !r.shieldConsumed &&
@@ -85,12 +87,13 @@ fun RecapScreen(date: String, onClose: () -> Unit, vm: RecapViewModel = hiltView
         val sub = if (kept) c.teal600 else if (r?.shieldConsumed == true) c.blue400 else c.textSecondary
         KeptCard(Modifier.fillMaxWidth(), background = bg, border = null, shape = RoundedCornerShape(16.dp), padding = androidx.compose.foundation.layout.PaddingValues(20.dp)) {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                SprigView(form, if (kept) SprigPose.CHEER else SprigPose.DROOP, Modifier.size(150.dp), variant = variant, wilted = !kept && r?.shieldConsumed != true)
+                // A hollow day costs nothing, so Sprig does not wilt over it (issue #2).
+                SprigView(form, if (kept) SprigPose.CHEER else SprigPose.DROOP, Modifier.size(150.dp), variant = variant, wilted = !kept && r?.shieldConsumed != true && !hollow)
                 Spacer(Modifier.height(8.dp))
                 val headline = when {
                     r == null -> "Nothing recorded"
                     kept -> "The promise was kept"
-                    r.unprotected -> "The lock was off"
+                    hollow -> "Lock was off"
                     r.shieldConsumed -> "Shield used"
                     r.writtenOff -> "Day written off"
                     tooLate -> "Too late to count"
@@ -100,7 +103,7 @@ fun RecapScreen(date: String, onClose: () -> Unit, vm: RecapViewModel = hiltView
                 val detail = when {
                     r == null -> ""
                     kept -> "${form.displayName} · that's ${r.streakEnd} day${if (r.streakEnd == 1) "" else "s"} running."
-                    r.unprotected -> "Days without protection don't count. Streak held at ${r.streakEnd}."
+                    hollow -> "That one is on us. The day doesn't count, but your ${r.streakEnd}-day streak is safe."
                     r.shieldConsumed -> "Your weekly shield kept the ${r.streakEnd}-day streak alive."
                     tooLate -> "Everything got ticked, but after the give-up time. Late doesn't count."
                     else -> "Streak reset. Sprig is back to Sprig. Today is a fresh start."

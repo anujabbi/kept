@@ -131,7 +131,7 @@ fun PermissionsScreen(onBack: () -> Unit, vm: SettingsViewModel = androidx.hilt.
             Text("Permissions", style = MaterialTheme.typography.titleLarge, color = c.textPrimary)
         }
         Spacer(Modifier.height(4.dp))
-        Text("The lock only works while these stay on. If usage access is turned off during a lock window, that day is marked unprotected and doesn't count.", style = MaterialTheme.typography.bodySmall, color = c.textSecondary)
+        Text("The lock only works while these stay on. If usage access is turned off during a lock window, that day shows as hollow: it doesn't count, but it won't break your streak.", style = MaterialTheme.typography.bodySmall, color = c.textSecondary)
         Spacer(Modifier.height(16.dp))
         PermissionCards(vm.permissions, PermissionKind.entries)
         Spacer(Modifier.height(24.dp))
