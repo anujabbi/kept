@@ -41,7 +41,6 @@ data class DayRecordEntity(
     val habitsDone: Int = 0,
     val habitsTotal: Int = 0,
     val lockedMillis: Long = 0,
-    val pointsEarned: Long = 0,
     val breaksUsed: Int = 0,
     val unprotected: Boolean = false,
     val broken: Boolean = false,

@@ -147,10 +147,7 @@ fun HomeScreen(
         KeptCard {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 WeekDots(s.lastSeven.map { (d, r) -> dotFor(d == s.date, r, s.today.allDone) }, c.purple400)
-                Column(horizontalAlignment = Alignment.End) {
-                    Text("Best ${s.sprig.bestStreak}", style = MaterialTheme.typography.labelMedium, color = c.textSecondary)
-                    Text("${s.sprig.points} pts", style = MaterialTheme.typography.labelMedium, color = c.textMuted)
-                }
+                Text("Best ${s.sprig.bestStreak}", style = MaterialTheme.typography.labelMedium, color = c.textSecondary)
             }
         }
         Spacer(Modifier.height(28.dp))

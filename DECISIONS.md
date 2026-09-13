@@ -73,3 +73,13 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
   screen, the timer notification/countdown copy, and the wizard-added `habit_completed` capture
   inside `addTimerSeconds` are gone. Room schema version 2 (`MIGRATION_1_2`) converts existing
   TIMER habit rows to MANUAL in place rather than dropping them.
+- **Points removed entirely (issue #8).** Points accrued at 2/minute while the lock was active,
+  and the lock is active only while habits are undone, so finishing early earned about 0 and
+  stalling until the give-up time earned about 1,600 — the mechanic rewarded procrastination, and
+  nothing spent the points anyway. `PointsRules`, the DataStore `sprig_points` key, the Room
+  `day_records.pointsEarned` column, and every UI surface showing points (home header "pts",
+  recap "Points earned" row) are gone. `SprigRepository.onHabitEvent`/`addLockedTime` no longer
+  touch points; level, streak and form logic are unchanged. Room schema version 3
+  (`MIGRATION_2_3`) recreates `day_records` without `pointsEarned` (SQLite on minSdk 26 predates
+  `ALTER TABLE ... DROP COLUMN`), copying every other column across. Level stays for now per the
+  5 Sep review decision.

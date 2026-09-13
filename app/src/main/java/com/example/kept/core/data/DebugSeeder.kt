@@ -59,7 +59,7 @@ class DebugSeeder @Inject constructor(
                 DayRecordEntity(
                     date = key, habitsDone = done, habitsTotal = 2,
                     lockedMillis = (2L + (i % 3)) * 3_600_000L + 24 * 60_000L,
-                    pointsEarned = 200L + i * 9, breaksUsed = 0,
+                    breaksUsed = 0,
                     unprotected = false, broken = false, writtenOff = false,
                     countedForStreak = !missed, shieldConsumed = missed,
                     levelEnd = level, formId = SprigForm.forStreak(streak).id, streakEnd = streak, finalized = true,
@@ -77,7 +77,7 @@ class DebugSeeder @Inject constructor(
         // Today: exercise 18/30 in progress, reading not done.
         val todayKey = today.toString()
         entryDao.upsert(HabitEntryEntity(habitId = exercise, date = todayKey, progressValue = 18 * 60))
-        dayDao.upsert(DayRecordEntity(date = todayKey, habitsDone = 0, habitsTotal = 2, lockedMillis = 96 * 60_000L, pointsEarned = 192))
+        dayDao.upsert(DayRecordEntity(date = todayKey, habitsDone = 0, habitsTotal = 2, lockedMillis = 96 * 60_000L))
 
         buddyDao.upsert(
             BuddyEntity(
@@ -88,7 +88,7 @@ class DebugSeeder @Inject constructor(
 
         sprig.write(
             SprigState(
-                level = level, points = 2_840, streakDays = streak, bestStreak = streak,
+                level = level, streakDays = streak, bestStreak = streak,
                 shieldAvailable = true, shieldWeekKey = StreakRules.weekKey(today),
                 lastRolloverDate = today.minusDays(1), wilted = false, pairStreak = 4,
             ),

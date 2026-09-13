@@ -110,7 +110,6 @@ fun RecapScreen(date: String, onClose: () -> Unit, vm: RecapViewModel = hiltView
             Column(Modifier.fillMaxWidth()) {
                 KeyValueRow("Habits done", "${r.habitsDone} of ${r.habitsTotal}")
                 KeyValueRow("Time off apps", formatMillis(r.lockedMillis))
-                KeyValueRow("Points earned", "+${r.pointsEarned}")
                 KeyValueRow("Locks broken", "${r.breaksUsed}", valueColor = if (r.breaksUsed > 0) c.danger else c.textPrimary, divider = false)
             }
         }

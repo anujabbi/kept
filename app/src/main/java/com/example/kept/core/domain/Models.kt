@@ -80,7 +80,6 @@ object Variants {
 /** Persistent state of the creature and the streak. Stored in DataStore. */
 data class SprigState(
     val level: Int = 1,
-    val points: Long = 0,
     val streakDays: Int = 0,
     val bestStreak: Int = 0,
     val shieldAvailable: Boolean = true,

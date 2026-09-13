@@ -12,14 +12,6 @@ object LevelRules {
     fun down(level: Int): Int = maxOf(FLOOR, level - 1)
 }
 
-object PointsRules {
-    const val PER_MINUTE_OFF_APPS = 2L
-    const val HABIT_BONUS = 50L
-
-    /** Points for a span of protected time. Whole minutes only. */
-    fun forLockedMillis(millis: Long): Long = (millis / 60_000L) * PER_MINUTE_OFF_APPS
-}
-
 object BreakCap {
     const val MAX_PER_ROLLING_WEEK = 3
     val WINDOW: Duration = Duration.ofDays(7)

@@ -9,13 +9,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 
-class PointsAndLevelTest {
-    @Test fun `two points per whole minute off apps`() {
-        assertEquals(0L, PointsRules.forLockedMillis(59_000))
-        assertEquals(2L, PointsRules.forLockedMillis(60_000))
-        assertEquals(20L, PointsRules.forLockedMillis(10 * 60_000 + 999))
-    }
-
+class LevelTest {
     @Test fun `level up and down with floor of one`() {
         assertEquals(5, LevelRules.up(4))
         assertEquals(3, LevelRules.down(4))

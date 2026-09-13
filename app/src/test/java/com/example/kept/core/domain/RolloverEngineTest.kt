@@ -8,7 +8,7 @@ import java.time.LocalDate
 
 class RolloverEngineTest {
     private fun day(date: LocalDate, done: Int = 2, total: Int = 2, breaks: Int = 0, writtenOff: Boolean = false, unprotected: Boolean = false, buddy: Boolean? = null) =
-        RolloverEngine.DayInput(date, done, total, 3 * 3_600_000L, 254, breaks, writtenOff, unprotected, buddy)
+        RolloverEngine.DayInput(date, done, total, 3 * 3_600_000L, breaks, writtenOff, unprotected, buddy)
 
     @Test fun `completing every habit extends the streak and records the date`() {
         val d = LocalDate.of(2026, 9, 5)

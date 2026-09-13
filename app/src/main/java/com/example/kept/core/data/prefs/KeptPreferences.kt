@@ -51,7 +51,6 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
         val INVITE_CODE = stringPreferencesKey("my_invite_code")
 
         val LEVEL = intPreferencesKey("sprig_level")
-        val POINTS = longPreferencesKey("sprig_points")
         val STREAK = intPreferencesKey("sprig_streak")
         val BEST_STREAK = intPreferencesKey("sprig_best_streak")
         val SHIELD = booleanPreferencesKey("sprig_shield")
@@ -77,7 +76,6 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
 
     private fun Preferences.toSprig() = SprigState(
         level = this[K.LEVEL] ?: 1,
-        points = this[K.POINTS] ?: 0L,
         streakDays = this[K.STREAK] ?: 0,
         bestStreak = this[K.BEST_STREAK] ?: 0,
         shieldAvailable = this[K.SHIELD] ?: true,
@@ -114,7 +112,6 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
         context.dataStore.edit { p ->
             val n = block(p.toSprig())
             p[K.LEVEL] = n.level
-            p[K.POINTS] = n.points
             p[K.STREAK] = n.streakDays
             p[K.BEST_STREAK] = n.bestStreak
             p[K.SHIELD] = n.shieldAvailable

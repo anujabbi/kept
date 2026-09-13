@@ -8,6 +8,7 @@ import com.example.kept.core.data.LocalStubBuddyRepository
 import com.example.kept.core.data.RecapNotifier
 import com.example.kept.core.data.db.KeptDatabase
 import com.example.kept.core.data.db.MIGRATION_1_2
+import com.example.kept.core.data.db.MIGRATION_2_3
 import com.example.kept.core.notify.KeptNotifications
 import dagger.Binds
 import dagger.Module
@@ -26,7 +27,7 @@ object AppModule {
     @Provides @Singleton
     fun database(@ApplicationContext ctx: Context): KeptDatabase =
         Room.databaseBuilder(ctx, KeptDatabase::class.java, "kept.db")
-            .addMigrations(MIGRATION_1_2)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
             .fallbackToDestructiveMigration()
             .build()
 
