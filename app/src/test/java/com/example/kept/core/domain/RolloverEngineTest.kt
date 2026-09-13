@@ -7,8 +7,16 @@ import org.junit.Test
 import java.time.LocalDate
 
 class RolloverEngineTest {
-    private fun day(date: LocalDate, done: Int = 2, total: Int = 2, breaks: Int = 0, writtenOff: Boolean = false, unprotected: Boolean = false, buddy: Boolean? = null) =
-        RolloverEngine.DayInput(date, done, total, 3 * 3_600_000L, breaks, writtenOff, unprotected, buddy)
+    private fun day(
+        date: LocalDate,
+        done: Int = 2,
+        beforeDue: Int = done,
+        total: Int = 2,
+        breaks: Int = 0,
+        writtenOff: Boolean = false,
+        unprotected: Boolean = false,
+        buddy: Boolean? = null,
+    ) = RolloverEngine.DayInput(date, done, beforeDue, total, 3 * 3_600_000L, breaks, writtenOff, unprotected, buddy)
 
     @Test fun `completing every habit extends the streak and records the date`() {
         val d = LocalDate.of(2026, 9, 5)
@@ -106,7 +114,34 @@ class RolloverEngineTest {
         assertEquals(2, pending.size)
     }
 
-    @Test fun `midnight boundary - a day completed at 23-59 counts for that day`() {
+    @Test fun `every habit done before the give-up time keeps the day`() {
+        val d = LocalDate.of(2026, 9, 5)
+        val out = RolloverEngine.rollover(SprigState(streakDays = 4), day(d, done = 2, beforeDue = 2))
+        assertTrue(out.summary.countedForStreak)
+        assertEquals(5, out.state.streakDays)
+    }
+
+    @Test fun `a habit ticked after the give-up time does not count and the day is missed`() {
+        val d = LocalDate.of(2026, 9, 5)
+        val state = SprigState(streakDays = 4, shieldAvailable = false, shieldWeekKey = StreakRules.weekKey(d))
+        // Both habits were ticked, but one of them after the give-up time.
+        val out = RolloverEngine.rollover(state, day(d, done = 2, beforeDue = 1))
+        assertFalse(out.summary.countedForStreak)
+        assertEquals(0, out.state.streakDays)
+        assertTrue(out.summary.streakReset)
+        // The record still shows what was actually ticked.
+        assertEquals(2, out.summary.habitsDone)
+    }
+
+    @Test fun `nothing done at all is a missed day`() {
+        val d = LocalDate.of(2026, 9, 5)
+        val state = SprigState(streakDays = 4, shieldAvailable = false, shieldWeekKey = StreakRules.weekKey(d))
+        val out = RolloverEngine.rollover(state, day(d, done = 0, beforeDue = 0))
+        assertFalse(out.summary.countedForStreak)
+        assertEquals(0, out.state.streakDays)
+    }
+
+    @Test fun `consecutive days across a year boundary each extend the streak`() {
         // The engine works on calendar dates; the caller resolves the local date. Here we assert the
         // state after two consecutive days is two increments, independent of the wall clock.
         var state = SprigState()

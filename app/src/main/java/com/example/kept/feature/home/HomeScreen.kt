@@ -28,6 +28,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CameraAlt
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.HourglassBottom
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.Shield
@@ -128,6 +129,15 @@ fun HomeScreen(
 
         SectionLabel("Today", trailing = if (s.today.total > 0) "${s.today.done} of ${s.today.total}" else null)
         Spacer(Modifier.height(8.dp))
+        if (s.pastDue && s.today.total > 0 && !s.today.allDoneOnTime) {
+            InfoBox(
+                "Too late for today. You can still tick these off, but today won't count.",
+                icon = Icons.Outlined.HourglassBottom,
+                background = c.surface2,
+                foreground = c.textSecondary,
+            )
+            Spacer(Modifier.height(8.dp))
+        }
         if (s.today.total == 0) {
             KeptCard(onClick = onOpenHabits) {
                 Text("No habits yet", style = MaterialTheme.typography.titleSmall, color = c.textPrimary)
@@ -146,7 +156,7 @@ fun HomeScreen(
         Spacer(Modifier.height(8.dp))
         KeptCard {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                WeekDots(s.lastSeven.map { (d, r) -> dotFor(d == s.date, r, s.today.allDone) }, c.purple400)
+                WeekDots(s.lastSeven.map { (d, r) -> dotFor(d == s.date, r, s.today.allDoneOnTime) }, c.purple400)
                 Text("Best ${s.sprig.bestStreak}", style = MaterialTheme.typography.labelMedium, color = c.textSecondary)
             }
         }
@@ -170,7 +180,8 @@ private fun StreakPill(streak: Int) {
 @Composable
 private fun SprigPanel(s: HomeUiState, onOpenRoadmap: () -> Unit) {
     val c = KeptTheme.colors
-    val allDone = s.today.allDone
+    // Only a day finished before the give-up time is worth cheering about (issue #7).
+    val allDone = s.today.allDoneOnTime
     val pose = when {
         s.sprig.wilted -> SprigPose.DROOP
         allDone -> SprigPose.CHEER
@@ -198,6 +209,7 @@ private fun SprigPanel(s: HomeUiState, onOpenRoadmap: () -> Unit) {
             val headline = when {
                 s.sprig.wilted -> "Sprig is wilting"
                 allDone -> "Promise kept today"
+                s.today.anyLate && s.today.allDone -> "Ticked, but too late"
                 s.lockActive -> "Sprig is growing"
                 else -> "Sprig is ${if (s.form.streakThreshold >= 7) "thriving" else "stretching"}"
             }
@@ -205,6 +217,8 @@ private fun SprigPanel(s: HomeUiState, onOpenRoadmap: () -> Unit) {
             Spacer(Modifier.height(2.dp))
             val detail = when {
                 s.sprig.wilted -> "Finish today's habits and Sprig recovers."
+                s.today.anyLate && s.today.allDone ->
+                    "The give-up time passed, so today doesn't count. Start earlier tomorrow."
                 s.nextForm == null -> "${s.form.displayName} · Lv ${s.sprig.level} · the final form"
                 else -> "${s.form.displayName} · Lv ${s.sprig.level} · ${s.daysToNext} day${if (s.daysToNext == 1) "" else "s"} to ${s.nextForm!!.displayName}"
             }
@@ -253,25 +267,27 @@ fun HabitRow(
         }
     }
 
+    // A tick after the give-up time still shows as done, but not as a win.
+    val counts = !h.late
     val shape = RoundedCornerShape(12.dp)
     Row(
-        modifier.fillMaxWidth().clip(shape).background(if (h.isDone) c.green50 else c.surface2)
+        modifier.fillMaxWidth().clip(shape).background(if (h.isDone && counts) c.green50 else c.surface2)
             .then(if (h.isDone) Modifier else Modifier.background(Color.Transparent))
             .combinedClickable(onClick = onClick, onLongClick = { if (h.isDone) onUndo() })
             .padding(horizontal = 14.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(if (h.isDone) c.green400.copy(alpha = 0.25f) else c.purple50), contentAlignment = Alignment.Center) {
-            Icon(if (h.isDone) Icons.Outlined.Check else HabitIcons.of(h.habit.iconKey), null, tint = if (h.isDone) c.green600 else c.purple600, modifier = Modifier.size(20.dp))
+        Box(Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(if (h.isDone && counts) c.green400.copy(alpha = 0.25f) else c.purple50), contentAlignment = Alignment.Center) {
+            Icon(if (h.isDone) Icons.Outlined.Check else HabitIcons.of(h.habit.iconKey), null, tint = if (h.isDone && counts) c.green600 else if (h.isDone) c.textMuted else c.purple600, modifier = Modifier.size(20.dp))
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("${h.habit.title} ${h.subtitle}", style = MaterialTheme.typography.titleSmall, color = if (h.isDone) c.green600 else c.textPrimary, modifier = Modifier.weight(1f))
+                Text("${h.habit.title} ${h.subtitle}", style = MaterialTheme.typography.titleSmall, color = if (h.isDone && counts) c.green600 else c.textPrimary, modifier = Modifier.weight(1f))
                 Text(
-                    if (h.isDone) "Done" else h.progressLabel,
+                    if (h.late) "Too late" else if (h.isDone) "Done" else h.progressLabel,
                     style = MaterialTheme.typography.labelMedium,
-                    color = if (h.isDone) c.green600 else c.textMuted,
+                    color = if (h.isDone && counts) c.green600 else c.textMuted,
                 )
             }
             if (!h.isDone) {
@@ -280,7 +296,11 @@ fun HabitRow(
                     style = MaterialTheme.typography.bodySmall, color = c.textMuted,
                 )
             } else {
-                Text("Hold to undo", style = MaterialTheme.typography.bodySmall, color = c.green600.copy(alpha = 0.7f))
+                Text(
+                    if (h.late) "Doesn't count today. Hold to undo." else "Hold to undo",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (counts) c.green600.copy(alpha = 0.7f) else c.textMuted,
+                )
             }
         }
         if (!h.isDone) {
@@ -309,7 +329,8 @@ private fun LockStatusBox(s: HomeUiState) {
     val remaining = s.today.remaining
     val (icon, text) = when {
         s.today.total == 0 -> Icons.Outlined.LockOpen to "Nothing to lock for. Add a habit."
-        s.today.allDone -> Icons.Outlined.LockOpen to "Apps are open. You kept today."
+        s.today.allDoneOnTime -> Icons.Outlined.LockOpen to "Apps are open. You kept today."
+        s.pastDue -> Icons.Outlined.LockOpen to "Apps are open. Today is missed — the lock is back at $from."
         lock.breakActiveUntil != null -> Icons.Outlined.LockOpen to "Lock paused. Apps re-lock soon. Sprig noticed."
         s.lockActive -> Icons.Outlined.Lock to "Everything but essentials is locked until ${if (remaining == 1) "this is" else "both are"} done or $due."
         else -> Icons.Outlined.Lock to "Apps lock at $from until today's habits are done."

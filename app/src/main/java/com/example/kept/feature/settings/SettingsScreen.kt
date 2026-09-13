@@ -79,7 +79,7 @@ fun SettingsScreen(
             Spacer(Modifier.height(10.dp))
             TimeRow("Give-up time", s.settings.dueMinute) { vm.setLockWindow(s.settings.lockFromMinute, it) }
             Spacer(Modifier.height(6.dp))
-            Text("Apps lock between these times until today's habits are done. After the give-up time they open, and the day counts as missed.", style = MaterialTheme.typography.bodySmall, color = c.textMuted)
+            Text("Apps lock between these times until today's habits are done. After the give-up time they open, and anything you tick counts for nothing: the day is missed.", style = MaterialTheme.typography.bodySmall, color = c.textMuted)
         }
         Spacer(Modifier.height(20.dp))
 

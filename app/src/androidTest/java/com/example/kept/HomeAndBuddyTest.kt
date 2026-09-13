@@ -48,6 +48,22 @@ class HomeAndBuddyTest {
         }
     }
 
+    @Test fun home_says_it_is_too_late_once_the_give_up_time_has_passed() {
+        // Give-up time at midnight, so "now" is always after it (issue #7).
+        runBlocking {
+            seeder.seedIfNeeded()
+            prefs.updateSettings { it.copy(dueMinute = 0) }
+        }
+        ActivityScenario.launch(MainActivity::class.java).use {
+            compose.waitUntil(10_000) {
+                compose.onAllNodes(hasText("Too late for today", substring = true)).fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNodeWithText("Too late for today", substring = true).assertIsDisplayed()
+            // The checklist still works: the habits are there to tick.
+            compose.onAllNodesWithText("Tap when done", substring = true)[0].assertIsDisplayed()
+        }
+    }
+
     @Test fun buddy_empty_state_pairs_with_a_code() {
         // The Buddy tab only exists behind FeatureFlags.showBuddy (debug builds); skip rather
         // than fail if this ever runs against a build where it's hidden. See issue #6.

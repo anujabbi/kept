@@ -48,11 +48,15 @@ class SprigRepository @Inject constructor(
         val date = time.todayKey()
         when (event) {
             is HabitEvent.Completed -> {
+                // A day finished after the give-up time counts for nothing, so it earns no level
+                // either (issue #7).
                 prefs.updateSprig { s ->
-                    s.copy(level = if (event.allDoneNow) LevelRules.up(s.level) else s.level)
+                    s.copy(level = if (event.allDoneNow && event.beforeDue) LevelRules.up(s.level) else s.level)
                 }
             }
             is HabitEvent.Undone -> {
+                // `wasAllDone` is already "was all done on time", so an undo after the give-up
+                // time cannot take back a level that was never granted.
                 prefs.updateSprig { s ->
                     s.copy(level = if (event.wasAllDone) LevelRules.down(s.level) else s.level)
                 }

@@ -67,6 +67,10 @@ fun RecapScreen(date: String, onClose: () -> Unit, vm: RecapViewModel = hiltView
     val ctx = LocalContext.current
     val r = s.record
     val kept = r?.countedForStreak == true
+    // Everything was ticked and nothing else went wrong, so the only thing that can have cost the
+    // day is the give-up time (issue #7).
+    val tooLate = r != null && !kept && !r.unprotected && !r.writtenOff && !r.shieldConsumed &&
+        r.habitsTotal > 0 && r.habitsDone >= r.habitsTotal
     val form = SprigForm.fromId(r?.formId ?: 1)
     val variant = Variants.forDate(s.date)
     val isToday = s.date == LocalDate.now()
@@ -89,6 +93,7 @@ fun RecapScreen(date: String, onClose: () -> Unit, vm: RecapViewModel = hiltView
                     r.unprotected -> "The lock was off"
                     r.shieldConsumed -> "Shield used"
                     r.writtenOff -> "Day written off"
+                    tooLate -> "Too late to count"
                     else -> "The promise slipped"
                 }
                 Text(headline, style = MaterialTheme.typography.titleMedium, color = fg)
@@ -97,6 +102,7 @@ fun RecapScreen(date: String, onClose: () -> Unit, vm: RecapViewModel = hiltView
                     kept -> "${form.displayName} · that's ${r.streakEnd} day${if (r.streakEnd == 1) "" else "s"} running."
                     r.unprotected -> "Days without protection don't count. Streak held at ${r.streakEnd}."
                     r.shieldConsumed -> "Your weekly shield kept the ${r.streakEnd}-day streak alive."
+                    tooLate -> "Everything got ticked, but after the give-up time. Late doesn't count."
                     else -> "Streak reset. Sprig is back to Sprig. Today is a fresh start."
                 }
                 Text(detail, style = MaterialTheme.typography.bodySmall, color = sub, textAlign = TextAlign.Center)

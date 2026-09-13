@@ -97,3 +97,29 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
   instrumented `buddy_empty_state_pairs_with_a_code` test is guarded with
   `assumeTrue(FeatureFlags.showBuddy)` instead of deleted, since it still runs (and should still
   pass) against debug builds.
+- **The give-up time is enforced at rollover (issue #7).** Onboarding and Settings always said a
+  day is missed once the give-up time passes, but `RolloverEngine` only checked
+  `habitsDone >= habitsTotal`, so a habit ticked at 23:30 still extended the streak. Now
+  `DayInput` carries `habitsDoneBeforeDue` alongside `habitsDone`, and only the on-time count
+  decides whether the day is kept. No schema change was needed: `habit_entries.completedAt` has
+  stored the epoch-millis tick time since v1, so `RolloverRunner` compares it against
+  `instantAt(date, dueMinute)`. `habitsDone` is still recorded as ticked, so the recap can say
+  "everything got ticked, but too late" rather than pretending nothing happened.
+  - **The give-up time used is the one in effect at rollover**, not the one that was set while the
+    day was running. We do not version the setting per day; the simpler rule is easier to explain
+    and the only way to abuse it is to move the give-up time later, which also lengthens the lock
+    window tomorrow. Task 5 puts a confirm dialog in front of that change during an active lock.
+  - **The day boundary stays the calendar date.** A completion counts for `date` when it lands
+    before `date` at `dueMinute` local time. For a lock window that wraps midnight (e.g. 22:00 →
+    06:00) that means the give-up time is judged on the same calendar day the rollover already
+    uses, rather than 06:00 the next morning.
+  - **A late day earns no level either.** `HabitEvent.Completed` gained `beforeDue`, and the
+    same-day level-up now requires `allDoneNow && beforeDue`. `HabitEvent.Undone.wasAllDone` became
+    "was all done *on time*", so undoing a late tick cannot refund a level that was never granted,
+    and undoing an on-time tick after the give-up time still takes back the level it did grant.
+  - **Home stays usable after the give-up time.** Habits can still be ticked, but an InfoBox reads
+    "Too late for today. You can still tick these off, but today won't count.", a late row shows
+    "Too late" / "Doesn't count today. Hold to undo." in muted rather than green, and Sprig says
+    "Ticked, but too late" instead of cheering. Onboarding and Settings copy was tightened to match.
+  - **PostHog `habit_completed` gained a `before_due` boolean** so we can see how much of the
+    checklist is being finished after the deadline.

@@ -48,7 +48,7 @@ class RolloverRunner @Inject constructor(
         val pending = RolloverEngine.pendingDates(state.lastRolloverDate, yesterday, firstUse)
         val outputs = mutableListOf<RolloverEngine.Output>()
         for (date in pending) {
-            val input = buildInput(date)
+            val input = buildInput(date, settings.dueMinute)
             val out = RolloverEngine.rollover(state, input)
             persist(out)
             state = out.state
@@ -64,17 +64,24 @@ class RolloverRunner @Inject constructor(
         outputs
     }
 
-    private suspend fun buildInput(date: LocalDate): RolloverEngine.DayInput {
+    /**
+     * [dueMinute] is the give-up time in effect right now, not the one that was set while the day
+     * was running: a day's completions are judged against the current setting (issue #7).
+     */
+    private suspend fun buildInput(date: LocalDate, dueMinute: Int): RolloverEngine.DayInput {
         val key = date.toString()
         val record = dayDao.get(key)
         val habitsTotal = record?.habitsTotal?.takeIf { it > 0 } ?: habitDao.active().size
         val entries = entryDao.forDate(key)
+        val dueMillis = time.instantAt(date, dueMinute).toEpochMilli()
         val done = entries.count { it.completedAt != null }
+        val doneBeforeDue = entries.count { it.completedAt?.let { at -> at < dueMillis } == true }
         val gaps = gapDao.countForDate(key)
         val breaks = breakDao.since(0).filter { it.date == key }
         return RolloverEngine.DayInput(
             date = date,
             habitsDone = done,
+            habitsDoneBeforeDue = doneBeforeDue,
             habitsTotal = habitsTotal,
             lockedMillis = record?.lockedMillis ?: 0,
             breaksUsed = breaks.size,

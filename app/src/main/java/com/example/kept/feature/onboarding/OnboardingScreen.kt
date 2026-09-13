@@ -235,7 +235,7 @@ private fun StepRule(s: OnboardingState, vm: OnboardingViewModel) {
             TimeRow("Give-up time", s.due) { vm.setWindow(s.lockFrom, it) }
         }
         Spacer(Modifier.height(8.dp))
-        MutedText("After the give-up time apps open again, and that day counts as missed.")
+        MutedText("After the give-up time apps open again. Anything you tick after that still shows as done, but the day counts as missed.")
         Spacer(Modifier.height(20.dp))
         SectionLabel("If you break the lock, apps open for")
         Spacer(Modifier.height(8.dp))

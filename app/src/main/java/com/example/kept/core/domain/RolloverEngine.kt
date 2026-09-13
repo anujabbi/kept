@@ -10,7 +10,13 @@ object RolloverEngine {
 
     data class DayInput(
         val date: LocalDate,
+        /** Habits ticked at any point that day, late ones included. Recorded, but not what counts. */
         val habitsDone: Int,
+        /**
+         * Habits ticked before that day's give-up time (issue #7). Only these count: the copy has
+         * always said a day is missed once the give-up time passes, so the rollover enforces it.
+         */
+        val habitsDoneBeforeDue: Int,
         val habitsTotal: Int,
         val lockedMillis: Long,
         val breaksUsed: Int,
@@ -19,7 +25,7 @@ object RolloverEngine {
         /** Null when no buddy is paired. */
         val buddyDoneThatDay: Boolean?,
     ) {
-        val allDone: Boolean get() = habitsTotal > 0 && habitsDone >= habitsTotal
+        val allDone: Boolean get() = habitsTotal > 0 && habitsDoneBeforeDue >= habitsTotal
     }
 
     data class DaySummary(

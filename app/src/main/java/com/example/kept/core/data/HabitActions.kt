@@ -11,14 +11,14 @@ class HabitActions @Inject constructor(
     private val sprig: SprigRepository,
     private val buddy: BuddyRepository,
 ) {
-    suspend fun complete(habitId: Long, photoPath: String? = null): HabitEvent? {
+    suspend fun complete(habitId: Long, photoPath: String? = null): HabitEvent.Completed? {
         val event = habits.markDone(habitId, photoPath) ?: return null
-        PostHog.capture("habit_completed")
+        PostHog.capture("habit_completed", properties = mapOf("before_due" to event.beforeDue))
         react(event)
         return event
     }
 
-    suspend fun undo(habitId: Long): HabitEvent? {
+    suspend fun undo(habitId: Long): HabitEvent.Undone? {
         val event = habits.undo(habitId) ?: return null
         PostHog.capture("habit_completion_undone")
         sprig.onHabitEvent(event)

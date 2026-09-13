@@ -35,6 +35,8 @@ data class HomeUiState(
     val sprig: SprigState = SprigState(),
     val lock: LockState? = null,
     val lockActive: Boolean = false,
+    /** True once today's give-up time has passed: ticks still work but no longer count (issue #7). */
+    val pastDue: Boolean = false,
     val variant: WeekVariant = Variants.table[0],
     val date: LocalDate = LocalDate.now(),
     val pendingRecapDate: String? = null,
@@ -64,8 +66,10 @@ class HomeViewModel @Inject constructor(
 
     private val core = combine(habits.observeToday(), sprigRepo.state, lockRepo.observeState(), prefs.settings, time.observeToday()) { today, sprig, lock, settings, date ->
         val active = LockPolicy.isLockActive(time.now(), time.localTime(), lock.snapshot(emptySet(), null))
+        // Same rule the rollover uses: a tick counts only while the clock is before the give-up minute.
+        val pastDue = time.minuteOfDay() >= settings.dueMinute
         HomeUiState(
-            loaded = true, today = today, sprig = sprig, lock = lock, lockActive = active,
+            loaded = true, today = today, sprig = sprig, lock = lock, lockActive = active, pastDue = pastDue,
             variant = Variants.forDate(date), date = date, pendingRecapDate = settings.pendingRecapDate,
         )
     }

@@ -85,7 +85,8 @@ class ForegroundWatcherService : LifecycleService() {
         val (title, text) = when {
             !s.settings.onboardingDone -> "KEPT" to "Finish setup to start locking"
             s.today.total == 0 -> "KEPT" to "No habits set for today"
-            s.today.allDone -> "All habits done" to "Apps are open. Promise kept."
+            s.today.allDoneOnTime -> "All habits done" to "Apps are open. Promise kept."
+            s.today.allDone -> "All habits done" to "Ticked after the give-up time, so today is missed."
             s.breakActiveUntil != null -> "Lock paused" to "Apps re-lock at ${timeLabel(s.breakActiveUntil)}"
             active -> "$remaining habit${if (remaining == 1) "" else "s"} left today" to "Apps locked until ${s.settings.dueMinute.minuteOfDayLabel()}"
             else -> "$remaining habit${if (remaining == 1) "" else "s"} left today" to "Apps lock at ${s.settings.lockFromMinute.minuteOfDayLabel()}"
