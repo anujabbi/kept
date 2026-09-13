@@ -24,7 +24,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.example.kept.core.domain.ProofType
 import com.example.kept.core.domain.SprigPose
 import com.example.kept.core.ui.KeptCard
 import com.example.kept.core.ui.KeptTheme
@@ -39,7 +38,6 @@ import java.time.format.DateTimeFormatter
 fun LockScreen(
     state: LockUi,
     blockedLabel: String,
-    onDoHabit: (Long) -> Unit,
     onComplete: (Long) -> Unit,
     onBreak: () -> Unit,
     onEmergency: () -> Unit,
@@ -62,12 +60,7 @@ fun LockScreen(
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                 SprigView(state.sprig.form, SprigPose.BLOCK, Modifier.size(150.dp), variant = state.variant, wilted = state.sprig.wilted)
                 Spacer(Modifier.height(8.dp))
-                val mins = state.minutesToGo
-                val headline = when {
-                    mins != null -> "$mins minute${if (mins == 1) "" else "s"} left to go"
-                    state.remaining == 1 -> "One thing left"
-                    else -> "${state.remaining} things left"
-                }
+                val headline = if (state.remaining == 1) "One thing left" else "${state.remaining} things left"
                 Text(headline, style = MaterialTheme.typography.titleMedium, color = c.purple900)
                 Text("Sprig grows the whole time you're away", style = MaterialTheme.typography.bodySmall, color = c.purple600, textAlign = TextAlign.Center)
             }
@@ -75,17 +68,12 @@ fun LockScreen(
         Spacer(Modifier.height(14.dp))
 
         lock?.today?.habits?.forEach { h ->
-            HabitRow(h, onOpenTimer = { onDoHabit(h.id) }, onComplete = { onComplete(h.id) }, onUndo = {}, onPhoto = { onOpenKept() })
+            HabitRow(h, onComplete = { onComplete(h.id) }, onUndo = {}, onPhoto = { onOpenKept() })
             Spacer(Modifier.height(8.dp))
         }
         Spacer(Modifier.height(10.dp))
 
-        val timerHabit = lock?.today?.habits?.firstOrNull { !it.isDone && it.habit.proofType == ProofType.TIMER }
-        if (timerHabit != null) {
-            PrimaryButton(if (timerHabit.progress > 0) "Resume timer" else "Start ${timerHabit.habit.title.lowercase()}", onClick = { onDoHabit(timerHabit.id) })
-        } else {
-            PrimaryButton("Open KEPT", onClick = onOpenKept)
-        }
+        PrimaryButton("Open KEPT", onClick = onOpenKept)
         Spacer(Modifier.height(6.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
             QuietButton("Break lock", onClick = onBreak, modifier = Modifier.testTag("break_lock"))

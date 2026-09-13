@@ -22,22 +22,14 @@ data class HabitToday(
     val progress: Int get() = entry?.progressValue ?: 0
     val isDone: Boolean get() = entry?.completedAt != null
     /** 0..1 */
-    val fraction: Float
-        get() = when (habit.proofType) {
-            ProofType.TIMER -> (progress / (habit.targetValue * 60f)).coerceIn(0f, 1f)
-            else -> if (isDone) 1f else 0f
-        }
+    val fraction: Float get() = if (isDone) 1f else 0f
     val progressLabel: String
         get() = when (habit.proofType) {
-            ProofType.TIMER -> "${progress / 60}/${habit.targetValue}"
             ProofType.MANUAL -> if (isDone) "Done" else ""
             ProofType.PHOTO -> if (isDone) "Done" else "Photo"
         }
     val subtitle: String
-        get() = when (habit.proofType) {
-            ProofType.TIMER -> "${habit.targetValue} min"
-            else -> if (habit.targetValue > 1) "${habit.targetValue} ${habit.unit}" else habit.unit
-        }
+        get() = if (habit.targetValue > 1) "${habit.targetValue} ${habit.unit}" else habit.unit
 }
 
 data class TodaySummary(val habits: List<HabitToday>) {
@@ -102,26 +94,12 @@ class HabitRepository @Inject constructor(
         habits.forEachIndexed { i, h -> habitDao.insert(h.copy(id = 0, sortOrder = i, createdAt = time.nowMillis())) }
     }
 
-    /** Adds timer progress. Returns an event when this crosses the target. */
-    suspend fun addTimerSeconds(habitId: Long, seconds: Int): HabitEvent? {
-        val habit = habitDao.byId(habitId) ?: return null
-        val date = time.todayKey()
-        val cur = entryDao.forHabitOnDate(habitId, date) ?: HabitEntryEntity(habitId = habitId, date = date)
-        if (cur.completedAt != null) return null
-        val target = habit.targetValue * 60
-        val next = (cur.progressValue + seconds).coerceAtMost(target)
-        val done = next >= target
-        entryDao.upsert(cur.copy(progressValue = next, completedAt = if (done) time.nowMillis() else null))
-        return if (done) completedEvent(habit) else null
-    }
-
     suspend fun markDone(habitId: Long, photoPath: String? = null): HabitEvent? {
         val habit = habitDao.byId(habitId) ?: return null
         val date = time.todayKey()
         val cur = entryDao.forHabitOnDate(habitId, date) ?: HabitEntryEntity(habitId = habitId, date = date)
         if (cur.completedAt != null) return null
-        val target = if (habit.proofType == ProofType.TIMER) habit.targetValue * 60 else habit.targetValue
-        entryDao.upsert(cur.copy(progressValue = target, completedAt = time.nowMillis(), photoPath = photoPath ?: cur.photoPath))
+        entryDao.upsert(cur.copy(progressValue = habit.targetValue, completedAt = time.nowMillis(), photoPath = photoPath ?: cur.photoPath))
         return completedEvent(habit)
     }
 
@@ -131,8 +109,7 @@ class HabitRepository @Inject constructor(
         val cur = entryDao.forHabitOnDate(habitId, date) ?: return null
         if (cur.completedAt == null) return null
         val wasAllDone = today().allDone
-        val progress = if (habit.proofType == ProofType.TIMER) cur.progressValue else 0
-        entryDao.upsert(cur.copy(progressValue = progress, completedAt = null, photoPath = null))
+        entryDao.upsert(cur.copy(progressValue = 0, completedAt = null, photoPath = null))
         syncCounts(date)
         return HabitEvent.Undone(habit, wasAllDone)
     }

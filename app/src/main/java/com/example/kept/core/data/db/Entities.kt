@@ -11,7 +11,7 @@ data class HabitEntity(
     val title: String,
     val iconKey: String,
     val proofType: ProofType,
-    /** Minutes for TIMER, count for MANUAL (usually 1), 1 for PHOTO. */
+    /** Count for MANUAL (usually 1), 1 for PHOTO. */
     val targetValue: Int,
     val unit: String,
     val sortOrder: Int = 0,
@@ -28,7 +28,7 @@ data class HabitEntryEntity(
     val habitId: Long,
     /** ISO local date, e.g. 2026-09-05. */
     val date: String,
-    /** Seconds for TIMER, count for MANUAL/PHOTO. */
+    /** Count for MANUAL/PHOTO. */
     val progressValue: Int = 0,
     val completedAt: Long? = null,
     val photoPath: String? = null,

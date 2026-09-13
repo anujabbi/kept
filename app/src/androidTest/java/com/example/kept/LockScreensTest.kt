@@ -28,7 +28,7 @@ class LockScreensTest {
     @get:Rule val compose = createComposeRule()
 
     private fun sampleState(): LockUi {
-        val exercise = HabitEntity(id = 1, title = "Exercise", iconKey = "run", proofType = ProofType.TIMER, targetValue = 30, unit = "min", createdAt = 0)
+        val exercise = HabitEntity(id = 1, title = "Exercise", iconKey = "run", proofType = ProofType.MANUAL, targetValue = 30, unit = "min", createdAt = 0)
         val read = HabitEntity(id = 2, title = "Read", iconKey = "book", proofType = ProofType.MANUAL, targetValue = 10, unit = "pages", createdAt = 0)
         val today = TodaySummary(listOf(HabitToday(exercise, HabitEntryEntity(habitId = 1, date = "2026-09-05", progressValue = 18 * 60)), HabitToday(read, null)))
         val lock = LockState(Settings(onboardingDone = true), today, null, 1, emptySet(), false)
@@ -36,9 +36,9 @@ class LockScreensTest {
     }
 
     @Test fun lock_screen_shows_remaining_habits() {
-        compose.setContent { KeptTheme { LockScreen(sampleState(), "Instagram", {}, {}, {}, {}, {}) } }
+        compose.setContent { KeptTheme { LockScreen(sampleState(), "Instagram", {}, {}, {}, {}) } }
         compose.onNodeWithText("Instagram is locked").assertIsDisplayed()
-        compose.onNodeWithText("12 minutes left to go").assertIsDisplayed()
+        compose.onNodeWithText("2 things left").assertIsDisplayed()
         compose.onNodeWithText("Exercise 30 min").assertIsDisplayed()
         compose.onNodeWithText("Read 10 pages").assertIsDisplayed()
         compose.onNodeWithTag("emergency_call").assertIsDisplayed()

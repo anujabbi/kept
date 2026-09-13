@@ -71,7 +71,7 @@ fun HabitsEditScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel()
                     Column(Modifier.weight(1f)) {
                         Text(h.title, style = MaterialTheme.typography.titleSmall, color = c.textPrimary)
                         Text(
-                            when (h.proofType) { ProofType.TIMER -> "${h.targetValue} min timer"; ProofType.MANUAL -> "Tap to complete · ${h.targetValue} ${h.unit}"; ProofType.PHOTO -> "Photo check-in" },
+                            when (h.proofType) { ProofType.MANUAL -> "Tap to complete · ${h.targetValue} ${h.unit}"; ProofType.PHOTO -> "Photo check-in" },
                             style = MaterialTheme.typography.bodySmall, color = c.textSecondary,
                         )
                     }
@@ -99,7 +99,7 @@ fun HabitEditor(onCancel: () -> Unit, initial: HabitEntity? = null, onSave: (Str
     val c = KeptTheme.colors
     var title by remember { mutableStateOf(initial?.title ?: "") }
     var icon by remember { mutableStateOf(initial?.iconKey ?: "star") }
-    var proof by remember { mutableStateOf(initial?.proofType ?: ProofType.TIMER) }
+    var proof by remember { mutableStateOf(initial?.proofType ?: ProofType.MANUAL) }
     var target by remember { mutableStateOf((initial?.targetValue ?: 20).toString()) }
     var unit by remember { mutableStateOf(initial?.unit ?: "min") }
 
@@ -123,8 +123,7 @@ fun HabitEditor(onCancel: () -> Unit, initial: HabitEntity? = null, onSave: (Str
         SectionLabel("How do you prove it?")
         Spacer(Modifier.height(6.dp))
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            ProofOption("In-app timer", "Runs while you do it. Apps stay locked.", proof == ProofType.TIMER) { proof = ProofType.TIMER; unit = "min" }
-            ProofOption("Tap when done", "Honour system. Hold to undo within the day.", proof == ProofType.MANUAL) { proof = ProofType.MANUAL; if (unit == "min") unit = "times" }
+            ProofOption("Tap when done", "Honour system. Hold to undo within the day.", proof == ProofType.MANUAL) { proof = ProofType.MANUAL }
             ProofOption("Photo check-in", "Snap a photo as proof. Stays on your phone.", proof == ProofType.PHOTO) { proof = ProofType.PHOTO; unit = "photo"; target = "1" }
         }
         if (proof != ProofType.PHOTO) {
@@ -132,7 +131,7 @@ fun HabitEditor(onCancel: () -> Unit, initial: HabitEntity? = null, onSave: (Str
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = target, onValueChange = { target = it.filter(Char::isDigit).take(3) }, modifier = Modifier.weight(1f), singleLine = true,
-                    label = { Text(if (proof == ProofType.TIMER) "Minutes" else "Target") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    label = { Text("Target") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = c.blue400, unfocusedBorderColor = c.borderStrong),
                 )
                 if (proof == ProofType.MANUAL) OutlinedTextField(

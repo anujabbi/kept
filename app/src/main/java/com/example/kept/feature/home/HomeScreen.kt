@@ -33,7 +33,6 @@ import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material.icons.rounded.LocalFireDepartment
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -76,7 +75,6 @@ import java.util.Locale
 
 @Composable
 fun HomeScreen(
-    onOpenTimer: (Long) -> Unit,
     onOpenRecap: (String) -> Unit,
     onOpenReveal: (Long) -> Unit,
     onOpenPermissions: () -> Unit,
@@ -137,7 +135,7 @@ fun HomeScreen(
             }
         }
         s.today.habits.forEach { h ->
-            HabitRow(h, onOpenTimer = { onOpenTimer(h.id) }, onComplete = { vm.complete(h.id) }, onUndo = { vm.undo(h.id) }, onPhoto = { vm.completeWithPhoto(h.id, it) })
+            HabitRow(h, onComplete = { vm.complete(h.id) }, onUndo = { vm.undo(h.id) }, onPhoto = { vm.completeWithPhoto(h.id, it) })
             Spacer(Modifier.height(8.dp))
         }
         Spacer(Modifier.height(4.dp))
@@ -229,7 +227,6 @@ private fun SprigPanel(s: HomeUiState, onOpenRoadmap: () -> Unit) {
 @Composable
 fun HabitRow(
     h: HabitToday,
-    onOpenTimer: () -> Unit,
     onComplete: () -> Unit,
     onUndo: () -> Unit,
     onPhoto: (String) -> Unit,
@@ -254,7 +251,6 @@ fun HabitRow(
     val onClick: () -> Unit = {
         when {
             h.isDone -> Unit
-            h.habit.proofType == ProofType.TIMER -> onOpenTimer()
             h.habit.proofType == ProofType.MANUAL -> onComplete()
             h.habit.proofType == ProofType.PHOTO -> cameraPermission.launch(android.Manifest.permission.CAMERA)
         }
@@ -277,16 +273,13 @@ fun HabitRow(
                 Text("${h.habit.title} ${h.subtitle}", style = MaterialTheme.typography.titleSmall, color = if (h.isDone) c.green600 else c.textPrimary, modifier = Modifier.weight(1f))
                 Text(
                     if (h.isDone) "Done" else h.progressLabel,
-                    style = MaterialTheme.typography.labelMedium.copy(fontFamily = if (h.habit.proofType == ProofType.TIMER && !h.isDone) androidx.compose.ui.text.font.FontFamily.Monospace else null),
+                    style = MaterialTheme.typography.labelMedium,
                     color = if (h.isDone) c.green600 else c.textMuted,
                 )
             }
-            if (h.habit.proofType == ProofType.TIMER && !h.isDone) {
-                Spacer(Modifier.height(8.dp))
-                ThinProgress(h.fraction)
-            } else if (!h.isDone) {
+            if (!h.isDone) {
                 Text(
-                    when (h.habit.proofType) { ProofType.MANUAL -> "Tap when done"; ProofType.PHOTO -> "Tap to snap a photo"; else -> "" },
+                    when (h.habit.proofType) { ProofType.MANUAL -> "Tap when done"; ProofType.PHOTO -> "Tap to snap a photo" },
                     style = MaterialTheme.typography.bodySmall, color = c.textMuted,
                 )
             } else {
@@ -296,7 +289,7 @@ fun HabitRow(
         if (!h.isDone) {
             Spacer(Modifier.width(8.dp))
             Icon(
-                when (h.habit.proofType) { ProofType.TIMER -> Icons.Rounded.PlayArrow; ProofType.PHOTO -> Icons.Outlined.CameraAlt; else -> Icons.Outlined.Check },
+                when (h.habit.proofType) { ProofType.PHOTO -> Icons.Outlined.CameraAlt; ProofType.MANUAL -> Icons.Outlined.Check },
                 null, tint = c.textMuted, modifier = Modifier.size(20.dp),
             )
         }

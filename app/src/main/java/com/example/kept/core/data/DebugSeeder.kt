@@ -37,7 +37,7 @@ class DebugSeeder @Inject constructor(
         val today = time.today()
         val now = time.nowMillis()
 
-        val exercise = habitDao.insert(HabitEntity(title = "Exercise", iconKey = "run", proofType = ProofType.TIMER, targetValue = 30, unit = "min", sortOrder = 0, createdAt = now))
+        val exercise = habitDao.insert(HabitEntity(title = "Exercise", iconKey = "run", proofType = ProofType.MANUAL, targetValue = 30, unit = "min", sortOrder = 0, createdAt = now))
         val read = habitDao.insert(HabitEntity(title = "Read", iconKey = "book", proofType = ProofType.MANUAL, targetValue = 10, unit = "pages", sortOrder = 1, createdAt = now))
 
         // 13 finished days, one shielded miss on day 5, so the streak reads 12.

@@ -37,7 +37,6 @@ object HabitIcons {
 
 data class HabitTemplate(val title: String, val iconKey: String, val proofType: ProofType, val targetValue: Int, val unit: String) {
     val subtitle: String get() = when (proofType) {
-        ProofType.TIMER -> "$targetValue min"
         ProofType.MANUAL -> if (targetValue > 1) "$targetValue $unit" else unit
         ProofType.PHOTO -> "photo proof"
     }
@@ -45,10 +44,10 @@ data class HabitTemplate(val title: String, val iconKey: String, val proofType: 
 
 object HabitTemplates {
     val list = listOf(
-        HabitTemplate("Exercise", "run", ProofType.TIMER, 30, "min"),
+        HabitTemplate("Exercise", "run", ProofType.MANUAL, 30, "min"),
         HabitTemplate("Read", "book", ProofType.MANUAL, 10, "pages"),
-        HabitTemplate("Practice", "music", ProofType.TIMER, 20, "min"),
-        HabitTemplate("Study", "study", ProofType.TIMER, 45, "min"),
+        HabitTemplate("Practice", "music", ProofType.MANUAL, 20, "min"),
+        HabitTemplate("Study", "study", ProofType.MANUAL, 45, "min"),
         HabitTemplate("Tidy room", "tidy", ProofType.PHOTO, 1, "photo"),
         HabitTemplate("Sleep by 11", "sleep", ProofType.MANUAL, 1, "check-in"),
     )

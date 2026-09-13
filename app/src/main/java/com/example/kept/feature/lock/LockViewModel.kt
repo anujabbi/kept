@@ -36,10 +36,6 @@ data class LockUi(
     val breaksLeft: Int get() = lock?.breaksRemaining ?: 0
     val overCap: Boolean get() = lock?.nextBreakOverCap ?: false
     val breakMinutes: Int get() = lock?.settings?.breakDurationMin ?: 30
-    /** Minutes of timer left on the first unfinished timer habit, if any. */
-    val minutesToGo: Int?
-        get() = lock?.today?.habits?.firstOrNull { !it.isDone && it.habit.proofType == com.example.kept.core.domain.ProofType.TIMER }
-            ?.let { (it.habit.targetValue * 60 - it.progress + 59) / 60 }
 }
 
 @HiltViewModel

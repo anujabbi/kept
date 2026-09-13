@@ -23,7 +23,7 @@ app/src/main/java/com/example/kept/
   core/work       RolloverWorker, WatchdogWorker, reminder alarm, WorkScheduler
   core/notify     notification channels
   core/ui         theme tokens, components, Sprig canvas renderer, share card
-  feature/*       onboarding, home, timer, lock, recap, buddy, gallery, settings
+  feature/*       onboarding, home, lock, recap, buddy, gallery, settings
 ```
 
 ## Setup
@@ -100,9 +100,9 @@ Instrumented tests (need a running emulator):
 ./gradlew connectedDebugAndroidTest
 ```
 
-Six tests: onboarding completes and persists; home reflects seeded state; timer advances and
-awards the finish bonus; lock screen renders with habits remaining; break-lock countdown gates
-"Unlock anyway"; buddy empty state shows a code and pairing moves to the paired state.
+Five tests: onboarding completes and persists; home reflects seeded state; lock screen renders
+with habits remaining; break-lock countdown gates "Unlock anyway"; buddy empty state shows a code
+and pairing moves to the paired state.
 
 `scripts/verify.sh` drives the emulator end to end with adb (install, grant, seed, block Chrome,
 assert `LockActivity` is on top) and writes screenshots to `verification/`.

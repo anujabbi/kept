@@ -63,3 +63,13 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
   emergency packages are in the static allowlist and role holders are added at runtime.
 - **Room `fallbackToDestructiveMigration`** is on for v1 (schema version 1, exported to
   `app/schemas`). Replace with real migrations before shipping an update.
+
+## 2026-09-13
+
+- **Timers removed; every habit is an honour-system checkbox (issue #3).** The 5 Sep expert
+  review flagged the in-app timer as spoofable friction with no real proof value. Rather than
+  build tamper-resistant timing, we cut it: `ProofType` is now MANUAL or PHOTO only, and we rely
+  on the teen being honest with themselves when they tap "done". `TimerController`, the timer
+  screen, the timer notification/countdown copy, and the wizard-added `habit_completed` capture
+  inside `addTimerSeconds` are gone. Room schema version 2 (`MIGRATION_1_2`) converts existing
+  TIMER habit rows to MANUAL in place rather than dropping them.

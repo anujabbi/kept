@@ -60,7 +60,6 @@ import com.example.kept.feature.settings.ExceptionsScreen
 import com.example.kept.feature.settings.HabitsEditScreen
 import com.example.kept.feature.settings.PermissionsScreen
 import com.example.kept.feature.settings.SettingsScreen
-import com.example.kept.feature.timer.TimerScreen
 
 object Routes {
     const val ONBOARDING = "onboarding"
@@ -68,7 +67,6 @@ object Routes {
     const val GALLERY = "gallery"
     const val BUDDY = "buddy"
     const val SETTINGS = "settings"
-    const val TIMER = "timer/{habitId}"
     const val RECAP = "recap/{date}"
     const val EXCEPTIONS = "exceptions"
     const val HABITS = "habits"
@@ -76,7 +74,6 @@ object Routes {
     const val REVEAL = "reveal/{galleryId}"
     const val ROADMAP = "roadmap"
 
-    fun timer(habitId: Long) = "timer/$habitId"
     fun recap(date: String) = "recap/$date"
     fun reveal(id: Long) = "reveal/$id"
 }
@@ -101,7 +98,6 @@ fun KeptApp(startDestination: String, pendingRoute: String?, consumeRoute: () ->
     LaunchedEffect(pendingRoute) {
         val r = pendingRoute ?: return@LaunchedEffect
         when {
-            r.startsWith("timer/") -> nav.navigate(r) { launchSingleTop = true }
             r == "recap" -> nav.navigate(Routes.HOME) { popUpTo(Routes.HOME) { inclusive = true } }
             r == "buddy" -> nav.navigate(Routes.BUDDY) { launchSingleTop = true }
             r == "settings" -> nav.navigate(Routes.SETTINGS) { launchSingleTop = true }
@@ -119,7 +115,6 @@ fun KeptApp(startDestination: String, pendingRoute: String?, consumeRoute: () ->
                     }
                     composable(Routes.HOME) {
                         HomeScreen(
-                            onOpenTimer = { nav.navigate(Routes.timer(it)) },
                             onOpenRecap = { nav.navigate(Routes.recap(it)) },
                             onOpenReveal = { nav.navigate(Routes.reveal(it)) },
                             onOpenPermissions = { nav.navigate(Routes.PERMISSIONS) },
@@ -136,9 +131,6 @@ fun KeptApp(startDestination: String, pendingRoute: String?, consumeRoute: () ->
                             onOpenPermissions = { nav.navigate(Routes.PERMISSIONS) },
                             onOpenRecap = { nav.navigate(Routes.recap(it)) },
                         )
-                    }
-                    composable(Routes.TIMER, arguments = listOf(navArgument("habitId") { type = NavType.LongType })) {
-                        TimerScreen(habitId = it.arguments!!.getLong("habitId"), onBack = { nav.popBackStack() })
                     }
                     composable(Routes.RECAP, arguments = listOf(navArgument("date") { type = NavType.StringType })) {
                         RecapScreen(date = it.arguments!!.getString("date")!!, onClose = { nav.popBackStack() })

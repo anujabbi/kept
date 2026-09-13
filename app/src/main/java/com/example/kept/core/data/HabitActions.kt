@@ -18,13 +18,6 @@ class HabitActions @Inject constructor(
         return event
     }
 
-    suspend fun addTimerSeconds(habitId: Long, seconds: Int): HabitEvent? {
-        val event = habits.addTimerSeconds(habitId, seconds) ?: return null
-        PostHog.capture("habit_completed")
-        react(event)
-        return event
-    }
-
     suspend fun undo(habitId: Long): HabitEvent? {
         val event = habits.undo(habitId) ?: return null
         PostHog.capture("habit_completion_undone")

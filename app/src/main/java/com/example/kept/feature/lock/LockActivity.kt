@@ -53,7 +53,6 @@ class LockActivity : ComponentActivity() {
                     LockScreen(
                         state = s,
                         blockedLabel = blockedLabel,
-                        onDoHabit = { habitId -> openApp("timer/$habitId") },
                         onComplete = { vm.complete(it) },
                         onBreak = { breaking = true },
                         onEmergency = { dial() },

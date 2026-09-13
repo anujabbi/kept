@@ -2,7 +2,7 @@ package com.example.kept.core.domain
 
 import java.time.LocalDate
 
-enum class ProofType { TIMER, MANUAL, PHOTO }
+enum class ProofType { MANUAL, PHOTO }
 
 enum class SprigPose { IDLE, BLOCK, DROOP, CHEER, WAVE }
 
