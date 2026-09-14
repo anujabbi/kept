@@ -94,25 +94,35 @@ class WatchdogWorker @AssistedInject constructor(
 
         val now = time.nowMillis()
         val heartbeat = settings.lastServiceHeartbeat
-        val probeInput = GapRules.Input(
+        val base = GapRules.Input(
             lockShouldBeActive = shouldBeLocking,
-            heartbeatAgeMillis = now - heartbeat,
+            lockPermissionsGranted = permissions.lockPermissionsGranted(),
+            heartbeatMillis = heartbeat,
+            nowMillis = now,
             everHeartbeat = heartbeat > 0,
-            screenInteractiveDuringWindow = false,
+            screenInUseAtMillis = emptyList(),
             lockedAppResumedDuringWindow = false,
         )
-        // Only look at usage events once the heartbeat is actually stale: the query is not free and
-        // nothing else can turn into a gap.
-        val verdict = if (probeInput.stale && shouldBeLocking) {
+        // Only look at usage events once the heartbeat is actually stale during an enforceable
+        // window: the query is not free and nothing else can turn into a gap.
+        val verdict = if (base.stale && shouldBeLocking && base.lockPermissionsGranted) {
             val activity = probe.activityDuring(heartbeat, now, snapshot)
             GapRules.evaluate(
-                probeInput.copy(
-                    screenInteractiveDuringWindow = activity.screenInteractive,
+                base.copy(
+                    screenInUseAtMillis = activity.inUseAtMillis,
                     lockedAppResumedDuringWindow = activity.lockedAppResumed,
                 ),
             )
         } else {
-            GapRules.evaluate(probeInput)
+            GapRules.evaluate(base)
+        }
+
+        if (verdict == GapRules.Verdict.PERMISSION_MISSING) {
+            // The service is still running and records this gap itself from inside tick. A second
+            // overlapping record, and a restart of a service that never stopped, would both be
+            // wrong (issue #2).
+            notifications.protectionLost("A lock permission is off")
+            return Result.success()
         }
 
         if (verdict.serviceLooksDead) {
@@ -127,9 +137,6 @@ class WatchdogWorker @AssistedInject constructor(
             lockRepo.recordProtectionGap(heartbeat, now, verdict.reason)
             notifications.protectionLost(verdict.reason)
             PostHog.capture("protection_gap_recorded", properties = mapOf("reason" to verdict.name.lowercase()))
-        }
-        if (shouldBeLocking && !permissions.lockPermissionsGranted()) {
-            notifications.protectionLost("A lock permission is off")
         }
         return Result.success()
     }

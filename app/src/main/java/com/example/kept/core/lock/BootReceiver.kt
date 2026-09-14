@@ -35,8 +35,10 @@ class BootReceiver : BroadcastReceiver() {
             try {
                 val prefs = deps.prefs()
                 if (prefs.currentSettings().onboardingDone) {
-                    // Fresh heartbeat so the watchdog does not count the time the phone was off as a gap.
-                    prefs.heartbeat(System.currentTimeMillis())
+                    // No heartbeat write here either (issue #2). Only the service may claim the
+                    // lock is being enforced, and it writes one within a second of starting. The
+                    // time the phone was off cannot be mistaken for a gap on its own now: with no
+                    // evidence of the phone being used, a stale heartbeat is Doze, not a gap.
                     ForegroundWatcherService.start(context)
                     deps.scheduler().scheduleAll()
                 }

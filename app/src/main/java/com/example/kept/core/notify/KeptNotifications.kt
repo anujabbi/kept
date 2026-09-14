@@ -73,9 +73,11 @@ class KeptNotifications @Inject constructor(@ApplicationContext private val ctx:
             .setContentIntent(openApp(null))
             .build()
 
-    private fun post(id: Int, n: android.app.Notification) {
-        if (!canPost()) return
+    /** Returns false when the notification could not be posted (permission not granted). */
+    private fun post(id: Int, n: android.app.Notification): Boolean {
+        if (!canPost()) return false
         NotificationManagerCompat.from(ctx).notify(id, n)
+        return true
     }
 
     fun recap(summary: RolloverEngine.DaySummary, unlocks: List<RolloverEngine.Unlock>) {
@@ -109,7 +111,7 @@ class KeptNotifications @Inject constructor(@ApplicationContext private val ctx:
      * auto-cancel, so it stays until the lock is actually running again: tapping it opens KEPT,
      * which starts the service on resume.
      */
-    fun lockOff() = post(
+    fun lockOff(): Boolean = post(
         ID_LOCK_OFF,
         NotificationCompat.Builder(ctx, CH_REMINDER)
             .setSmallIcon(R.drawable.ic_stat_kept)

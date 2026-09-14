@@ -226,3 +226,30 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     but your N-day streak is safe.", Sprig no longer wilts for it, and the recap notification and
     the permissions screen were brought in line. No schema change: `day_records.unprotected` and
     `writtenOff` already carry everything the UI needs.
+  - **Only the service writes the heartbeat.** `AppViewModel.onResume` and `BootReceiver` used to
+    write one too. That defeated the point: opening KEPT with usage access revoked refreshed the
+    heartbeat and hid the stopped lock from the watchdog, and it moved the start of the stale
+    window so the evidence query looked at the wrong minutes. The boot write existed to stop the
+    hours the phone was off counting as a gap, which the new rules handle better — with no evidence
+    of use, a stale heartbeat is Doze, not a gap — and the service writes a heartbeat within a
+    second of starting anyway.
+  - **A wake in the last minute of the stale window is not evidence.** The watchdog usually runs
+    *because* the phone woke up, and that wake lands inside `[lastHeartbeat, now]`, so "screen was
+    on at some point" marked a quiet night unprotected. Use within `GapRules.WAKE_TAIL_MILLIS`
+    (60s) of the end of the window now yields `WOKE_AT_END_NOT_A_GAP`: restart the service, do not
+    blame the day. Only a locked-app resume can make the tail a gap. The rules take timestamps
+    rather than a flag so this stays decidable and testable.
+  - **Keyguard time and KEPT's own screens are not use.** `GapEvidence.fold` (pure, in
+    `core/domain`) turns the event window into use-timestamps and a locked-app-resume flag:
+    screen-on while the keyguard is up is not use (waking to check the time reaches nothing the
+    lock covers), and neither is time in KEPT itself (opening KEPT to turn the lock back on must
+    not be the thing that marks the day). A resume of a covered package still counts as a resume
+    whatever the screen was doing. Below API 28 no screen or keyguard events are delivered, so the
+    live `isInteractive`/`isKeyguardLocked` pair is stamped at the end of the window, which the
+    wake-tail rule then discards — on those versions a gap therefore needs a locked-app resume.
+  - **A missing lock permission is not the watchdog's gap to record.** With usage access off the
+    service's own `tick` already records the gap and shows the reason, while the watchdog saw a
+    stale heartbeat and wrote a second, overlapping `ProtectionGap` with "while you were using the
+    phone" copy, and restarted a service that had never stopped (reporting `success: true` every 15
+    minutes). `GapRules.Verdict.PERMISSION_MISSING` now short-circuits: the "A lock permission is
+    off" notification, no gap record, no restart, no events.

@@ -209,7 +209,7 @@ private fun SprigColumn(name: String, form: SprigForm, streak: Int, wilted: Bool
 private fun myDot(d: LocalDate, r: DayRecordEntity?, doneToday: Boolean): DayDot = when {
     d == LocalDate.now() -> if (doneToday) DayDot.DONE else DayDot.TODAY
     r == null -> DayDot.MISSED
-    r.unprotected -> DayDot.UNPROTECTED
+    r.unprotected && !r.writtenOff -> DayDot.UNPROTECTED
     r.countedForStreak -> DayDot.DONE
     r.shieldConsumed -> DayDot.SHIELDED
     else -> DayDot.MISSED

@@ -48,9 +48,13 @@ class ServiceRestarter @Inject constructor(
         return started
     }
 
-    /** Last resort: tell the user the lock is off and give them one tap to fix it. */
+    /**
+     * Last resort: tell the user the lock is off and give them one tap to fix it. The event only
+     * fires when a notification was actually posted — without the notifications permission there
+     * is nothing to show, and reporting one would overstate what the user saw.
+     */
     fun showLockOff() {
-        runCatching { notifications.lockOff() }
-        PostHog.capture("lock_off_notification_shown")
+        val shown = runCatching { notifications.lockOff() }.getOrDefault(false)
+        if (shown) PostHog.capture("lock_off_notification_shown")
     }
 }
