@@ -51,6 +51,7 @@ import androidx.navigation.navArgument
 import com.example.kept.core.FeatureFlags
 import com.example.kept.core.ui.KeptTheme
 import com.example.kept.feature.buddy.BuddyScreen
+import com.example.kept.feature.celebration.CelebrationHost
 import com.example.kept.feature.gallery.EvolutionRevealScreen
 import com.example.kept.feature.gallery.GalleryScreen
 import com.example.kept.feature.gallery.RoadmapScreen
@@ -151,6 +152,10 @@ fun KeptApp(startDestination: String, pendingRoute: String?, consumeRoute: () ->
                 BottomBar(nav, currentRoute)
             }
         }
+        // Above the nav graph and the bottom bar: the celebration is a full-screen moment, and it
+        // must be able to cover whichever tab is open when the day is finished (issue #9). Kept out
+        // of HomeScreen, which is long enough already.
+        if (currentRoute != Routes.ONBOARDING) CelebrationHost()
     }
 }
 

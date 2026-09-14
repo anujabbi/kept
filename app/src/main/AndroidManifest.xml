@@ -80,6 +80,11 @@
             android:name=".core.work.AlarmReceiver"
             android:exported="false" />
 
+        <!-- "Mark done" on a reminder. Not exported: only KEPT's own PendingIntents reach it. -->
+        <receiver
+            android:name=".core.work.NotificationActionReceiver"
+            android:exported="false" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.files"

@@ -16,7 +16,6 @@ import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import com.example.kept.core.data.HabitRepository
 import com.example.kept.core.data.LocalStubBuddyRepository
 import com.example.kept.core.data.LockRepository
 import com.example.kept.core.data.RolloverRunner
@@ -24,6 +23,8 @@ import com.example.kept.core.data.TimeSource
 import com.example.kept.core.data.prefs.KeptPreferences
 import com.example.kept.core.domain.GapRules
 import com.example.kept.core.domain.LockPolicy
+import com.example.kept.core.domain.ReminderKind
+import com.example.kept.core.domain.ReminderLadder
 import com.example.kept.core.lock.ForegroundWatcherService
 import com.example.kept.core.lock.Permissions
 import com.example.kept.core.lock.RestartMethod
@@ -42,7 +43,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.time.Duration
-import java.time.Instant
 import java.time.LocalTime
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -166,34 +166,34 @@ class ServiceRestartWorker @AssistedInject constructor(
     }
 }
 
+/**
+ * Fires one rung of the reminder ladder (issue #9). Three alarms exist, one per [ReminderKind],
+ * each carrying its kind and each re-armed for its next occurrence after it fires.
+ */
 class AlarmReceiver : BroadcastReceiver() {
+
+    companion object {
+        const val EXTRA_KIND = "reminder_kind"
+    }
 
     @EntryPoint
     @InstallIn(SingletonComponent::class)
     interface Deps {
-        fun habits(): HabitRepository
-        fun prefs(): KeptPreferences
-        fun notifications(): KeptNotifications
+        fun poster(): ReminderPoster
         fun scheduler(): WorkScheduler
     }
 
     override fun onReceive(context: Context, intent: Intent) {
         val deps = runCatching { EntryPointAccessors.fromApplication(context.applicationContext, Deps::class.java) }.getOrNull() ?: return
+        val kind = ReminderKind.entries.firstOrNull { it.eventValue == intent.getStringExtra(EXTRA_KIND) }
+            ?: ReminderKind.BEFORE_DUE
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val settings = deps.prefs().currentSettings()
-                if (settings.onboardingDone && settings.remindersEnabled) {
-                    val today = deps.habits().today()
-                    if (!today.allDone && today.total > 0) {
-                        val streak = deps.prefs().currentSprig().streakDays
-                        val left = today.remaining
-                        val title = "2 hours left. ${if (streak > 0) "$streak-day streak on the line." else "Sprig is waiting."}"
-                        val body = "$left habit${if (left == 1) "" else "s"} to go. Apps stay locked until then."
-                        deps.notifications().reminder(title, body)
-                    }
+                if (deps.poster().post(kind)) {
+                    PostHog.capture("reminder_fired", properties = mapOf("kind" to kind.eventValue))
                 }
-                deps.scheduler().scheduleReminder()
+                deps.scheduler().scheduleReminders()
             } finally {
                 pending.finish()
             }
@@ -212,7 +212,7 @@ class WorkScheduler @Inject constructor(
     fun scheduleAll() {
         scheduleWatchdog()
         scheduleNextRollover()
-        CoroutineScope(Dispatchers.IO).launch { scheduleReminder() }
+        CoroutineScope(Dispatchers.IO).launch { scheduleReminders() }
     }
 
     fun scheduleWatchdog() {
@@ -242,23 +242,39 @@ class WorkScheduler @Inject constructor(
         wm?.enqueueUniqueWork("kept_rollover", ExistingWorkPolicy.REPLACE, req)
     }
 
-    /** Exact-ish alarm at due - 2h. Re-scheduled after each firing. */
-    suspend fun scheduleReminder() {
+    /**
+     * Arms the three reminder alarms (issue #9). Each is set to its next occurrence — today's if it
+     * is still ahead, otherwise tomorrow's — so a rung whose time has already passed is simply
+     * skipped for today. A rung the window has no room for is cancelled rather than left armed.
+     */
+    suspend fun scheduleReminders() {
         val s = prefs.currentSettings()
         val am = ctx.getSystemService(AlarmManager::class.java)
-        val pi = PendingIntent.getBroadcast(
-            ctx, 100, Intent(ctx, AlarmReceiver::class.java),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-        am.cancel(pi)
-        if (!s.onboardingDone || !s.remindersEnabled) return
-        val minute = (s.dueMinute - 120).coerceAtLeast(s.lockFromMinute + 30)
-        var at: Instant = time.instantAt(time.today(), minute)
-        if (!at.isAfter(time.now())) at = time.instantAt(time.today().plusDays(1), minute)
         val canExact = Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms()
-        runCatching {
-            if (canExact) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at.toEpochMilli(), pi)
-            else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at.toEpochMilli(), pi)
+        val now = time.now()
+        ReminderKind.entries.forEach { kind ->
+            val pi = reminderIntent(kind)
+            am.cancel(pi)
+            if (!s.onboardingDone || !s.remindersEnabled) return@forEach
+            val step = ReminderLadder.nextFiring(kind, now, time.today(), s.lockFromMinute, s.dueMinute, time.zone())
+                ?: return@forEach
+            val at = step.at.toEpochMilli()
+            runCatching {
+                if (canExact) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
+                else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
+            }
         }
+    }
+
+    /** One PendingIntent per rung: same receiver, distinct request codes so they never replace one another. */
+    private fun reminderIntent(kind: ReminderKind): PendingIntent = PendingIntent.getBroadcast(
+        ctx,
+        REMINDER_REQUEST_BASE + kind.ordinal,
+        Intent(ctx, AlarmReceiver::class.java).putExtra(AlarmReceiver.EXTRA_KIND, kind.eventValue),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
+
+    private companion object {
+        const val REMINDER_REQUEST_BASE = 100
     }
 }

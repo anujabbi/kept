@@ -253,3 +253,61 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     phone" copy, and restarted a service that had never stopped (reporting `success: true` every 15
     minutes). `GapRules.Verdict.PERMISSION_MISSING` now short-circuits: the "A lock permission is
     off" notification, no gap record, no restart, no events.
+- **Finishing the day is a full-screen moment, and the ladder that leads to it has three rungs
+  (issue #9).** The 5 Sep review said the reward for keeping a promise was a barely visible Sprig
+  bounce, and that the single "2 hours left" nudge was both hardcoded and unactionable.
+  - **The celebration lives above the nav graph, not inside Home.** `CelebrationHost` is rendered
+    in `KeptApp` on top of the `NavHost` and the bottom bar, so it can cover whichever tab is open
+    and `HomeScreen` (already ~350 lines and flagged as tangled) does not grow. It bounces Sprig in
+    the CHEER pose with a spring, throws a hand-drawn confetti burst (ninety rectangles on a
+    `Canvas` — not worth a library), buzzes twice, shows a "Promise kept." card listing the day's
+    habit titles, and holds ~2.6 s before dismissing itself; a tap anywhere leaves early.
+  - **The trigger is stored, not signalled.** `Settings.celebrationPendingDate` is written by
+    `HabitActions` when the last habit is ticked before the give-up time. An in-memory event would
+    be lost exactly when it matters most — the day can be finished from a notification button with
+    no UI alive — so the moment waits in DataStore for the next open. Only *today's* pending
+    celebration shows: a leftover from yesterday is stale, and the recap is the right screen for
+    that day. An undo clears it.
+  - **Not in the foreground means a notification instead.** `AppForeground` (an `AtomicBoolean`
+    written by `MainActivity.onResume`/`onPause` — `lifecycle-process` is not a dependency and this
+    needs one bit) decides. When nothing of KEPT is on screen, "All habits done / Apps are open.
+    Promise kept." — the wording the lock service's own notification already uses — is posted and
+    the full-screen moment is held back rather than fired at a black screen.
+  - **Reminder times are computed from the resolved give-up instant.** The old scheduler used
+    `(dueMinute - 120).coerceAtLeast(lockFromMinute + 30)`, minute-of-day arithmetic that on a
+    window wrapping midnight (22:00 → 06:00) resolves to 22:30: thirty minutes into an eight-hour
+    window, claiming to be two hours from a deadline seven and a half hours away. `ReminderLadder`
+    (in `core/domain/Reminders.kt`) works in `Instant`s off `GiveUpTime.instantFor`, so the rungs
+    land at 22:00, 04:00 and 05:30 as intended. The floor of `lockFrom + 30 min` is kept for genuinely
+    short windows, a rung at or after the give-up moment is dropped, and a rung that would collide
+    with the one before it is dropped rather than fired twice in the same second — so a 20-minute
+    window gets the morning nudge only.
+  - **Three rungs, each its own alarm.** `MORNING` at the lock-window start ("2 things today"),
+    `BEFORE_DUE`, and `LAST_CALL` at due − 30 min, on request codes 100 + ordinal so they never
+    replace one another. Each is armed for its next occurrence — today's if still ahead, otherwise
+    tomorrow's — which is how "skip a reminder whose time has already passed" falls out without a
+    special case. A rung the window has no room for is cancelled, not left armed from an older
+    setting. Nothing is posted when every habit is already done, when there are none, or once the
+    give-up time has passed: a reminder's whole content is the time still left.
+  - **The copy is phrased from the real delta.** `ReminderCopy.duration` renders "30 minutes",
+    "2 hours", "1h 45m"; a one-hour window's middle rung therefore says "30 minutes left", not the
+    "2 hours left" it used to say to everyone. The remaining minutes are measured at firing time
+    against `ReminderLadder.deadlineAhead`, not against the planned step, so an alarm delayed by
+    Doze tells the truth.
+  - **"Mark done" works with no app process.** `NotificationActionReceiver` is a plain
+    `BroadcastReceiver` with a Hilt entry point, the pattern `AlarmReceiver` already uses: the
+    system starts the process, Hilt builds the graph, `HabitActions.complete` runs. It is
+    idempotent for free — `HabitRepository.markDone` returns null for a habit already ticked — so a
+    second tap on a button the shade has not redrawn completes once, fires one event and grants one
+    level. After the tick the reminder is redrawn with `setOnlyAlertOnce`, losing the habit that was
+    just done, or cancelled if that was the last one.
+  - **A fourth habit costs its button.** Android draws at most three notification actions, so
+    `ReminderActions.plan` gives each remaining habit a "Mark done" up to three, and past that keeps
+    the first two and spends the third slot on "Open KEPT". That one is an activity `PendingIntent`,
+    not a broadcast, because Android 12 forbids a notification action from starting an activity
+    through a receiver; its `reminder_action_tapped` is therefore captured in `MainActivity`.
+  - **PostHog:** `day_completed` (`habit_count`, `minutes_before_due`), `reminder_fired` (`kind`),
+    `reminder_action_tapped` (`kind`, `action` = `mark_done` | `open_app`), and `habit_completed`
+    gains `source` (`app` | `notification`). `reminder_fired` is captured only when a notification
+    was actually posted, so a rung skipped because the day was already done is not reported as
+    shown.

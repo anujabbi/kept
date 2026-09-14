@@ -13,7 +13,9 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.example.kept.MainActivity
 import com.example.kept.R
+import com.example.kept.core.domain.ReminderKind
 import com.example.kept.core.domain.RolloverEngine
+import com.example.kept.core.work.NotificationActionReceiver
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -33,8 +35,19 @@ class KeptNotifications @Inject constructor(@ApplicationContext private val ctx:
         const val ID_PROTECTION = 5
         const val ID_LOCK_OFF = 6
         const val ID_RESTART = 7
+        const val ID_DAY_DONE = 8
         const val EXTRA_ROUTE = "route"
+
+        /** Set on the MainActivity intent behind the "Open KEPT" reminder action (issue #9). */
+        const val EXTRA_REMINDER_KIND = "reminder_kind"
+
+        /** Request-code bases, kept apart so one action's PendingIntent never replaces another's. */
+        private const val REQ_MARK_DONE = 1_000
+        private const val REQ_OPEN_FROM_REMINDER = 900
     }
+
+    /** One "Mark done" button on a reminder. */
+    data class MarkDoneAction(val habitId: Long, val label: String)
 
     init { createChannels() }
 
@@ -95,7 +108,58 @@ class KeptNotifications @Inject constructor(@ApplicationContext private val ctx:
 
     fun buddy(title: String, body: String) = post(ID_BUDDY, base(CH_BUDDY, title, body, "buddy").build())
 
-    fun reminder(title: String, body: String) = post(ID_REMINDER, base(CH_REMINDER, title, body, "home").build())
+    /**
+     * A rung of the reminder ladder (issue #9). Each remaining habit carries a "Mark done" action
+     * that completes it without opening KEPT; past three habits the last slot becomes "Open KEPT",
+     * because Android draws no more than three actions.
+     */
+    fun reminder(
+        kind: ReminderKind,
+        title: String,
+        body: String,
+        actions: List<MarkDoneAction> = emptyList(),
+        openApp: Boolean = false,
+        /** True for a redraw after a habit was ticked from the buttons: update, do not buzz again. */
+        alertOnce: Boolean = false,
+    ): Boolean {
+        val b = base(CH_REMINDER, title, body, "home").setOnlyAlertOnce(alertOnce)
+        actions.forEach { a ->
+            val i = Intent(ctx, NotificationActionReceiver::class.java).apply {
+                action = NotificationActionReceiver.ACTION_MARK_DONE
+                putExtra(NotificationActionReceiver.EXTRA_HABIT_ID, a.habitId)
+                putExtra(EXTRA_REMINDER_KIND, kind.eventValue)
+            }
+            val pi = PendingIntent.getBroadcast(
+                ctx, REQ_MARK_DONE + a.habitId.toInt(), i,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            b.addAction(R.drawable.ic_stat_kept, a.label, pi)
+        }
+        if (openApp) {
+            // An activity PendingIntent, not a broadcast: Android 12 forbids a notification action
+            // from starting an activity via a receiver. The event is captured in MainActivity.
+            val i = Intent(ctx, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                putExtra(EXTRA_ROUTE, "home")
+                putExtra(EXTRA_REMINDER_KIND, kind.eventValue)
+            }
+            val pi = PendingIntent.getActivity(
+                ctx, REQ_OPEN_FROM_REMINDER + kind.ordinal, i,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            b.addAction(R.drawable.ic_stat_kept, "Open KEPT", pi)
+        }
+        return post(ID_REMINDER, b.build())
+    }
+
+    fun clearReminder() = NotificationManagerCompat.from(ctx).cancel(ID_REMINDER)
+
+    /**
+     * The day was finished with nothing of KEPT on screen (issue #9), so the celebration cannot be
+     * shown. This says the one thing that matters; the full-screen moment waits for the next open.
+     */
+    fun dayComplete(): Boolean =
+        post(ID_DAY_DONE, base(CH_RECAP, "All habits done", "Apps are open. Promise kept.", "home").build())
 
     /**
      * The day could not be protected. Distinct from [lockOff], which is about the service being

@@ -146,7 +146,7 @@ class SettingsViewModel @Inject constructor(
 
     fun setLockWindow(from: Int, due: Int) = viewModelScope.launch {
         prefs.updateSettings { it.copy(lockFromMinute = from, dueMinute = due) }
-        scheduler.scheduleReminder()
+        scheduler.scheduleReminders()
     }
 
     /** Moving the give-up time or lock start opens apps early during an active lock (issue #1). */
@@ -156,7 +156,7 @@ class SettingsViewModel @Inject constructor(
     ) { setLockWindow(from, due) }
 
     fun setBreakDuration(min: Int) = viewModelScope.launch { prefs.updateSettings { it.copy(breakDurationMin = min) } }
-    fun setReminders(on: Boolean) = viewModelScope.launch { prefs.updateSettings { it.copy(remindersEnabled = on) }; scheduler.scheduleReminder() }
+    fun setReminders(on: Boolean) = viewModelScope.launch { prefs.updateSettings { it.copy(remindersEnabled = on) }; scheduler.scheduleReminders() }
 
     fun addHabit(title: String, iconKey: String, proof: ProofType, target: Int, unit: String) = viewModelScope.launch {
         habitsRepo.addHabit(title, iconKey, proof, target, unit)

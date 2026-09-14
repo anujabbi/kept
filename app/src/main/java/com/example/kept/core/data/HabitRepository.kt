@@ -59,8 +59,18 @@ data class TodaySummary(val habits: List<HabitToday>) {
 
 /** Habit completion transitions that other layers react to. */
 sealed interface HabitEvent {
-    /** [beforeDue] is false when the tick landed after the give-up time, so it counts for nothing. */
-    data class Completed(val habit: HabitEntity, val allDoneNow: Boolean, val beforeDue: Boolean) : HabitEvent
+    /**
+     * [beforeDue] is false when the tick landed after the give-up time, so it counts for nothing.
+     * [habitCount] and [minutesBeforeDue] describe the day this tick landed in; they feed the
+     * `day_completed` event when the tick was the last one (issue #9).
+     */
+    data class Completed(
+        val habit: HabitEntity,
+        val allDoneNow: Boolean,
+        val beforeDue: Boolean,
+        val habitCount: Int = 0,
+        val minutesBeforeDue: Int = 0,
+    ) : HabitEvent
     data class Undone(val habit: HabitEntity) : HabitEvent
 }
 
@@ -131,7 +141,14 @@ class HabitRepository @Inject constructor(
         syncCounts(date, summary)
         // Time only moves forward within a day, so "this tick was on time and everything is now
         // ticked" is the same thing as "the whole day was done on time".
-        return HabitEvent.Completed(habit, summary.allDone, beforeDue = now < dueMillis(time.today(), prefs.currentSettings()))
+        val due = dueMillis(time.today(), prefs.currentSettings())
+        return HabitEvent.Completed(
+            habit,
+            summary.allDone,
+            beforeDue = now < due,
+            habitCount = summary.total,
+            minutesBeforeDue = ((due - now) / 60_000L).coerceAtLeast(0L).toInt(),
+        )
     }
 
     suspend fun undo(habitId: Long): HabitEvent.Undone? {

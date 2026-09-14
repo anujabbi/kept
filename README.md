@@ -66,6 +66,15 @@ adb shell am start -n com.example.kept/.MainActivity --ez seed true
 
 Launching without the flag goes through onboarding like a fresh install.
 
+To watch the reminder ladder without waiting for the real window, move it with the debug extras
+(minutes of day) and relaunch so the alarms are re-armed; `adb shell dumpsys alarm | grep -A3
+AlarmReceiver` shows the three rungs:
+
+```
+adb shell am start -n com.example.kept/.MainActivity --ei lock_from 960 --ei due 1078
+adb shell am start -n com.example.kept/.MainActivity
+```
+
 ## Verifying the lock end to end
 
 With usage access granted and onboarding finished (or seeded), open any launchable app that is not
@@ -93,7 +102,9 @@ Covers level up/down/floor, streak increment, shield consumption and Monday refi
 over a rolling 7-day window, rollover across a year boundary and multi-day gaps, evolution
 thresholds and weekly variant determinism, lock policy (window, wrap-around, break suspension),
 the allowlist (the dialer can never be locked), gap detection (a heartbeat that went stale in Doze
-is not a protection gap), and hollow days (a day the lock was off costs neither streak nor shield).
+is not a protection gap), hollow days (a day the lock was off costs neither streak nor shield), and
+the reminder ladder (when each of the three rungs fires, including windows that wrap midnight, and
+the copy each one shows).
 
 Instrumented tests (need a running emulator):
 
