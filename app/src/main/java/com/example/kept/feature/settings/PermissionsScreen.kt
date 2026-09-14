@@ -37,7 +37,6 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import com.example.kept.core.analytics.Analytics
 import com.example.kept.core.lock.PermissionKind
 import com.example.kept.core.lock.Permissions
 import com.example.kept.core.ui.KeptCard
@@ -72,7 +71,8 @@ fun rememberPermissionStates(perms: Permissions, kinds: List<PermissionKind>): M
 fun PermissionCards(
     perms: Permissions,
     kinds: List<PermissionKind>,
-    analytics: Analytics,
+    /** Called once per Grant tap, with the answer the user gave (issue #10). */
+    onAnswer: (PermissionKind, Boolean) -> Unit,
     onChange: (Map<PermissionKind, Boolean>) -> Unit = {},
 ) {
     val ctx = LocalContext.current
@@ -85,10 +85,7 @@ fun PermissionCards(
         states = kinds.associateWith { perms.granted(it) }
         asked?.let { kind ->
             asked = null
-            analytics.capture(
-                if (states[kind] == true) "permission_granted" else "permission_denied",
-                mapOf("permission" to kind.eventValue),
-            )
+            onAnswer(kind, states[kind] == true)
         }
         onChange(states)
     }
@@ -154,7 +151,7 @@ fun PermissionsScreen(onBack: () -> Unit, vm: SettingsViewModel = androidx.hilt.
         Spacer(Modifier.height(4.dp))
         Text("The lock only works while these stay on. If usage access is turned off during a lock window, that day shows as hollow: it doesn't count, but it won't break your streak.", style = MaterialTheme.typography.bodySmall, color = c.textSecondary)
         Spacer(Modifier.height(16.dp))
-        PermissionCards(vm.permissions, PermissionKind.entries, vm.analytics)
+        PermissionCards(vm.permissions, PermissionKind.entries, vm::reportPermissionAnswer)
         Spacer(Modifier.height(24.dp))
     }
 }

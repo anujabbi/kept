@@ -3,6 +3,7 @@ package com.example.kept.feature.lock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.kept.core.analytics.Analytics
+import com.example.kept.core.analytics.Screens
 import com.example.kept.core.data.HabitActions
 import com.example.kept.core.data.LockRepository
 import com.example.kept.core.data.LockState
@@ -61,7 +62,7 @@ class LockViewModel @Inject constructor(
     private val actions: HabitActions,
     private val time: TimeSource,
     @ApplicationScope private val appScope: CoroutineScope,
-    val analytics: Analytics,
+    private val analytics: Analytics,
 ) : ViewModel() {
 
     private val blockedPackage = MutableStateFlow<String?>(null)
@@ -88,6 +89,19 @@ class LockViewModel @Inject constructor(
      * level grant and the celebration flag were written only sometimes.
      */
     fun complete(habitId: Long) = appScope.launch { actions.complete(habitId) }
+
+    /**
+     * `LockActivity` is its own surface: no NavController reaches it, so the two screens it can
+     * show report themselves through these (issue #10).
+     */
+    fun reportLockScreenViewed() = analytics.screen(Screens.LOCK)
+
+    fun reportBreakScreenOpened() {
+        analytics.capture("lock_break_started")
+        analytics.screen(Screens.BREAK)
+    }
+
+    fun reportBreakCancelled() = analytics.capture("lock_break_cancelled")
 
     /** [secondsWaited] is how long the break screen was held open before the unlock was confirmed. */
     fun breakLock(secondsWaited: Int, then: () -> Unit) = viewModelScope.launch {

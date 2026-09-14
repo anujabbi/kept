@@ -105,7 +105,7 @@ class OnboardingViewModel @Inject constructor(
     private val scheduler: WorkScheduler,
     private val time: TimeSource,
     val permissions: Permissions,
-    val analytics: Analytics,
+    private val analytics: Analytics,
 ) : ViewModel() {
     private val _state = MutableStateFlow(OnboardingState())
     val state: StateFlow<OnboardingState> = _state
@@ -119,6 +119,22 @@ class OnboardingViewModel @Inject constructor(
     fun setBreak(min: Int) = _state.update { it.copy(breakMin = min) }
     fun next() = _state.update { it.copy(step = it.step + 1) }
     fun back() = _state.update { it.copy(step = (it.step - 1).coerceAtLeast(0)) }
+
+    /**
+     * Onboarding is one nav destination but five screens to the person walking it, so the step —
+     * not the route — is what a funnel needs (issue #10). Steps are numbered as the header shows
+     * them, from 1.
+     */
+    fun reportStepViewed(step: Int) {
+        analytics.screen(Screens.ONBOARDING, mapOf("onboarding_step" to step))
+        analytics.capture("onboarding_step_viewed", mapOf("step" to step))
+    }
+
+    /** One Grant tap, answered (issue #10). */
+    fun reportPermissionAnswer(kind: PermissionKind, granted: Boolean) = analytics.capture(
+        if (granted) "permission_granted" else "permission_denied",
+        mapOf("permission" to kind.eventValue),
+    )
 
     /** Persists habits and settings when leaving step 1 so the exceptions/permission steps can already use them. */
     fun persistDraft() = viewModelScope.launch {
@@ -145,14 +161,7 @@ fun OnboardingScreen(onDone: () -> Unit, vm: OnboardingViewModel = hiltViewModel
     val s by vm.state.collectAsStateWithLifecycle()
     val c = KeptTheme.colors
 
-    // Onboarding is one nav destination but five screens to the person walking it, so the step —
-    // not the route — is what a funnel needs (issue #10). Steps are numbered as the header shows
-    // them, from 1.
-    androidx.compose.runtime.LaunchedEffect(s.step) {
-        val step = s.step + 1
-        vm.analytics.screen(Screens.ONBOARDING, mapOf("onboarding_step" to step))
-        vm.analytics.capture("onboarding_step_viewed", mapOf("step" to step))
-    }
+    androidx.compose.runtime.LaunchedEffect(s.step) { vm.reportStepViewed(s.step + 1) }
     Column(Modifier.fillMaxSize().background(c.surface1).statusBarsPadding().navigationBarsPadding()) {
         // Header: back + progress + counter
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -295,7 +304,7 @@ private fun StepPermissions(s: OnboardingState, vm: OnboardingViewModel) {
         Spacer(Modifier.height(8.dp))
         ScreenTitle("Let KEPT do its job", "The lock needs to see which app is in front, and to step in front of it. KEPT never stores or shares what you use.")
         Spacer(Modifier.height(18.dp))
-        PermissionCards(vm.permissions, kinds, vm.analytics) { states = it }
+        PermissionCards(vm.permissions, kinds, vm::reportPermissionAnswer) { states = it }
         Spacer(Modifier.height(20.dp))
         PrimaryButton(if (requiredOk) "Continue" else "Continue without the lock", onClick = vm::next, modifier = Modifier.testTag("onboarding_next"))
         if (!requiredOk) {

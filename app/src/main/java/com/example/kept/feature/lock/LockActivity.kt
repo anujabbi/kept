@@ -16,7 +16,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.kept.MainActivity
-import com.example.kept.core.analytics.Screens
 import com.example.kept.core.ui.KeptTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -43,15 +42,13 @@ class LockActivity : ComponentActivity() {
             // a minute, so this says how much longer than that the user sat with it (issue #10).
             fun secondsWaited() = ((SystemClock.elapsedRealtime() - breakStartedAt) / 1000L).toInt()
 
-            // This activity is its own surface: no NavController reaches it, so the two screens it
-            // can show report themselves (issue #10).
+            // This activity is its own surface, so the screens it shows report themselves.
             LaunchedEffect(breaking) {
                 if (breaking) {
                     breakStartedAt = SystemClock.elapsedRealtime()
-                    vm.analytics.capture("lock_break_started")
-                    vm.analytics.screen(Screens.BREAK)
+                    vm.reportBreakScreenOpened()
                 } else {
-                    vm.analytics.screen(Screens.LOCK)
+                    vm.reportLockScreenViewed()
                 }
             }
 
@@ -64,7 +61,7 @@ class LockActivity : ComponentActivity() {
             }
 
             val cancelBreak = {
-                vm.analytics.capture("lock_break_cancelled")
+                vm.reportBreakCancelled()
                 breaking = false
             }
 

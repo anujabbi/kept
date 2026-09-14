@@ -49,7 +49,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.kept.core.domain.SprigPose
-import com.example.kept.core.analytics.Screens
 import com.example.kept.core.ui.KeptTheme
 import com.example.kept.core.ui.sprig.SprigView
 import kotlinx.coroutines.delay
@@ -72,9 +71,7 @@ fun CelebrationHost(vm: CelebrationViewModel = hiltViewModel()) {
     LaunchedEffect(s.visible) {
         if (s.visible) {
             showing = true
-            // A full-screen moment over whatever tab is open, so it is a screen in its own right
-            // even though it is not a nav destination (issue #10).
-            vm.analytics.screen(Screens.CELEBRATION)
+            vm.reportShown()
             vm.consume()
         }
     }

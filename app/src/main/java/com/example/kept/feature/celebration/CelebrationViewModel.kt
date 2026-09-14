@@ -3,6 +3,7 @@ package com.example.kept.feature.celebration
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.kept.core.analytics.Analytics
+import com.example.kept.core.analytics.Screens
 import com.example.kept.core.data.HabitRepository
 import com.example.kept.core.data.SprigRepository
 import com.example.kept.core.data.TimeSource
@@ -40,7 +41,7 @@ class CelebrationViewModel @Inject constructor(
     private val habits: HabitRepository,
     private val sprig: SprigRepository,
     private val time: TimeSource,
-    val analytics: Analytics,
+    private val analytics: Analytics,
 ) : ViewModel() {
 
     val state: StateFlow<CelebrationUiState> =
@@ -56,6 +57,12 @@ class CelebrationViewModel @Inject constructor(
                 streakDays = sprigState.streakDays,
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CelebrationUiState())
+
+    /**
+     * A full-screen moment over whatever tab is open, so it is a screen in its own right even
+     * though it is not a nav destination (issue #10).
+     */
+    fun reportShown() = analytics.screen(Screens.CELEBRATION)
 
     /** Marks today's celebration as shown. Called as the moment opens, not when it closes. */
     fun consume() = viewModelScope.launch {

@@ -17,12 +17,33 @@ class AnalyticsGateTest {
 
     private class Recorder : GatedAnalytics() {
         val sent = mutableListOf<String>()
+
+        /** Stands in for the SDK's persisted super properties, which outlive an opt-out. */
+        val superProperties = mutableMapOf<String, Any>()
+
         override fun sendCapture(event: String, properties: Map<String, Any>) { sent += "capture:$event" }
         override fun sendScreen(name: String, properties: Map<String, Any>) { sent += "screen:$name" }
-        override fun sendRegister(key: String, value: Any) { sent += "register:$key=$value" }
+        override fun sendRegister(key: String, value: Any) {
+            sent += "register:$key=$value"
+            superProperties[key] = value
+        }
         override fun sendOptOut() { sent += "optOut" }
         override fun sendOptIn() { sent += "optIn" }
     }
+
+    /** What `AnalyticsInitializer` registers, in the order it registers them. */
+    private fun Recorder.registerAllSuperProperties(streak: Int = 7) {
+        register("app_version", "1.0")
+        register("android_sdk", 35)
+        register("manufacturer", "Google")
+        register("habit_count", 2)
+        register("streak", streak)
+    }
+
+    private fun allSuperProperties(streak: Int = 7) = mapOf<String, Any>(
+        "app_version" to "1.0", "android_sdk" to 35, "manufacturer" to "Google",
+        "habit_count" to 2, "streak" to streak,
+    )
 
     @Test fun on_by_default_everything_reaches_the_sdk() {
         val a = Recorder()
@@ -40,14 +61,45 @@ class AnalyticsGateTest {
         assertFalse(a.enabled)
     }
 
-    @Test fun nothing_is_sent_while_opted_out() {
+    @Test fun nothing_is_reported_while_opted_out() {
         val a = Recorder()
         a.setEnabled(false)
         a.sent.clear()
         a.capture("habit_completed")
         a.screen("Home")
-        a.register("streak", 3)
         assertEquals(emptyList<String>(), a.sent)
+    }
+
+    /**
+     * A super property is bookkeeping, not a report: it travels with future events and sends
+     * nothing by itself. Dropping it while muted lost every one of them for a user who opted out
+     * and back in, because the sources behind them are `distinctUntilChanged` and never re-emit.
+     */
+    @Test fun super_properties_survive_an_opt_out_and_opt_in_cycle() {
+        val a = Recorder()
+        a.registerAllSuperProperties(streak = 1)
+        a.setEnabled(false)
+
+        // The streak moved while the user was opted out. Its source is distinctUntilChanged, so
+        // this is the only emission there will ever be for the value 7.
+        a.register("streak", 7)
+
+        a.setEnabled(true)
+        assertEquals(allSuperProperties(streak = 7), a.superProperties)
+    }
+
+    /** A user who launches already opted out, then changes their mind, is not left with none. */
+    @Test fun super_properties_registered_while_opted_out_are_there_after_opting_in() {
+        val a = Recorder()
+        a.restore(false)
+        a.registerAllSuperProperties()
+        assertEquals(allSuperProperties(), a.superProperties)
+
+        a.setEnabled(true)
+        a.sent.clear()
+        a.capture("habit_completed")
+        assertEquals(listOf("capture:habit_completed"), a.sent)
+        assertEquals(allSuperProperties(), a.superProperties)
     }
 
     @Test fun opting_back_in_unmutes_the_sdk_before_reporting_itself() {

@@ -21,6 +21,7 @@ import com.example.kept.core.lock.AllowlistResolver
 import com.example.kept.core.lock.ForegroundWatcherService
 import com.example.kept.core.lock.InstalledApp
 import com.example.kept.core.lock.InstalledAppsSource
+import com.example.kept.core.lock.PermissionKind
 import com.example.kept.core.lock.Permissions
 import com.example.kept.core.notify.ReminderPoster
 import com.example.kept.core.work.WorkScheduler
@@ -80,7 +81,7 @@ class SettingsViewModel @Inject constructor(
     private val reminders: ReminderPoster,
     private val time: TimeSource,
     val permissions: Permissions,
-    val analytics: Analytics,
+    private val analytics: Analytics,
 ) : ViewModel() {
 
     val state: StateFlow<SettingsUi> = combine(
@@ -204,6 +205,12 @@ class SettingsViewModel @Inject constructor(
     fun cancelPendingLockChange() {
         _pendingLockChange.value = null
     }
+
+    /** One Grant tap, answered (issue #10). */
+    fun reportPermissionAnswer(kind: PermissionKind, granted: Boolean) = analytics.capture(
+        if (granted) "permission_granted" else "permission_denied",
+        mapOf("permission" to kind.eventValue),
+    )
 
     /**
      * "Send anonymous usage data" (issue #10). The preference is stored first so the switch and the

@@ -20,7 +20,14 @@ interface Analytics {
     /** A `$screen` view. [name] becomes `$screen_name`. */
     fun screen(name: String, properties: Map<String, Any> = emptyMap())
 
-    /** A super property: sent with every event from here on, and persisted across sessions. */
+    /**
+     * A super property: sent with every event from here on, and persisted across sessions.
+     *
+     * Not gated by [enabled]. Registering reports nothing by itself, and the values behind these
+     * come from `distinctUntilChanged` flows that will not emit again — dropping one while the
+     * user is opted out would lose it for the rest of the process, so a user who opted out and
+     * back in would send events with no super properties at all.
+     */
     fun register(key: String, value: Any)
 
     /**
@@ -44,6 +51,14 @@ abstract class GatedAnalytics : Analytics {
 
     @Volatile private var on = true
 
+    /**
+     * Guards every flip of [on]. `setEnabled` and `restore` both read the flag and then act on it,
+     * and they can race: the initializer restores the stored preference on the application scope
+     * while the user is already tapping the Settings switch. Unsynchronized, the two could
+     * interleave their `sendOptIn`/`sendOptOut` calls and leave the SDK disagreeing with the flag.
+     */
+    private val gate = Any()
+
     final override val enabled: Boolean get() = on
 
     final override fun capture(event: String, properties: Map<String, Any>) {
@@ -56,17 +71,15 @@ abstract class GatedAnalytics : Analytics {
         sendScreen(name, properties)
     }
 
-    final override fun register(key: String, value: Any) {
-        if (!on) return
-        sendRegister(key, value)
-    }
+    /** Deliberately ungated — see [Analytics.register]. */
+    final override fun register(key: String, value: Any) = sendRegister(key, value)
 
-    final override fun restore(enabled: Boolean) {
+    final override fun restore(enabled: Boolean) = synchronized(gate) {
         on = enabled
         if (enabled) sendOptIn() else sendOptOut()
     }
 
-    final override fun setEnabled(enabled: Boolean) {
+    final override fun setEnabled(enabled: Boolean) = synchronized(gate) {
         if (enabled == on) return
         if (enabled) {
             // Unmute first, or the event announcing the opt-in would be dropped by its own gate.
