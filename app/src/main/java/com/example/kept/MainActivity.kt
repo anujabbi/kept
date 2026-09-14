@@ -10,11 +10,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.kept.core.AppForeground
 import com.example.kept.core.domain.ReminderKind
 import com.example.kept.core.notify.KeptNotifications
 import com.posthog.PostHog
-import javax.inject.Inject
 import com.example.kept.core.ui.KeptTheme
 import com.example.kept.feature.app.AppViewModel
 import com.example.kept.feature.app.KeptApp
@@ -22,8 +20,6 @@ import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-
-    @Inject lateinit var foreground: AppForeground
 
     private val vm: AppViewModel by viewModels()
     private var pendingRoute by mutableStateOf<String?>(null)
@@ -71,12 +67,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        foreground.onResumed()
         vm.onResume()
-    }
-
-    override fun onPause() {
-        super.onPause()
-        foreground.onPaused()
     }
 }

@@ -15,6 +15,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.rotateRad
+import androidx.compose.ui.unit.dp
 import com.example.kept.core.ui.KeptTheme
 import kotlin.math.cos
 import kotlin.math.sin
@@ -42,7 +43,8 @@ fun Confetti(modifier: Modifier = Modifier) {
     val c = KeptTheme.colors
     val palette = listOf(c.purple400, c.teal600, c.amber800, c.green400, c.blue400, c.pink100)
     val pieces = remember {
-        val rng = Random(7)
+        // A fresh scatter every time; a fixed seed made every celebration land identically.
+        val rng = Random(System.nanoTime())
         List(PIECES) {
             Piece(
                 angle = (rng.nextFloat() * 2f - 1f) * 1.15f,
@@ -85,5 +87,3 @@ fun Confetti(modifier: Modifier = Modifier) {
         }
     }
 }
-
-private val Float.dp: androidx.compose.ui.unit.Dp get() = androidx.compose.ui.unit.Dp(this)

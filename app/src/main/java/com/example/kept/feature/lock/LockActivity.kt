@@ -38,8 +38,12 @@ class LockActivity : ComponentActivity() {
             var breaking by androidx.compose.runtime.remember { mutableStateOf(false) }
 
             // Lock lifted (habits done, break granted, window ended) or this very package added as
-            // an exception from Settings (issue #4): get out of the way.
-            LaunchedEffect(s.shouldDismiss) { if (s.shouldDismiss) goHome() }
+            // an exception from Settings (issue #4): get out of the way. Finishing the day is the
+            // one case that goes to KEPT instead of the launcher, because the celebration is
+            // waiting on Home and this screen cannot show it (issue #9).
+            LaunchedEffect(s.shouldDismiss) {
+                if (s.shouldDismiss) { if (s.finishedToday) openApp("home") else goHome() }
+            }
 
             BackHandler { if (breaking) breaking = false else goHome() }
 

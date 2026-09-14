@@ -21,6 +21,7 @@ import com.example.kept.core.lock.ForegroundWatcherService
 import com.example.kept.core.lock.InstalledApp
 import com.example.kept.core.lock.InstalledAppsSource
 import com.example.kept.core.lock.Permissions
+import com.example.kept.core.notify.ReminderPoster
 import com.example.kept.core.work.WorkScheduler
 import com.posthog.PostHog
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -76,6 +77,7 @@ class SettingsViewModel @Inject constructor(
     private val appsSource: InstalledAppsSource,
     private val allowlist: AllowlistResolver,
     private val scheduler: WorkScheduler,
+    private val reminders: ReminderPoster,
     private val time: TimeSource,
     val permissions: Permissions,
 ) : ViewModel() {
@@ -156,7 +158,15 @@ class SettingsViewModel @Inject constructor(
     ) { setLockWindow(from, due) }
 
     fun setBreakDuration(min: Int) = viewModelScope.launch { prefs.updateSettings { it.copy(breakDurationMin = min) } }
-    fun setReminders(on: Boolean) = viewModelScope.launch { prefs.updateSettings { it.copy(remindersEnabled = on) }; scheduler.scheduleReminders() }
+    /**
+     * Switching reminders off cancels the alarms, but a reminder already in the shade keeps its
+     * live "Mark done" buttons until something takes it down (issue #9).
+     */
+    fun setReminders(on: Boolean) = viewModelScope.launch {
+        prefs.updateSettings { it.copy(remindersEnabled = on) }
+        scheduler.scheduleReminders()
+        if (!on) reminders.clear()
+    }
 
     fun addHabit(title: String, iconKey: String, proof: ProofType, target: Int, unit: String) = viewModelScope.launch {
         habitsRepo.addHabit(title, iconKey, proof, target, unit)

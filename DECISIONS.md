@@ -311,3 +311,42 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     gains `source` (`app` | `notification`). `reminder_fired` is captured only when a notification
     was actually posted, so a rung skipped because the day was already done is not reported as
     shown.
+  - **Review round 1 follow-ups (issue #9).**
+    - **"Is KEPT on screen" is a process question, not a `MainActivity` question.** The first cut
+      wrote a flag from `MainActivity.onResume`/`onPause`, so finishing the last habit on the
+      **lock screen** looked like an empty screen and posted a notification instead of celebrating.
+      `AppForeground` now reads `ProcessLifecycleOwner` (`androidx.lifecycle:lifecycle-process`), so
+      any KEPT activity counts, and it is injected behind a `ForegroundSignal` interface.
+    - **The lock screen dismisses to KEPT, not the launcher, when the day was finished on time.**
+      `LockActivity` cannot host the celebration, so `LockUi.finishedToday` — read from the same
+      emission as `shouldDismiss`, so the two can never disagree — routes that one case to Home,
+      where the moment is waiting. A break, an exception or the window closing still go to the
+      launcher.
+    - **A tick taken on the lock screen now runs on an application scope.** `LockActivity` calls
+      `finishAndRemoveTask()` as soon as the lock lifts, which clears `LockViewModel` and cancels
+      `viewModelScope` — so `HabitActions.complete` was being killed part-way through: the level
+      grant and the celebration flag landed only sometimes. This is the same defect that killed the
+      old buddy-cheer coroutine. A `@ApplicationScope CoroutineScope` (SupervisorJob + IO) is
+      provided by `AppModule` and used for the tick.
+    - **A finished day takes the reminder down, from every path.** `DayCompletionReactor`
+      (implemented by `NotificationDayCompletion` in `core/notify`, bound in `BindsModule`) clears
+      the reminder and posts "Apps are open. Promise kept." only when nothing is on screen. Before
+      this, an in-app or lock-screen completion left a stale "1 habit to go" in the shade with live
+      "Mark done" buttons next to "All habits done".
+    - **Turning reminders off retracts the one already showing.** Cancelling the alarms does nothing
+      to a notification in the shade, so `SettingsViewModel.setReminders(false)` now calls
+      `ReminderPoster.clear()`, and the pure decision treats "reminders disabled" as a rung that
+      must clear what is there. The Settings row also stopped claiming there is one reminder "two
+      hours before give-up"; it describes the three.
+    - **Layering: `core/data` owns the seams, `core/notify` owns the Android.** `HabitActions` used
+      to constructor-inject `KeptNotifications` (which creates notification channels in its `init`)
+      and the foreground tracker, which made a plain use-case class un-constructable off-device. It
+      now depends only on `DayCompletionReactor`, in the same fun-interface style as the existing
+      `BuddyNotifier`/`RecapNotifier`. `ReminderPoster` and `NotificationActionReceiver` moved from
+      `core/work` to `core/notify`, so `core/notify` no longer imports `core/work` and the
+      dependency runs one way; the duplicated `"reminder_kind"` constant collapsed into
+      `KeptNotifications.EXTRA_REMINDER_KIND`.
+    - **The reminder skip rules became a pure function.** `ReminderPlan.decide` says whether to
+      post, what to say, and whether an existing notification must come down, so all of it is
+      testable without a DataStore, a database or a notification manager; `ReminderPoster` is now
+      only the adapter that gathers the inputs.

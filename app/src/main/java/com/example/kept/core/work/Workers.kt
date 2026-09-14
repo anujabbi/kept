@@ -31,6 +31,7 @@ import com.example.kept.core.lock.RestartMethod
 import com.example.kept.core.lock.ServiceRestarter
 import com.example.kept.core.lock.UsageWindowProbe
 import com.example.kept.core.notify.KeptNotifications
+import com.example.kept.core.notify.ReminderPoster
 import com.posthog.PostHog
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -172,10 +173,6 @@ class ServiceRestartWorker @AssistedInject constructor(
  */
 class AlarmReceiver : BroadcastReceiver() {
 
-    companion object {
-        const val EXTRA_KIND = "reminder_kind"
-    }
-
     @EntryPoint
     @InstallIn(SingletonComponent::class)
     interface Deps {
@@ -185,7 +182,7 @@ class AlarmReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         val deps = runCatching { EntryPointAccessors.fromApplication(context.applicationContext, Deps::class.java) }.getOrNull() ?: return
-        val kind = ReminderKind.entries.firstOrNull { it.eventValue == intent.getStringExtra(EXTRA_KIND) }
+        val kind = ReminderKind.entries.firstOrNull { it.eventValue == intent.getStringExtra(KeptNotifications.EXTRA_REMINDER_KIND) }
             ?: ReminderKind.BEFORE_DUE
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
@@ -270,7 +267,7 @@ class WorkScheduler @Inject constructor(
     private fun reminderIntent(kind: ReminderKind): PendingIntent = PendingIntent.getBroadcast(
         ctx,
         REMINDER_REQUEST_BASE + kind.ordinal,
-        Intent(ctx, AlarmReceiver::class.java).putExtra(AlarmReceiver.EXTRA_KIND, kind.eventValue),
+        Intent(ctx, AlarmReceiver::class.java).putExtra(KeptNotifications.EXTRA_REMINDER_KIND, kind.eventValue),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 

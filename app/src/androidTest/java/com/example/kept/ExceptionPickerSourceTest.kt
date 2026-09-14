@@ -14,6 +14,7 @@ import com.example.kept.core.lock.AllowlistResolver
 import com.example.kept.core.lock.InstalledApp
 import com.example.kept.core.lock.InstalledAppsSource
 import com.example.kept.core.lock.Permissions
+import com.example.kept.core.notify.ReminderPoster
 import com.example.kept.core.work.WorkScheduler
 import com.example.kept.feature.settings.PickableApp
 import com.example.kept.feature.settings.SettingsViewModel
@@ -55,6 +56,7 @@ class ExceptionPickerSourceTest {
     @Inject lateinit var appsSource: InstalledAppsSource
     @Inject lateinit var allowlist: AllowlistResolver
     @Inject lateinit var scheduler: WorkScheduler
+    @Inject lateinit var reminders: ReminderPoster
     @Inject lateinit var time: TimeSource
     @Inject lateinit var permissions: Permissions
 
@@ -64,7 +66,7 @@ class ExceptionPickerSourceTest {
     }
 
     private fun viewModel() = SettingsViewModel(
-        ctx, prefs, habitsRepo, lockRepo, sprigRepo, dayRepo, appsSource, allowlist, scheduler, time, permissions,
+        ctx, prefs, habitsRepo, lockRepo, sprigRepo, dayRepo, appsSource, allowlist, scheduler, reminders, time, permissions,
     )
 
     /** Any launchable app on this device that the user is actually allowed to exempt. */

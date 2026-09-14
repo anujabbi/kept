@@ -1,4 +1,4 @@
-package com.example.kept.core.work
+package com.example.kept.core.notify
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -8,11 +8,9 @@ import com.example.kept.core.data.HabitActions
 import com.example.kept.core.data.HabitRepository
 import com.example.kept.core.data.TimeSource
 import com.example.kept.core.data.prefs.KeptPreferences
-import com.example.kept.core.domain.ReminderActions
-import com.example.kept.core.domain.ReminderCopy
 import com.example.kept.core.domain.ReminderKind
 import com.example.kept.core.domain.ReminderLadder
-import com.example.kept.core.notify.KeptNotifications
+import com.example.kept.core.domain.ReminderPlan
 import com.posthog.PostHog
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
@@ -26,9 +24,12 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Builds and posts one rung of the reminder ladder (issue #9). Shared by [AlarmReceiver], which
- * fires a rung, and [NotificationActionReceiver], which redraws it after a habit was ticked from
- * its buttons.
+ * Draws one rung of the reminder ladder (issue #9). The Android adapter around
+ * [ReminderPlan.decide]: it gathers the inputs, and the pure decision says whether to post, what to
+ * say, and whether a reminder already on screen has to come down.
+ *
+ * It lives in `core/notify` alongside the receiver that its buttons target, so `core/work` depends
+ * on `core/notify` and never the other way round.
  */
 @Singleton
 class ReminderPoster @Inject constructor(
@@ -38,49 +39,53 @@ class ReminderPoster @Inject constructor(
     private val time: TimeSource,
 ) {
     /**
-     * Returns true when a notification was posted. Nothing is posted when reminders are off, there
-     * are no habits, every habit is already done, or the give-up time has passed — the point of a
-     * reminder is the time still left.
+     * Returns true when a notification was posted.
      *
      * [alertOnce] suppresses the buzz for a redraw, so ticking one habit off four does not sound
      * like a new reminder.
      */
     suspend fun post(kind: ReminderKind, alertOnce: Boolean = false): Boolean {
         val s = prefs.currentSettings()
-        if (!s.onboardingDone || !s.remindersEnabled) return false
         val today = habits.today()
-        if (today.total == 0 || today.allDone) {
-            notifications.clearReminder()
-            return false
-        }
         val now = time.now()
         val deadline = ReminderLadder.deadlineAhead(now, time.today(), s.lockFromMinute, s.dueMinute, time.zone())
-        val minutesLeft = Duration.between(now, deadline).toMinutes().toInt()
-        if (minutesLeft <= 0) return false
-
-        val remaining = today.habits.filter { !it.isDone }
-        val streak = prefs.currentSprig().streakDays
-        val plan = ReminderActions.plan(remaining.map { it.id })
-        val single = plan.markDone.size == 1 && !plan.openApp
-        val actions = plan.markDone.mapNotNull { id ->
-            remaining.firstOrNull { it.id == id }?.let {
-                KeptNotifications.MarkDoneAction(id, ReminderCopy.actionLabel(it.habit.title, single))
-            }
-        }
-        return notifications.reminder(
+        val decision = ReminderPlan.decide(
             kind = kind,
-            title = ReminderCopy.title(kind, remaining.size, minutesLeft, streak),
-            body = ReminderCopy.body(kind, remaining.size, s.dueMinute),
-            actions = actions,
-            openApp = plan.openApp,
-            alertOnce = alertOnce,
+            onboardingDone = s.onboardingDone,
+            remindersEnabled = s.remindersEnabled,
+            remaining = today.habits.filter { !it.isDone }.map { ReminderPlan.Habit(it.id, it.habit.title) },
+            totalHabits = today.total,
+            minutesLeft = Duration.between(now, deadline).toMinutes().toInt(),
+            streakDays = prefs.currentSprig().streakDays,
+            dueMinute = s.dueMinute,
         )
+        return when (decision) {
+            is ReminderPlan.Decision.Skip -> {
+                if (decision.clearExisting) notifications.clearReminder()
+                false
+            }
+            is ReminderPlan.Decision.Post -> notifications.reminder(
+                kind = kind,
+                title = decision.title,
+                body = decision.body,
+                actions = decision.actions.map { KeptNotifications.MarkDoneAction(it.habitId, it.label) },
+                openApp = decision.openApp,
+                alertOnce = alertOnce,
+            )
+        }
     }
+
+    /**
+     * Takes down a reminder that a settings change has just made untrue (issue #9). Turning
+     * reminders off cancels the alarms, but a notification already in the shade keeps its live
+     * "Mark done" buttons until something removes it.
+     */
+    fun clear() = runCatching { notifications.clearReminder() }
 }
 
 /**
  * Handles the "Mark done" buttons on a reminder (issue #9). A BroadcastReceiver with a Hilt entry
- * point, like [AlarmReceiver], so the tick works with no KEPT process running: the system starts
+ * point, like `AlarmReceiver`, so the tick works with no KEPT process running: the system starts
  * one, Hilt builds the graph, and [HabitActions.complete] is idempotent, so a second tap on a
  * button the shade has not redrawn yet does nothing.
  */
@@ -116,8 +121,8 @@ class NotificationActionReceiver : BroadcastReceiver() {
                     properties = mapOf("kind" to kind.eventValue, "action" to "mark_done"),
                 )
                 deps.actions().complete(habitId, source = CompletionSource.NOTIFICATION)
-                // Either the day is done, and this clears the reminder, or the buttons have to lose
-                // the habit that was just ticked.
+                // Either the day is done, and the decision clears the reminder, or the buttons have
+                // to lose the habit that was just ticked.
                 deps.poster().post(kind, alertOnce = true)
             } finally {
                 pending.finish()

@@ -55,7 +55,8 @@ class CelebrationViewModel @Inject constructor(
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CelebrationUiState())
 
-    fun dismiss() = viewModelScope.launch {
+    /** Marks today's celebration as shown. Called as the moment opens, not when it closes. */
+    fun consume() = viewModelScope.launch {
         prefs.updateSettings { if (it.celebrationPendingDate == time.todayKey()) it.copy(celebrationPendingDate = null) else it }
     }
 }

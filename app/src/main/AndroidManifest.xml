@@ -82,7 +82,7 @@
 
         <!-- "Mark done" on a reminder. Not exported: only KEPT's own PendingIntents reach it. -->
         <receiver
-            android:name=".core.work.NotificationActionReceiver"
+            android:name=".core.notify.NotificationActionReceiver"
             android:exported="false" />
 
         <provider

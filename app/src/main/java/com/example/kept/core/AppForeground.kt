@@ -1,23 +1,23 @@
 package com.example.kept.core
 
-import java.util.concurrent.atomic.AtomicBoolean
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ProcessLifecycleOwner
+import com.example.kept.core.data.ForegroundSignal
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Whether a KEPT screen is currently in front of the user (issue #9).
+ * [ForegroundSignal] backed by the process lifecycle (issue #9).
  *
- * The celebration is a full-screen moment, so when the day is finished from a notification action
- * with nothing on screen there is nothing to show it on: KEPT posts "Apps are open. Promise kept."
- * instead and holds the celebration until the app is opened. [MainActivity] is the only writer;
- * `lifecycle-process` would give the same answer but is not a dependency of this module.
+ * It asks `ProcessLifecycleOwner` rather than tracking one Activity, because KEPT has two: the
+ * first version was written by `MainActivity.onResume`/`onPause` only, so finishing the last habit
+ * on the **lock screen** looked like "nothing is on screen" and posted a notification instead of
+ * celebrating. Any KEPT activity now counts.
  */
 @Singleton
-class AppForeground @Inject constructor() {
-    private val inForeground = AtomicBoolean(false)
-
-    val isForeground: Boolean get() = inForeground.get()
-
-    fun onResumed() = inForeground.set(true)
-    fun onPaused() = inForeground.set(false)
+class AppForeground @Inject constructor() : ForegroundSignal {
+    override val isForeground: Boolean
+        get() = runCatching {
+            ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+        }.getOrDefault(false)
 }

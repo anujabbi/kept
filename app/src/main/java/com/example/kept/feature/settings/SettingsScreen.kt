@@ -105,8 +105,8 @@ fun SettingsScreen(
         KeptCard {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Two hours before give-up", style = MaterialTheme.typography.bodyMedium, color = c.textPrimary)
-                    Text("Only if something is still undone.", style = MaterialTheme.typography.bodySmall, color = c.textMuted)
+                    Text("Three nudges a day", style = MaterialTheme.typography.bodyMedium, color = c.textPrimary)
+                    Text("When apps lock, two hours before give-up, and thirty minutes before. Only if something is still undone.", style = MaterialTheme.typography.bodySmall, color = c.textMuted)
                 }
                 Switch(checked = s.settings.remindersEnabled, onCheckedChange = vm::setReminders, colors = SwitchDefaults.colors(checkedTrackColor = c.purple600))
             }

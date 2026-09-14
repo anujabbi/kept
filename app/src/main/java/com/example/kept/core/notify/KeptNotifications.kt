@@ -15,7 +15,6 @@ import com.example.kept.MainActivity
 import com.example.kept.R
 import com.example.kept.core.domain.ReminderKind
 import com.example.kept.core.domain.RolloverEngine
-import com.example.kept.core.work.NotificationActionReceiver
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -38,7 +37,11 @@ class KeptNotifications @Inject constructor(@ApplicationContext private val ctx:
         const val ID_DAY_DONE = 8
         const val EXTRA_ROUTE = "route"
 
-        /** Set on the MainActivity intent behind the "Open KEPT" reminder action (issue #9). */
+        /**
+         * The [com.example.kept.core.domain.ReminderKind] a reminder intent belongs to. One
+         * constant, shared by the alarm that fires a rung, the "Mark done" broadcast and the
+         * "Open KEPT" activity intent (issue #9).
+         */
         const val EXTRA_REMINDER_KIND = "reminder_kind"
 
         /** Request-code bases, kept apart so one action's PendingIntent never replaces another's. */

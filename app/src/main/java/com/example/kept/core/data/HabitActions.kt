@@ -1,8 +1,6 @@
 package com.example.kept.core.data
 
-import com.example.kept.core.AppForeground
 import com.example.kept.core.data.prefs.KeptPreferences
-import com.example.kept.core.notify.KeptNotifications
 import com.posthog.PostHog
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -20,9 +18,9 @@ class HabitActions @Inject constructor(
     private val sprig: SprigRepository,
     private val buddy: BuddyRepository,
     private val prefs: KeptPreferences,
-    private val notifications: KeptNotifications,
-    private val foreground: AppForeground,
     private val time: TimeSource,
+    /** What the shade does about a finished day. An interface so this class stays Android-free. */
+    private val dayCompletion: DayCompletionReactor,
 ) {
     /**
      * Ticks a habit off. Idempotent: [HabitRepository.markDone] returns null for a habit that is
@@ -63,9 +61,7 @@ class HabitActions @Inject constructor(
             ),
         )
         prefs.updateSettings { it.copy(celebrationPendingDate = time.todayKey()) }
-        // Nothing on screen to celebrate on: say it in the shade instead, and hold the full-screen
-        // moment until KEPT is opened.
-        if (!foreground.isForeground) runCatching { notifications.dayComplete() }
+        dayCompletion.onDayCompleted()
     }
 
     private suspend fun react(event: HabitEvent) {

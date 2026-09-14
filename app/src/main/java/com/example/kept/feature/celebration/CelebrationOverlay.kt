@@ -34,7 +34,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -62,8 +64,18 @@ private const val HOLD_MILLIS = 2_600L
 @Composable
 fun CelebrationHost(vm: CelebrationViewModel = hiltViewModel()) {
     val s by vm.state.collectAsStateWithLifecycle()
-    AnimatedVisibility(s.visible, enter = fadeIn(tween(220)), exit = fadeOut(tween(260))) {
-        CelebrationOverlay(s, onDismiss = vm::dismiss)
+    // The pending flag is consumed the moment the moment starts, not when it ends: once it is on
+    // screen it has been shown, and leaving the flag set until dismissal meant a process death
+    // mid-animation replayed the whole thing on next open. Local state keeps it up afterwards.
+    var showing by remember { mutableStateOf(false) }
+    LaunchedEffect(s.visible) {
+        if (s.visible) {
+            showing = true
+            vm.consume()
+        }
+    }
+    AnimatedVisibility(showing, enter = fadeIn(tween(220)), exit = fadeOut(tween(260))) {
+        CelebrationOverlay(s, onDismiss = { showing = false })
     }
 }
 

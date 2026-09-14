@@ -12,8 +12,10 @@ import com.example.kept.core.domain.SprigState
 import com.example.kept.core.domain.Variants
 import com.example.kept.core.domain.WeekVariant
 import com.example.kept.core.domain.minuteOfDayLabel
+import com.example.kept.core.di.ApplicationScope
 import com.posthog.PostHog
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -38,6 +40,13 @@ data class LockUi(
     /** True once the lock screen has nothing left to cover and should get out of the way. */
     val shouldDismiss: Boolean get() = loaded && (!lockActive || !blockedStillLocked)
 
+    /**
+     * The lock lifted because the day was finished in time, rather than because of a break, an
+     * exception or the window closing (issue #9). Read from the same emission as [shouldDismiss],
+     * so the two can never disagree about why the screen is going away.
+     */
+    val finishedToday: Boolean get() = lock?.today?.allDoneOnTime == true
+
     val remaining: Int get() = lock?.today?.remaining ?: 0
     val dueLabel: String get() = lock?.settings?.dueMinute?.minuteOfDayLabel() ?: ""
     val breaksLeft: Int get() = lock?.breaksRemaining ?: 0
@@ -51,6 +60,7 @@ class LockViewModel @Inject constructor(
     private val sprigRepo: SprigRepository,
     private val actions: HabitActions,
     private val time: TimeSource,
+    @ApplicationScope private val appScope: CoroutineScope,
 ) : ViewModel() {
 
     private val blockedPackage = MutableStateFlow<String?>(null)
@@ -70,7 +80,13 @@ class LockViewModel @Inject constructor(
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LockUi())
 
-    fun complete(habitId: Long) = viewModelScope.launch { actions.complete(habitId) }
+    /**
+     * Ticked on the application scope, not `viewModelScope` (issue #9). Completing the last habit
+     * lifts the lock, and `LockActivity` reacts by calling `finishAndRemoveTask()` — which clears
+     * this ViewModel. On `viewModelScope` that cancelled the rest of the work mid-flight, so the
+     * level grant and the celebration flag were written only sometimes.
+     */
+    fun complete(habitId: Long) = appScope.launch { actions.complete(habitId) }
 
     fun breakLock(then: () -> Unit) = viewModelScope.launch {
         lockRepo.breakLock()

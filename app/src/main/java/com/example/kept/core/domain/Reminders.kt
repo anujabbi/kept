@@ -138,3 +138,64 @@ object ReminderActions {
         if (remainingHabitIds.size <= MAX_ACTIONS) Plan(remainingHabitIds, openApp = false)
         else Plan(remainingHabitIds.take(MAX_ACTIONS - 1), openApp = true)
 }
+
+/**
+ * Whether a reminder should appear at all, and what it says (issue #9).
+ *
+ * Pure, so every skip rule is decidable without a notification manager, a DataStore or a database.
+ * `ReminderPoster` is then only the Android adapter that gathers the inputs and draws the result.
+ */
+object ReminderPlan {
+    /** A habit still outstanding when the reminder fires. */
+    data class Habit(val id: Long, val title: String)
+
+    data class Action(val habitId: Long, val label: String)
+
+    sealed interface Decision {
+        /**
+         * Nothing to show. [clearExisting] is true when a reminder already on screen has been made
+         * untrue by this decision and must come down — reminders turned off, the day finished, the
+         * habits deleted, the deadline passed.
+         */
+        data class Skip(val clearExisting: Boolean) : Decision
+
+        data class Post(
+            val title: String,
+            val body: String,
+            val actions: List<Action>,
+            val openApp: Boolean,
+        ) : Decision
+    }
+
+    fun decide(
+        kind: ReminderKind,
+        onboardingDone: Boolean,
+        remindersEnabled: Boolean,
+        remaining: List<Habit>,
+        totalHabits: Int,
+        minutesLeft: Int,
+        streakDays: Int,
+        dueMinute: Int,
+    ): Decision {
+        if (!onboardingDone) return Decision.Skip(clearExisting = false)
+        if (!remindersEnabled) return Decision.Skip(clearExisting = true)
+        if (totalHabits == 0) return Decision.Skip(clearExisting = true)
+        if (remaining.isEmpty()) return Decision.Skip(clearExisting = true)
+        // A reminder's whole content is the time still left; past the give-up time there is none,
+        // and a notification still claiming minutes would be a lie.
+        if (minutesLeft <= 0) return Decision.Skip(clearExisting = true)
+
+        val plan = ReminderActions.plan(remaining.map { it.id })
+        val single = plan.markDone.size == 1 && !plan.openApp
+        val actions = plan.markDone.mapNotNull { id ->
+            remaining.firstOrNull { it.id == id }
+                ?.let { Action(id, ReminderCopy.actionLabel(it.title, single)) }
+        }
+        return Decision.Post(
+            title = ReminderCopy.title(kind, remaining.size, minutesLeft, streakDays),
+            body = ReminderCopy.body(kind, remaining.size, dueMinute),
+            actions = actions,
+            openApp = plan.openApp,
+        )
+    }
+}
