@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.SystemClock
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -15,6 +16,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.kept.MainActivity
+import com.example.kept.core.analytics.Screens
 import com.example.kept.core.ui.KeptTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -36,6 +38,22 @@ class LockActivity : ComponentActivity() {
         setContent {
             val s by vm.state.collectAsStateWithLifecycle()
             var breaking by androidx.compose.runtime.remember { mutableStateOf(false) }
+            var breakStartedAt by androidx.compose.runtime.remember { androidx.compose.runtime.mutableLongStateOf(0L) }
+            // How long the break screen was held open. The countdown only unlocks the button after
+            // a minute, so this says how much longer than that the user sat with it (issue #10).
+            fun secondsWaited() = ((SystemClock.elapsedRealtime() - breakStartedAt) / 1000L).toInt()
+
+            // This activity is its own surface: no NavController reaches it, so the two screens it
+            // can show report themselves (issue #10).
+            LaunchedEffect(breaking) {
+                if (breaking) {
+                    breakStartedAt = SystemClock.elapsedRealtime()
+                    vm.analytics.capture("lock_break_started")
+                    vm.analytics.screen(Screens.BREAK)
+                } else {
+                    vm.analytics.screen(Screens.LOCK)
+                }
+            }
 
             // Lock lifted (habits done, break granted, window ended) or this very package added as
             // an exception from Settings (issue #4): get out of the way. Finishing the day is the
@@ -45,14 +63,19 @@ class LockActivity : ComponentActivity() {
                 if (s.shouldDismiss) { if (s.finishedToday) openApp("home") else goHome() }
             }
 
-            BackHandler { if (breaking) breaking = false else goHome() }
+            val cancelBreak = {
+                vm.analytics.capture("lock_break_cancelled")
+                breaking = false
+            }
+
+            BackHandler { if (breaking) cancelBreak() else goHome() }
 
             KeptTheme {
                 if (breaking) {
                     BreakLockScreen(
                         state = s,
-                        onCancel = { breaking = false },
-                        onConfirm = { vm.breakLock { goHome() } },
+                        onCancel = cancelBreak,
+                        onConfirm = { vm.breakLock(secondsWaited()) { goHome() } },
                     )
                 } else {
                     LockScreen(

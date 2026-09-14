@@ -1,7 +1,7 @@
 package com.example.kept.core.data
 
+import com.example.kept.core.analytics.Analytics
 import com.example.kept.core.data.prefs.KeptPreferences
-import com.posthog.PostHog
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -19,6 +19,7 @@ class HabitActions @Inject constructor(
     private val buddy: BuddyRepository,
     private val prefs: KeptPreferences,
     private val time: TimeSource,
+    private val analytics: Analytics,
     /** What the shade does about a finished day. An interface so this class stays Android-free. */
     private val dayCompletion: DayCompletionReactor,
 ) {
@@ -33,9 +34,13 @@ class HabitActions @Inject constructor(
         source: CompletionSource = CompletionSource.APP,
     ): HabitEvent.Completed? {
         val event = habits.markDone(habitId, photoPath) ?: return null
-        PostHog.capture(
+        analytics.capture(
             "habit_completed",
-            properties = mapOf("before_due" to event.beforeDue, "source" to source.eventValue),
+            mapOf(
+                "before_due" to event.beforeDue,
+                "minutes_after_lock_start" to minutesAfterLockStart(),
+                "source" to source.eventValue,
+            ),
         )
         if (event.allDoneNow && event.beforeDue) onDayCompleted(event)
         react(event)
@@ -44,7 +49,7 @@ class HabitActions @Inject constructor(
 
     suspend fun undo(habitId: Long): HabitEvent.Undone? {
         val event = habits.undo(habitId) ?: return null
-        PostHog.capture("habit_completion_undone")
+        analytics.capture("habit_completion_undone")
         // An undone day has nothing left to celebrate; drop a celebration that never got shown.
         prefs.updateSettings { it.copy(celebrationPendingDate = null) }
         sprig.onHabitEvent(event)
@@ -53,9 +58,9 @@ class HabitActions @Inject constructor(
 
     /** Every habit ticked, and in time. Worth a moment (issue #9). */
     private suspend fun onDayCompleted(event: HabitEvent.Completed) {
-        PostHog.capture(
+        analytics.capture(
             "day_completed",
-            properties = mapOf(
+            mapOf(
                 "habit_count" to event.habitCount,
                 "minutes_before_due" to event.minutesBeforeDue,
             ),
@@ -63,6 +68,13 @@ class HabitActions @Inject constructor(
         prefs.updateSettings { it.copy(celebrationPendingDate = time.todayKey()) }
         dayCompletion.onDayCompleted()
     }
+
+    /**
+     * How long into the lock window the tick landed. Negative when the habit was done before apps
+     * lock at all, which is the answer to "do people get ahead of it or wait to be forced?".
+     */
+    private suspend fun minutesAfterLockStart(): Int =
+        time.minuteOfDay() - prefs.currentSettings().lockFromMinute
 
     private suspend fun react(event: HabitEvent) {
         sprig.onHabitEvent(event)

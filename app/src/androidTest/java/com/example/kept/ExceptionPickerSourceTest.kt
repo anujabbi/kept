@@ -2,6 +2,7 @@ package com.example.kept
 
 import android.content.Context
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.example.kept.core.analytics.NoOpAnalytics
 import com.example.kept.core.data.DayRepository
 import com.example.kept.core.data.HabitRepository
 import com.example.kept.core.data.LockRepository
@@ -67,6 +68,8 @@ class ExceptionPickerSourceTest {
 
     private fun viewModel() = SettingsViewModel(
         ctx, prefs, habitsRepo, lockRepo, sprigRepo, dayRepo, appsSource, allowlist, scheduler, reminders, time, permissions,
+        // Nothing reported: this test only cares where the picker reads its exempt set from.
+        NoOpAnalytics(),
     )
 
     /** Any launchable app on this device that the user is actually allowed to exempt. */

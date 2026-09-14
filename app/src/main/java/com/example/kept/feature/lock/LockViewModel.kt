@@ -2,6 +2,7 @@ package com.example.kept.feature.lock
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.kept.core.analytics.Analytics
 import com.example.kept.core.data.HabitActions
 import com.example.kept.core.data.LockRepository
 import com.example.kept.core.data.LockState
@@ -13,7 +14,6 @@ import com.example.kept.core.domain.Variants
 import com.example.kept.core.domain.WeekVariant
 import com.example.kept.core.domain.minuteOfDayLabel
 import com.example.kept.core.di.ApplicationScope
-import com.posthog.PostHog
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -61,6 +61,7 @@ class LockViewModel @Inject constructor(
     private val actions: HabitActions,
     private val time: TimeSource,
     @ApplicationScope private val appScope: CoroutineScope,
+    val analytics: Analytics,
 ) : ViewModel() {
 
     private val blockedPackage = MutableStateFlow<String?>(null)
@@ -88,9 +89,10 @@ class LockViewModel @Inject constructor(
      */
     fun complete(habitId: Long) = appScope.launch { actions.complete(habitId) }
 
-    fun breakLock(then: () -> Unit) = viewModelScope.launch {
+    /** [secondsWaited] is how long the break screen was held open before the unlock was confirmed. */
+    fun breakLock(secondsWaited: Int, then: () -> Unit) = viewModelScope.launch {
         lockRepo.breakLock()
-        PostHog.capture("lock_broken")
+        analytics.capture("lock_broken", mapOf("seconds_waited" to secondsWaited))
         then()
     }
 }

@@ -10,16 +10,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.kept.core.analytics.Analytics
 import com.example.kept.core.domain.ReminderKind
 import com.example.kept.core.notify.KeptNotifications
-import com.posthog.PostHog
 import com.example.kept.core.ui.KeptTheme
 import com.example.kept.feature.app.AppViewModel
 import com.example.kept.feature.app.KeptApp
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject lateinit var analytics: Analytics
 
     private val vm: AppViewModel by viewModels()
     private var pendingRoute by mutableStateOf<String?>(null)
@@ -34,7 +37,7 @@ class MainActivity : ComponentActivity() {
                 start?.let { s ->
                     // Re-create the nav graph if the start destination changes (e.g. after seeding).
                     androidx.compose.runtime.key(s) {
-                        KeptApp(startDestination = s, pendingRoute = pendingRoute, consumeRoute = { pendingRoute = null })
+                        KeptApp(startDestination = s, pendingRoute = pendingRoute, consumeRoute = { pendingRoute = null }, analytics = analytics)
                     }
                 }
             }
@@ -58,9 +61,9 @@ class MainActivity : ComponentActivity() {
         intent?.getStringExtra(KeptNotifications.EXTRA_REMINDER_KIND)?.let { value ->
             intent.removeExtra(KeptNotifications.EXTRA_REMINDER_KIND)
             val kind = ReminderKind.entries.firstOrNull { it.eventValue == value } ?: return@let
-            PostHog.capture(
+            analytics.capture(
                 "reminder_action_tapped",
-                properties = mapOf("kind" to kind.eventValue, "action" to "open_app"),
+                mapOf("kind" to kind.eventValue, "action" to "open_app"),
             )
         }
     }

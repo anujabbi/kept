@@ -13,12 +13,27 @@ import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.core.content.FileProvider
+import com.example.kept.core.analytics.Analytics
 import com.example.kept.core.domain.SprigForm
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.components.SingletonComponent
 import java.io.File
 import java.io.FileOutputStream
 
 /** Renders a 1080x1350 share card and hands it to the system share sheet. */
 object ShareCard {
+
+    /**
+     * Reported from here rather than at the three call sites, so a fourth place to share from
+     * cannot be added without the event coming with it (issue #10).
+     */
+    @EntryPoint
+    @InstallIn(SingletonComponent::class)
+    interface Deps {
+        fun analytics(): Analytics
+    }
 
     data class Content(
         val spec: SprigSpec,
@@ -69,6 +84,9 @@ object ShareCard {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         ctx.startActivity(Intent.createChooser(send, chooserTitle).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        runCatching {
+            EntryPointAccessors.fromApplication(ctx.applicationContext, Deps::class.java).analytics()
+        }.getOrNull()?.capture("share_card_generated")
     }
 
     fun formHeadline(form: SprigForm, streak: Int): String = when (form) {

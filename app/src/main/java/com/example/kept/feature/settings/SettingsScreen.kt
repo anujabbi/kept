@@ -29,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -109,6 +110,24 @@ fun SettingsScreen(
                     Text("When apps lock, two hours before give-up, and thirty minutes before. Only if something is still undone.", style = MaterialTheme.typography.bodySmall, color = c.textMuted)
                 }
                 Switch(checked = s.settings.remindersEnabled, onCheckedChange = vm::setReminders, colors = SwitchDefaults.colors(checkedTrackColor = c.purple600))
+            }
+        }
+        Spacer(Modifier.height(20.dp))
+
+        SectionLabel("Privacy")
+        Spacer(Modifier.height(8.dp))
+        KeptCard {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Send anonymous usage data", style = MaterialTheme.typography.bodyMedium, color = c.textPrimary)
+                    Text("Helps us see what works. No name, no email, never which apps you use.", style = MaterialTheme.typography.bodySmall, color = c.textMuted)
+                }
+                Switch(
+                    checked = s.settings.analyticsEnabled,
+                    onCheckedChange = vm::setAnalyticsEnabled,
+                    colors = SwitchDefaults.colors(checkedTrackColor = c.purple600),
+                    modifier = Modifier.testTag("analytics_toggle"),
+                )
             }
         }
         Spacer(Modifier.height(20.dp))

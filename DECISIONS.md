@@ -350,3 +350,35 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
       post, what to say, and whether an existing notification must come down, so all of it is
       testable without a DataStore, a database or a notification manager; `ReminderPoster` is now
       only the adapter that gathers the inputs.
+- **Analytics go through one wrapper, and the user can switch them off (issue #10).** Every event
+  now goes through `core/analytics/Analytics`, Hilt-bound to `PostHogAnalytics`; `NoOpAnalytics`
+  is the silent implementation for tests that build a ViewModel by hand. No static
+  `PostHog.capture` call is left in the app.
+    - **The opt-out gate lives in the wrapper, not only in the SDK.** `GatedAnalytics` drops
+      captures itself before they reach PostHog, because the SDK is not set up at all in
+      instrumentation tests or in a build with no project token, and "the user said no" has to be
+      true in every one of those. `analytics_opt_out` is captured immediately *before* the gate
+      closes and `analytics_opt_in` immediately *after* it opens, so both are actually sent.
+    - **Settings: "Send anonymous usage data", on by default.** The preference is stored in
+      DataStore (`analytics_enabled`) rather than read back from the SDK, so the switch has a flow
+      to follow and the choice survives a build without a token. Startup restores it silently —
+      applying a stored preference is not a decision the user just made, so it fires no event.
+    - **Session replay off, surveys on, error tracking autocapture on.** KEPT is a lock screen over
+      other people's apps and a camera proof flow; recording any of that would betray what the app
+      is for, so `sessionReplay = false` is set explicitly rather than left to the default.
+      `debug` follows `BuildConfig.DEBUG`, so a debug build prints every event to logcat.
+    - **Screen views are captured by hand, `captureScreenViews = false`.** Autocapture would report
+      two activity names for a single-activity Compose app. Instead a `NavController` destination
+      listener maps *route patterns* to names in `Screens`, so a `$screen` never carries the recap
+      date or a gallery row id, and Lock, Break and the celebration — which no NavController
+      reaches — report themselves. Onboarding is deliberately not in that map: it reports one
+      screen view per step, carrying `onboarding_step`, so the first-run funnel is five steps
+      rather than one destination.
+    - **No `identify`, ever.** The distinct ID stays the SDK's random anonymous one. No name, no
+      email, no habit title and no app label the user typed is attached to any event. Super
+      properties are `app_version`, `android_sdk`, `manufacturer`, `habit_count` and `streak`; the
+      last two are re-registered whenever they change, because super properties persist across
+      sessions and a stale streak would ride along with events for weeks. `habit_count` and
+      `streak` are also event properties on `onboarding_completed` and `rollover`; PostHog merges
+      an event's own properties last, so the event value wins over the super property of the same
+      name and `rollover.streak` stays the streak that day ended on.

@@ -37,6 +37,7 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.example.kept.core.analytics.Analytics
 import com.example.kept.core.lock.PermissionKind
 import com.example.kept.core.lock.Permissions
 import com.example.kept.core.ui.KeptCard
@@ -68,10 +69,29 @@ fun rememberPermissionStates(perms: Permissions, kinds: List<PermissionKind>): M
 }
 
 @Composable
-fun PermissionCards(perms: Permissions, kinds: List<PermissionKind>, onChange: (Map<PermissionKind, Boolean>) -> Unit = {}) {
+fun PermissionCards(
+    perms: Permissions,
+    kinds: List<PermissionKind>,
+    analytics: Analytics,
+    onChange: (Map<PermissionKind, Boolean>) -> Unit = {},
+) {
     val ctx = LocalContext.current
     var states by remember { mutableStateOf(kinds.associateWith { perms.granted(it) }) }
-    val refresh = { states = kinds.associateWith { perms.granted(it) }; onChange(states) }
+    // Which permission the user was last sent to grant. Two of the five are system settings screens
+    // rather than dialogs, so the answer only arrives on the way back — matching it to the request
+    // is what makes one tap produce exactly one granted-or-denied event (issue #10).
+    var asked by remember { mutableStateOf<PermissionKind?>(null) }
+    val refresh = {
+        states = kinds.associateWith { perms.granted(it) }
+        asked?.let { kind ->
+            asked = null
+            analytics.capture(
+                if (states[kind] == true) "permission_granted" else "permission_denied",
+                mapOf("permission" to kind.eventValue),
+            )
+        }
+        onChange(states)
+    }
     val owner = LocalLifecycleOwner.current
     DisposableEffect(owner) {
         val obs = LifecycleEventObserver { _, e -> if (e == Lifecycle.Event.ON_RESUME) refresh() }
@@ -85,6 +105,7 @@ fun PermissionCards(perms: Permissions, kinds: List<PermissionKind>, onChange: (
         permissionCards.filter { it.kind in kinds }.forEach { card ->
             val granted = states[card.kind] == true
             PermissionCard(card, granted) {
+                asked = card.kind
                 when (card.kind) {
                     PermissionKind.USAGE_ACCESS -> ctx.startActivity(perms.usageAccessIntent())
                     PermissionKind.OVERLAY -> ctx.startActivity(perms.overlayIntent())
@@ -133,7 +154,7 @@ fun PermissionsScreen(onBack: () -> Unit, vm: SettingsViewModel = androidx.hilt.
         Spacer(Modifier.height(4.dp))
         Text("The lock only works while these stay on. If usage access is turned off during a lock window, that day shows as hollow: it doesn't count, but it won't break your streak.", style = MaterialTheme.typography.bodySmall, color = c.textSecondary)
         Spacer(Modifier.height(16.dp))
-        PermissionCards(vm.permissions, PermissionKind.entries)
+        PermissionCards(vm.permissions, PermissionKind.entries, vm.analytics)
         Spacer(Modifier.height(24.dp))
     }
 }

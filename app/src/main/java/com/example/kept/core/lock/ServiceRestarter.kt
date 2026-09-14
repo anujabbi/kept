@@ -1,8 +1,8 @@
 package com.example.kept.core.lock
 
 import android.content.Context
+import com.example.kept.core.analytics.Analytics
 import com.example.kept.core.notify.KeptNotifications
-import com.posthog.PostHog
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -35,14 +35,15 @@ enum class RestartMethod(val eventValue: String) {
 class ServiceRestarter @Inject constructor(
     @ApplicationContext private val ctx: Context,
     private val notifications: KeptNotifications,
+    private val analytics: Analytics,
 ) {
 
     /** Returns true when the platform accepted the start. */
     fun restart(method: RestartMethod): Boolean {
         val started = ForegroundWatcherService.start(ctx)
-        PostHog.capture(
+        analytics.capture(
             "service_restart_attempted",
-            properties = mapOf("method" to method.eventValue, "success" to started),
+            mapOf("method" to method.eventValue, "success" to started),
         )
         if (started) runCatching { notifications.clearLockOff() }
         return started
@@ -55,6 +56,6 @@ class ServiceRestarter @Inject constructor(
      */
     fun showLockOff() {
         val shown = runCatching { notifications.lockOff() }.getOrDefault(false)
-        if (shown) PostHog.capture("lock_off_notification_shown")
+        if (shown) analytics.capture("lock_off_notification_shown")
     }
 }

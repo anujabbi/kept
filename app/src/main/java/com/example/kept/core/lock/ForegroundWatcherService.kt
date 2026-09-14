@@ -12,10 +12,12 @@ import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
+import com.example.kept.core.analytics.Analytics
 import com.example.kept.core.data.LockRepository
 import com.example.kept.core.data.LockState
 import com.example.kept.core.data.SprigRepository
 import com.example.kept.core.data.prefs.KeptPreferences
+import com.example.kept.core.domain.GiveUpTime
 import com.example.kept.core.domain.LockPolicy
 import com.example.kept.core.domain.minuteOfDayLabel
 import com.example.kept.core.notify.KeptNotifications
@@ -44,6 +46,7 @@ class ForegroundWatcherService : LifecycleService() {
     @Inject lateinit var allowlist: AllowlistResolver
     @Inject lateinit var apps: InstalledAppsSource
     @Inject lateinit var permissions: Permissions
+    @Inject lateinit var analytics: Analytics
 
     private var pollJob: Job? = null
     @Volatile private var state: LockState? = null
@@ -194,8 +197,23 @@ class ForegroundWatcherService : LifecycleService() {
             if (fg == lastLockedPkg && now - lastLockShownAt < 1_500) return
             lastLockedPkg = fg
             lastLockShownAt = now
+            // Reported here rather than in LockActivity: this is the moment the lock actually
+            // stepped in front of something, and the debounce above has already collapsed the
+            // duplicates an OEM can cause (issue #10).
+            analytics.capture(
+                "lock_shown",
+                mapOf("blocked_package" to fg, "minutes_to_due" to minutesToDue(s, now)),
+            )
             LockActivity.show(this, fg, apps.label(fg))
         }
+    }
+
+    /** Minutes left before the give-up time. Negative once the window has run past it. */
+    private fun minutesToDue(s: LockState, now: Long): Int {
+        val due = GiveUpTime.instantFor(
+            java.time.LocalDate.now(), s.settings.lockFromMinute, s.settings.dueMinute, java.time.ZoneId.systemDefault(),
+        )
+        return ((due.toEpochMilli() - now) / 60_000L).toInt()
     }
 
     private fun foregroundPackage(usm: UsageStatsManager, from: Long, to: Long): String? {

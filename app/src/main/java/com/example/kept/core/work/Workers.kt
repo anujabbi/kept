@@ -16,6 +16,7 @@ import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import com.example.kept.core.analytics.Analytics
 import com.example.kept.core.data.LocalStubBuddyRepository
 import com.example.kept.core.data.LockRepository
 import com.example.kept.core.data.RolloverRunner
@@ -32,7 +33,6 @@ import com.example.kept.core.lock.ServiceRestarter
 import com.example.kept.core.lock.UsageWindowProbe
 import com.example.kept.core.notify.KeptNotifications
 import com.example.kept.core.notify.ReminderPoster
-import com.posthog.PostHog
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import dagger.hilt.EntryPoint
@@ -82,6 +82,7 @@ class WatchdogWorker @AssistedInject constructor(
     private val restarter: ServiceRestarter,
     private val probe: UsageWindowProbe,
     private val scheduler: WorkScheduler,
+    private val analytics: Analytics,
 ) : CoroutineWorker(ctx, params) {
     override suspend fun doWork(): Result {
         val settings = prefs.currentSettings()
@@ -137,7 +138,7 @@ class WatchdogWorker @AssistedInject constructor(
         if (verdict.isGap) {
             lockRepo.recordProtectionGap(heartbeat, now, verdict.reason)
             notifications.protectionLost(verdict.reason)
-            PostHog.capture("protection_gap_recorded", properties = mapOf("reason" to verdict.name.lowercase()))
+            analytics.capture("protection_gap_recorded", mapOf("reason" to verdict.name.lowercase()))
         }
         return Result.success()
     }
@@ -178,6 +179,7 @@ class AlarmReceiver : BroadcastReceiver() {
     interface Deps {
         fun poster(): ReminderPoster
         fun scheduler(): WorkScheduler
+        fun analytics(): Analytics
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -188,7 +190,7 @@ class AlarmReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 if (deps.poster().post(kind)) {
-                    PostHog.capture("reminder_fired", properties = mapOf("kind" to kind.eventValue))
+                    deps.analytics().capture("reminder_fired", mapOf("kind" to kind.eventValue))
                 }
                 deps.scheduler().scheduleReminders()
             } finally {

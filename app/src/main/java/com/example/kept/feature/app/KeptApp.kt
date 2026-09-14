@@ -31,6 +31,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -41,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.runtime.remember
+import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -49,6 +51,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.kept.core.FeatureFlags
+import com.example.kept.core.analytics.Analytics
+import com.example.kept.core.analytics.Screens
 import com.example.kept.core.ui.KeptTheme
 import com.example.kept.feature.buddy.BuddyScreen
 import com.example.kept.feature.celebration.CelebrationHost
@@ -80,6 +84,27 @@ object Routes {
     fun reveal(id: Long) = "reveal/$id"
 }
 
+/**
+ * The `$screen_name` for a nav destination (issue #10). Route patterns are matched, not the filled
+ * routes, so a `$screen` never carries the date or the gallery id in the path.
+ *
+ * Onboarding is deliberately absent: it reports one screen view per step, with the step on it, from
+ * inside `OnboardingScreen`. Reporting it here as well would double every first-run screen view.
+ */
+fun screenNameFor(route: String?): String? = when (route) {
+    Routes.HOME -> Screens.HOME
+    Routes.GALLERY -> Screens.GALLERY
+    Routes.BUDDY -> Screens.BUDDY
+    Routes.SETTINGS -> Screens.SETTINGS
+    Routes.RECAP -> Screens.RECAP
+    Routes.EXCEPTIONS -> Screens.EXCEPTIONS
+    Routes.HABITS -> Screens.HABITS
+    Routes.PERMISSIONS -> Screens.PERMISSIONS
+    Routes.REVEAL -> Screens.REVEAL
+    Routes.ROADMAP -> Screens.ROADMAP
+    else -> null
+}
+
 private data class Tab(val route: String, val label: String, val icon: ImageVector, val selectedIcon: ImageVector)
 
 private val tabs = listOfNotNull(
@@ -90,12 +115,21 @@ private val tabs = listOfNotNull(
 )
 
 @Composable
-fun KeptApp(startDestination: String, pendingRoute: String?, consumeRoute: () -> Unit) {
+fun KeptApp(startDestination: String, pendingRoute: String?, consumeRoute: () -> Unit, analytics: Analytics) {
     val nav = rememberNavController()
     val c = KeptTheme.colors
     val backStack by nav.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
     val showBar = currentRoute in tabs.map { it.route }
+
+    // One listener for the whole graph, so a new destination cannot be added without a screen view.
+    DisposableEffect(nav, analytics) {
+        val listener = NavController.OnDestinationChangedListener { _, destination, _ ->
+            screenNameFor(destination.route)?.let { analytics.screen(it) }
+        }
+        nav.addOnDestinationChangedListener(listener)
+        onDispose { nav.removeOnDestinationChangedListener(listener) }
+    }
 
     LaunchedEffect(pendingRoute) {
         val r = pendingRoute ?: return@LaunchedEffect

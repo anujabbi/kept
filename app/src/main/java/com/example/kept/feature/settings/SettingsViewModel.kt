@@ -3,6 +3,7 @@ package com.example.kept.feature.settings
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.kept.core.analytics.Analytics
 import com.example.kept.core.data.DayRepository
 import com.example.kept.core.data.HabitRepository
 import com.example.kept.core.data.LockRepository
@@ -23,7 +24,6 @@ import com.example.kept.core.lock.InstalledAppsSource
 import com.example.kept.core.lock.Permissions
 import com.example.kept.core.notify.ReminderPoster
 import com.example.kept.core.work.WorkScheduler
-import com.posthog.PostHog
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -80,6 +80,7 @@ class SettingsViewModel @Inject constructor(
     private val reminders: ReminderPoster,
     private val time: TimeSource,
     val permissions: Permissions,
+    val analytics: Analytics,
 ) : ViewModel() {
 
     val state: StateFlow<SettingsUi> = combine(
@@ -131,9 +132,9 @@ class SettingsViewModel @Inject constructor(
 
     fun toggleException(app: InstalledApp, allow: Boolean) = viewModelScope.launch {
         if (allow) lockRepo.addException(app.packageName, app.label) else lockRepo.removeException(app.packageName)
-        PostHog.capture(
+        analytics.capture(
             if (allow) "exception_added" else "exception_removed",
-            properties = mapOf("package" to app.packageName),
+            mapOf("package" to app.packageName),
         )
     }
 
@@ -170,12 +171,12 @@ class SettingsViewModel @Inject constructor(
 
     fun addHabit(title: String, iconKey: String, proof: ProofType, target: Int, unit: String) = viewModelScope.launch {
         habitsRepo.addHabit(title, iconKey, proof, target, unit)
-        PostHog.capture("habit_added", properties = mapOf("proof_type" to proof.name.lowercase()))
+        analytics.capture("habit_added", mapOf("proof_type" to proof.name.lowercase()))
     }
     fun updateHabit(h: HabitEntity) = viewModelScope.launch { habitsRepo.updateHabit(h) }
     fun removeHabit(id: Long) = viewModelScope.launch {
         habitsRepo.removeHabit(id)
-        PostHog.capture("habit_removed")
+        analytics.capture("habit_removed")
     }
 
     /** Removing the last undone habit opens apps early during an active lock (issue #1). */
@@ -196,12 +197,21 @@ class SettingsViewModel @Inject constructor(
     fun confirmPendingLockChange() {
         val pending = _pendingLockChange.value ?: return
         _pendingLockChange.value = null
-        PostHog.capture("settings_changed_during_lock", properties = mapOf("setting" to pending.setting.eventValue))
+        analytics.capture("settings_changed_during_lock", mapOf("setting" to pending.setting.eventValue))
         pending.apply()
     }
 
     fun cancelPendingLockChange() {
         _pendingLockChange.value = null
+    }
+
+    /**
+     * "Send anonymous usage data" (issue #10). The preference is stored first so the switch and the
+     * next cold start agree, then the wrapper reports the change and mutes or unmutes itself.
+     */
+    fun setAnalyticsEnabled(on: Boolean) = viewModelScope.launch {
+        prefs.updateSettings { it.copy(analyticsEnabled = on) }
+        analytics.setEnabled(on)
     }
 
     fun restartService() = ForegroundWatcherService.start(ctx)

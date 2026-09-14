@@ -3,6 +3,7 @@ package com.example.kept.core.notify
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import com.example.kept.core.analytics.Analytics
 import com.example.kept.core.data.CompletionSource
 import com.example.kept.core.data.HabitActions
 import com.example.kept.core.data.HabitRepository
@@ -11,7 +12,6 @@ import com.example.kept.core.data.prefs.KeptPreferences
 import com.example.kept.core.domain.ReminderKind
 import com.example.kept.core.domain.ReminderLadder
 import com.example.kept.core.domain.ReminderPlan
-import com.posthog.PostHog
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
@@ -101,6 +101,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
     interface Deps {
         fun actions(): HabitActions
         fun poster(): ReminderPoster
+        fun analytics(): Analytics
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -116,9 +117,9 @@ class NotificationActionReceiver : BroadcastReceiver() {
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                PostHog.capture(
+                deps.analytics().capture(
                     "reminder_action_tapped",
-                    properties = mapOf("kind" to kind.eventValue, "action" to "mark_done"),
+                    mapOf("kind" to kind.eventValue, "action" to "mark_done"),
                 )
                 deps.actions().complete(habitId, source = CompletionSource.NOTIFICATION)
                 // Either the day is done, and the decision clears the reminder, or the buttons have

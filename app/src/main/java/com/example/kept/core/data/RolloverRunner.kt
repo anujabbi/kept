@@ -1,5 +1,6 @@
 package com.example.kept.core.data
 
+import com.example.kept.core.analytics.Analytics
 import com.example.kept.core.data.db.DayRecordDao
 import com.example.kept.core.data.db.DayRecordEntity
 import com.example.kept.core.data.db.HabitDao
@@ -36,6 +37,7 @@ class RolloverRunner @Inject constructor(
     private val buddy: BuddyRepository,
     private val time: TimeSource,
     private val recap: RecapNotifier,
+    private val analytics: Analytics,
 ) {
     private val mutex = Mutex()
 
@@ -52,6 +54,7 @@ class RolloverRunner @Inject constructor(
             val input = buildInput(date, settings.lockFromMinute, settings.dueMinute)
             val out = RolloverEngine.rollover(state, input)
             persist(out)
+            report(out)
             state = out.state
             outputs += out
         }
@@ -91,6 +94,26 @@ class RolloverRunner @Inject constructor(
             unprotected = gaps > 0 || (record?.unprotected ?: false),
             buddyDoneThatDay = buddy.buddyDoneOn(date),
         )
+    }
+
+    /**
+     * One `rollover` per day closed, not per run: a phone that was off for three days closes three
+     * days and reports three (issue #10). `kept` is whether the day counted toward the streak.
+     */
+    private fun report(out: RolloverEngine.Output) {
+        val s = out.summary
+        analytics.capture(
+            "rollover",
+            mapOf(
+                "kept" to s.countedForStreak,
+                "protected" to !s.unprotected,
+                "streak" to s.streakEnd,
+                "form" to s.formEnd.name.lowercase(),
+            ),
+        )
+        if (out.formAfter != out.formBefore) {
+            analytics.capture("form_evolved", mapOf("from" to out.formBefore.name.lowercase(), "to" to out.formAfter.name.lowercase()))
+        }
     }
 
     private suspend fun persist(out: RolloverEngine.Output) {

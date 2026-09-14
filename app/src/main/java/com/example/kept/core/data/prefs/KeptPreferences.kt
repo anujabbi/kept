@@ -38,6 +38,12 @@ data class Settings(
      */
     val celebrationPendingDate: String? = null,
     val myInviteCode: String = "",
+    /**
+     * "Send anonymous usage data" (issue #10). On by default; off calls `PostHog.optOut()` and
+     * mutes the wrapper. Stored here rather than read back from the SDK so the Settings switch has
+     * a flow to follow and so the preference survives a build with no project token.
+     */
+    val analyticsEnabled: Boolean = true,
 )
 
 @Singleton
@@ -56,6 +62,7 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
         val PENDING_RECAP = stringPreferencesKey("pending_recap_date")
         val PENDING_CELEBRATION = stringPreferencesKey("pending_celebration_date")
         val INVITE_CODE = stringPreferencesKey("my_invite_code")
+        val ANALYTICS = booleanPreferencesKey("analytics_enabled")
 
         val LEVEL = intPreferencesKey("sprig_level")
         val STREAK = intPreferencesKey("sprig_streak")
@@ -81,6 +88,7 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
         pendingRecapDate = this[K.PENDING_RECAP],
         celebrationPendingDate = this[K.PENDING_CELEBRATION],
         myInviteCode = this[K.INVITE_CODE] ?: "",
+        analyticsEnabled = this[K.ANALYTICS] ?: true,
     )
 
     private fun Preferences.toSprig() = SprigState(
@@ -116,6 +124,7 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
             if (n.pendingRecapDate == null) p.remove(K.PENDING_RECAP) else p[K.PENDING_RECAP] = n.pendingRecapDate
             if (n.celebrationPendingDate == null) p.remove(K.PENDING_CELEBRATION) else p[K.PENDING_CELEBRATION] = n.celebrationPendingDate
             p[K.INVITE_CODE] = n.myInviteCode
+            p[K.ANALYTICS] = n.analyticsEnabled
         }
     }
 

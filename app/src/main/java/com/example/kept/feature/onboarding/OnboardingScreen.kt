@@ -46,6 +46,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import com.example.kept.core.analytics.Analytics
+import com.example.kept.core.analytics.Screens
 import com.example.kept.core.data.HabitRepository
 import com.example.kept.core.data.TimeSource
 import com.example.kept.core.data.db.HabitEntity
@@ -76,7 +78,6 @@ import com.example.kept.feature.settings.HabitEditor
 import com.example.kept.feature.settings.PermissionCards
 import com.example.kept.feature.settings.TimeRow
 import com.example.kept.feature.settings.hasCamera
-import com.posthog.PostHog
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -104,6 +105,7 @@ class OnboardingViewModel @Inject constructor(
     private val scheduler: WorkScheduler,
     private val time: TimeSource,
     val permissions: Permissions,
+    val analytics: Analytics,
 ) : ViewModel() {
     private val _state = MutableStateFlow(OnboardingState())
     val state: StateFlow<OnboardingState> = _state
@@ -131,7 +133,7 @@ class OnboardingViewModel @Inject constructor(
         prefs.updateSettings { it.copy(onboardingDone = true, onboardingStep = 5) }
         ForegroundWatcherService.start(ctx)
         scheduler.scheduleAll()
-        PostHog.capture("onboarding_completed", properties = mapOf("habit_count" to _state.value.chosen.size))
+        analytics.capture("onboarding_completed", mapOf("habit_count" to _state.value.chosen.size))
         onDone()
     }
 }
@@ -142,6 +144,15 @@ private const val STEPS = 5
 fun OnboardingScreen(onDone: () -> Unit, vm: OnboardingViewModel = hiltViewModel()) {
     val s by vm.state.collectAsStateWithLifecycle()
     val c = KeptTheme.colors
+
+    // Onboarding is one nav destination but five screens to the person walking it, so the step —
+    // not the route — is what a funnel needs (issue #10). Steps are numbered as the header shows
+    // them, from 1.
+    androidx.compose.runtime.LaunchedEffect(s.step) {
+        val step = s.step + 1
+        vm.analytics.screen(Screens.ONBOARDING, mapOf("onboarding_step" to step))
+        vm.analytics.capture("onboarding_step_viewed", mapOf("step" to step))
+    }
     Column(Modifier.fillMaxSize().background(c.surface1).statusBarsPadding().navigationBarsPadding()) {
         // Header: back + progress + counter
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -284,7 +295,7 @@ private fun StepPermissions(s: OnboardingState, vm: OnboardingViewModel) {
         Spacer(Modifier.height(8.dp))
         ScreenTitle("Let KEPT do its job", "The lock needs to see which app is in front, and to step in front of it. KEPT never stores or shares what you use.")
         Spacer(Modifier.height(18.dp))
-        PermissionCards(vm.permissions, kinds) { states = it }
+        PermissionCards(vm.permissions, kinds, vm.analytics) { states = it }
         Spacer(Modifier.height(20.dp))
         PrimaryButton(if (requiredOk) "Continue" else "Continue without the lock", onClick = vm::next, modifier = Modifier.testTag("onboarding_next"))
         if (!requiredOk) {

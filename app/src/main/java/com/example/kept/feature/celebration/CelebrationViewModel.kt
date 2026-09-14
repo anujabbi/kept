@@ -2,6 +2,7 @@ package com.example.kept.feature.celebration
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.kept.core.analytics.Analytics
 import com.example.kept.core.data.HabitRepository
 import com.example.kept.core.data.SprigRepository
 import com.example.kept.core.data.TimeSource
@@ -39,6 +40,7 @@ class CelebrationViewModel @Inject constructor(
     private val habits: HabitRepository,
     private val sprig: SprigRepository,
     private val time: TimeSource,
+    val analytics: Analytics,
 ) : ViewModel() {
 
     val state: StateFlow<CelebrationUiState> =
