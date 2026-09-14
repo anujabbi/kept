@@ -5,7 +5,10 @@
 set -u
 SDK="${ANDROID_HOME:-$LOCALAPPDATA/Android/Sdk}"
 ADB="$SDK/platform-tools/adb.exe"
-PKG=com.example.kept
+PKG=com.zenai.kept
+# applicationId is com.zenai.kept but the Kotlin source package stayed com.example.kept, so adb
+# component names cannot use the ".Class" shorthand — it resolves against the applicationId.
+CLS=com.example.kept
 OUT="$(dirname "$0")/../verification"
 mkdir -p "$OUT"
 
@@ -30,7 +33,7 @@ echo "== fresh onboarding"
 "$ADB" shell appops set $PKG GET_USAGE_STATS allow
 "$ADB" shell appops set $PKG SYSTEM_ALERT_WINDOW allow
 "$ADB" shell pm grant $PKG android.permission.POST_NOTIFICATIONS 2>/dev/null
-"$ADB" shell am start -W -n $PKG/.MainActivity >/dev/null
+"$ADB" shell am start -W -n $PKG/$CLS.MainActivity >/dev/null
 shot 01_onboarding_habits 2.5
 
 echo "== seeded home"
@@ -38,7 +41,7 @@ echo "== seeded home"
 "$ADB" shell appops set $PKG GET_USAGE_STATS allow
 "$ADB" shell appops set $PKG SYSTEM_ALERT_WINDOW allow
 "$ADB" shell pm grant $PKG android.permission.POST_NOTIFICATIONS 2>/dev/null
-"$ADB" shell am start -W -n $PKG/.MainActivity --ez seed true >/dev/null
+"$ADB" shell am start -W -n $PKG/$CLS.MainActivity --ez seed true >/dev/null
 shot 03_home 3
 
 echo "== chrome lock test"
@@ -47,5 +50,5 @@ echo "== chrome lock test"
 sleep 4
 TOP="$(resumed)"
 echo "$TOP"
-if echo "$TOP" | grep -q "$PKG/.feature.lock.LockActivity"; then echo "LOCK OK"; else echo "LOCK FAILED"; fi
+if echo "$TOP" | grep -q "$PKG/$CLS.feature.lock.LockActivity"; then echo "LOCK OK"; else echo "LOCK FAILED"; fi
 shot 05_lock_intercept 1

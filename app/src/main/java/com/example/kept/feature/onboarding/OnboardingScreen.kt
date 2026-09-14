@@ -302,7 +302,7 @@ private fun StepPermissions(s: OnboardingState, vm: OnboardingViewModel) {
     val requiredOk = (states[PermissionKind.USAGE_ACCESS] ?: vm.permissions.usageAccessGranted()) && (states[PermissionKind.OVERLAY] ?: vm.permissions.overlayGranted())
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).testTag("onboarding_permissions")) {
         Spacer(Modifier.height(8.dp))
-        ScreenTitle("Let KEPT do its job", "The lock needs to see which app is in front, and to step in front of it. KEPT never stores or shares what you use.")
+        ScreenTitle("Let KEPT do its job", "The lock needs to see which app is in front, and to step in front of it. It never reads what is inside them. KEPT sends anonymous usage stats — turn them off in Settings.")
         Spacer(Modifier.height(18.dp))
         PermissionCards(vm.permissions, kinds, vm::reportPermissionAnswer) { states = it }
         Spacer(Modifier.height(20.dp))

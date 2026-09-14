@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.kept.core.data.HabitRepository
@@ -43,7 +44,9 @@ class OnboardingFlowTest {
             compose.waitUntil(5_000) { compose.onAllNodes(androidx.compose.ui.test.hasTestTag("onboarding_exceptions")).fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithTag("onboarding_next").performClick()          // exceptions -> permissions
             compose.waitUntil(5_000) { compose.onAllNodes(androidx.compose.ui.test.hasTestTag("onboarding_permissions")).fetchSemanticsNodes().isNotEmpty() }
-            compose.onNodeWithTag("onboarding_next").performClick()          // permissions -> meet sprig
+            // The permissions step is a scrolling column and its copy is long enough to push the
+            // button below the fold on a short screen; scroll to it rather than clicking blind.
+            compose.onNodeWithTag("onboarding_next").performScrollTo().performClick() // permissions -> meet sprig
             compose.waitUntil(5_000) { compose.onAllNodes(androidx.compose.ui.test.hasTestTag("onboarding_sprig")).fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithTag("onboarding_finish").performClick()
             compose.waitUntil(10_000) { compose.onAllNodesWithText("Today").fetchSemanticsNodes().isNotEmpty() }

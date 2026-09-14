@@ -51,7 +51,6 @@ object AppModule {
     fun database(@ApplicationContext ctx: Context): KeptDatabase =
         Room.databaseBuilder(ctx, KeptDatabase::class.java, "kept.db")
             .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
-            .fallbackToDestructiveMigration()
             .build()
 
     @Provides fun habitDao(db: KeptDatabase) = db.habitDao()

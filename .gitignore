@@ -9,3 +9,8 @@ captures/
 
 # PostHog credentials (wizard-generated)
 .env
+
+# Release signing secrets
+keystore.properties
+*.jks
+*.keystore

@@ -382,3 +382,34 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
       `streak` are also event properties on `onboarding_completed` and `rollover`; PostHog merges
       an event's own properties last, so the event value wins over the super property of the same
       name and `rollover.streak` stays the streak that day ended on.
+- **Release plumbing: `com.zenai.kept`, signing, R8, no destructive fallback (issue #5).**
+    - **`applicationId` is `com.zenai.kept`; the Kotlin `namespace` and source package stay
+      `com.example.kept`.** Play rejects `com.example.*`, but renaming the source package would be a
+      several-hundred-file move for no runtime benefit. The two are allowed to disagree: AGP expands
+      the manifest's relative `android:name=".Foo"` against the *namespace*, so every component
+      still resolves. The visible cost is that adb component names can no longer use the shorthand —
+      `com.zenai.kept/.MainActivity` would resolve to a class that does not exist, so the README and
+      `scripts/verify.sh` spell it `com.zenai.kept/com.example.kept.MainActivity`.
+    - **The package string is read, never written.** `Allowlist.OWN_PACKAGE` is now
+      `BuildConfig.APPLICATION_ID` and the reminder action is `APPLICATION_ID + ".action.MARK_DONE"`,
+      so a future rename cannot leave KEPT able to lock itself. Everything holding a `Context`
+      already used `ctx.packageName`.
+    - **Release signing reads `keystore.properties` or the environment, and its absence is not an
+      error.** Secrets never enter the repo (`keystore.properties`, `*.jks` and `*.keystore` are
+      git-ignored; `keystore.properties.example` documents the shape). With nothing configured the
+      `release` signing config is not created at all and the build produces an unsigned APK rather
+      than failing, so CI and a fresh clone can still prove that R8 is happy.
+    - **Release is minified and resource-shrunk.** `isMinifyEnabled` and `isShrinkResources` are on,
+      with keep rules for Room, Hilt, DataStore's protobuf-lite and PostHog. The PostHog rules are
+      explicit rather than trusted to the AAR's consumer rules: a stripped analytics SDK reports
+      nothing and throws nothing, which is the worst failure mode there is.
+    - **`fallbackToDestructiveMigration()` is gone.** It was still on the builder next to two real
+      migrations, so any schema mistake would have silently wiped a user's habits and history
+      instead of crashing. `MigrationTest` now also runs 1 -> 3 end to end — the path a phone that
+      installed v1 and skipped v2 takes — validated against the exported schema.
+    - **The privacy copy now matches what the app does.** The README and the onboarding permissions
+      step said nothing left the phone, which stopped being true when PostHog landed. Both now say:
+      no account, no parent dashboard, the apps you open are never stored or sent, anonymous usage
+      stats go out and Settings turns them off. `docs/privacy-policy.md` (and a GitHub-Pages-ready
+      `docs/privacy-policy.html`) is the long form, and `docs/PLAY-RELEASE-CHECKLIST.md` carries the
+      four permission declarations, the demo video brief and the Data safety answers.

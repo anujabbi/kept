@@ -3,6 +3,7 @@ package com.example.kept.core.notify
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import com.example.kept.BuildConfig
 import com.example.kept.core.analytics.Analytics
 import com.example.kept.core.data.CompletionSource
 import com.example.kept.core.data.HabitActions
@@ -92,7 +93,8 @@ class ReminderPoster @Inject constructor(
 class NotificationActionReceiver : BroadcastReceiver() {
 
     companion object {
-        const val ACTION_MARK_DONE = "com.example.kept.action.MARK_DONE"
+        /** Namespaced by applicationId so it can never collide with another app's broadcast. */
+        val ACTION_MARK_DONE: String = BuildConfig.APPLICATION_ID + ".action.MARK_DONE"
         const val EXTRA_HABIT_ID = "habit_id"
     }
 
