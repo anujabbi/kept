@@ -51,18 +51,21 @@ KEPT sends anonymous product analytics and crash reports to **PostHog** (PostHog
 
 These reports are tied to a **random anonymous ID** generated on your device. KEPT never calls
 PostHog's `identify`, so that ID is never linked to a person. No name, no email address, no phone
-number, no advertising ID, no habit title you typed and no label of any app you chose is ever
-attached to an event.
+number, no advertising ID, no habit title you typed, no label of any app you chose and **no package
+name of any app** is ever attached to an event. That last point is exact: not the app the lock
+stepped in front of, and not the app you added as an exception. An automated test
+(`AnalyticsPropertyNamesTest`) reads the app's own source and fails the build if any analytics call
+site is given a property called `package`, `blocked_package` or anything ending in `_package`.
 
 The event categories sent are:
 
 | Category | What it records |
 | --- | --- |
 | Onboarding | Which onboarding step was viewed, whether a permission was granted or refused, and that onboarding completed (with how many habits you set up). |
-| Lock shown / broken | That the lock screen appeared, that a lock break was started, cancelled or used, and that the lock was off when it should have been on. |
+| Lock shown / broken | That the lock screen appeared and how many minutes were left before the give-up time — never which app it appeared over. Also that a lock break was started, cancelled or used, and that the lock was off when it should have been on. |
 | Habit completed | That a habit was ticked (and from where — the app, the lock screen, or a notification), undone, added or removed. Never the habit's title. |
 | Reminders | That a reminder fired, and that a reminder's "Mark done" action was tapped. |
-| Settings changes | That analytics were turned on or off, and that Settings were opened while the lock was active. |
+| Settings changes | That analytics were turned on or off, that an app exception was added or removed (never which app), that a permission was granted or refused, and that a setting was changed while the lock was active. |
 | Service health | That the lock's background service had to be restarted, and that a protection gap was recorded. |
 | Progress | Day rollover (streak and whether the day counted), Sprig evolution, and share-card generation. |
 | Screen views | The name of the screen you are on — a fixed name such as `home` or `settings`, never a date, a habit or a row id. |

@@ -128,15 +128,31 @@ object ReminderCopy {
 /**
  * Which habits get a "Mark done" button. Android draws at most three notification actions, so a
  * fourth habit costs a slot: the first two keep their buttons and the third becomes "Open KEPT".
+ *
+ * **A photo habit never gets one (issue #9).** Its whole point is that the tick costs a photo; a
+ * notification button would complete it with no proof at all, from the lock screen, which is a
+ * strictly easier path than the one the app offers. Those habits send the user into KEPT instead,
+ * where the camera is, so a reminder listing any of them always spends a slot on "Open KEPT".
  */
 object ReminderActions {
     const val MAX_ACTIONS = 3
 
     data class Plan(val markDone: List<Long>, val openApp: Boolean)
 
-    fun plan(remainingHabitIds: List<Long>): Plan =
-        if (remainingHabitIds.size <= MAX_ACTIONS) Plan(remainingHabitIds, openApp = false)
-        else Plan(remainingHabitIds.take(MAX_ACTIONS - 1), openApp = true)
+    /**
+     * [markDoneEligibleIds] are the MANUAL habits still outstanding, in display order.
+     * [hasProofRequiredHabits] is true when at least one outstanding habit needs a photo.
+     */
+    fun plan(markDoneEligibleIds: List<Long>, hasProofRequiredHabits: Boolean = false): Plan {
+        // "Open KEPT" is mandatory when a photo habit is outstanding: without it the reminder would
+        // offer no way to finish the day at all.
+        val slots = if (hasProofRequiredHabits) MAX_ACTIONS - 1 else MAX_ACTIONS
+        return if (markDoneEligibleIds.size <= slots) {
+            Plan(markDoneEligibleIds, openApp = hasProofRequiredHabits)
+        } else {
+            Plan(markDoneEligibleIds.take(MAX_ACTIONS - 1), openApp = true)
+        }
+    }
 }
 
 /**
@@ -146,8 +162,11 @@ object ReminderActions {
  * `ReminderPoster` is then only the Android adapter that gathers the inputs and draws the result.
  */
 object ReminderPlan {
-    /** A habit still outstanding when the reminder fires. */
-    data class Habit(val id: Long, val title: String)
+    /**
+     * A habit still outstanding when the reminder fires. [proof] decides whether it may be ticked
+     * from the shade at all: a PHOTO habit cannot, since the notification has no camera.
+     */
+    data class Habit(val id: Long, val title: String, val proof: ProofType = ProofType.MANUAL)
 
     data class Action(val habitId: Long, val label: String)
 
@@ -185,7 +204,8 @@ object ReminderPlan {
         // and a notification still claiming minutes would be a lie.
         if (minutesLeft <= 0) return Decision.Skip(clearExisting = true)
 
-        val plan = ReminderActions.plan(remaining.map { it.id })
+        val (manual, needsProof) = remaining.partition { it.proof == ProofType.MANUAL }
+        val plan = ReminderActions.plan(manual.map { it.id }, hasProofRequiredHabits = needsProof.isNotEmpty())
         val single = plan.markDone.size == 1 && !plan.openApp
         val actions = plan.markDone.mapNotNull { id ->
             remaining.firstOrNull { it.id == id }

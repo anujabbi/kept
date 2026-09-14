@@ -6,6 +6,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -24,10 +25,12 @@ import com.example.kept.core.data.TimeSource
 import com.example.kept.core.data.prefs.KeptPreferences
 import com.example.kept.core.domain.GapRules
 import com.example.kept.core.domain.LockPolicy
+import com.example.kept.core.domain.LockWindowStart
 import com.example.kept.core.domain.ReminderKind
 import com.example.kept.core.domain.ReminderLadder
 import com.example.kept.core.lock.ForegroundWatcherService
 import com.example.kept.core.lock.Permissions
+import com.example.kept.core.lock.RestartLadder
 import com.example.kept.core.lock.RestartMethod
 import com.example.kept.core.lock.ServiceRestarter
 import com.example.kept.core.lock.UsageWindowProbe
@@ -96,6 +99,14 @@ class WatchdogWorker @AssistedInject constructor(
 
         val now = time.nowMillis()
         val heartbeat = settings.lastServiceHeartbeat
+        // Evidence only counts from inside the window being judged (issue #2). The heartbeat can be
+        // far older than the window start — the service stops when a window closes and the phone is
+        // used all evening — and probing from it would let last night's screen-on events mark today
+        // unprotected.
+        val windowStart = LockWindowStart
+            .instantFor(time.localDateTime(), settings.lockFromMinute, time.zone())
+            .toEpochMilli()
+        val evidenceFrom = maxOf(heartbeat, windowStart)
         val base = GapRules.Input(
             lockShouldBeActive = shouldBeLocking,
             lockPermissionsGranted = permissions.lockPermissionsGranted(),
@@ -104,11 +115,12 @@ class WatchdogWorker @AssistedInject constructor(
             everHeartbeat = heartbeat > 0,
             screenInUseAtMillis = emptyList(),
             lockedAppResumedDuringWindow = false,
+            evidenceFromMillis = evidenceFrom,
         )
         // Only look at usage events once the heartbeat is actually stale during an enforceable
         // window: the query is not free and nothing else can turn into a gap.
-        val verdict = if (base.stale && shouldBeLocking && base.lockPermissionsGranted) {
-            val activity = probe.activityDuring(heartbeat, now, snapshot)
+        val verdict = if (base.stale && shouldBeLocking && base.lockPermissionsGranted && evidenceFrom < now) {
+            val activity = probe.activityDuring(evidenceFrom, now, snapshot)
             GapRules.evaluate(
                 base.copy(
                     screenInUseAtMillis = activity.inUseAtMillis,
@@ -136,7 +148,9 @@ class WatchdogWorker @AssistedInject constructor(
         }
 
         if (verdict.isGap) {
-            lockRepo.recordProtectionGap(heartbeat, now, verdict.reason)
+            // Recorded from the clamped start, not the raw heartbeat: the gap is the part of the
+            // window that went unprotected, not the hours before it opened.
+            lockRepo.recordProtectionGap(evidenceFrom, now, verdict.reason)
             notifications.protectionLost(verdict.reason)
             analytics.capture("protection_gap_recorded", mapOf("reason" to verdict.name.lowercase()))
         }
@@ -147,8 +161,10 @@ class WatchdogWorker @AssistedInject constructor(
 /**
  * Restarts the watcher service from an expedited job, for the case where a direct
  * `startForegroundService` was refused (issue #2). Expedited work needs no permission the user can
- * refuse, unlike `SCHEDULE_EXACT_ALARM` on API 31+. If this fails as well, the persistent
- * "Lock is off" notification is the fallback.
+ * refuse, unlike `SCHEDULE_EXACT_ALARM` on API 31+ — but it is also *not* an exemption from the
+ * Android 12+ background-FGS-start restriction, so when the direct start was refused for that
+ * reason this rung is refused for it too. [RestartLadder] then hands the job to the exact alarm,
+ * which is an exemption, or to the "Lock is off" notification when exact alarms are not allowed.
  */
 @HiltWorker
 class ServiceRestartWorker @AssistedInject constructor(
@@ -156,6 +172,7 @@ class ServiceRestartWorker @AssistedInject constructor(
     @Assisted params: WorkerParameters,
     private val restarter: ServiceRestarter,
     private val notifications: KeptNotifications,
+    private val scheduler: WorkScheduler,
 ) : CoroutineWorker(ctx, params) {
 
     /** Only used on API < 31, where expedited work runs as a foreground worker instead. */
@@ -163,8 +180,42 @@ class ServiceRestartWorker @AssistedInject constructor(
         ForegroundInfo(KeptNotifications.ID_RESTART, notifications.restartingNotification())
 
     override suspend fun doWork(): Result {
-        if (!restarter.restart(RestartMethod.EXPEDITED_WORK)) restarter.showLockOff()
+        if (restarter.restart(RestartMethod.EXPEDITED_WORK)) return Result.success()
+        val next = RestartLadder.after(RestartMethod.EXPEDITED_WORK, restarter.canScheduleExactAlarms())
+        val armed = next == RestartLadder.Next.EXACT_ALARM && scheduler.requestExactAlarmRestart()
+        if (!armed) restarter.showLockOff()
         return Result.success()
+    }
+}
+
+/**
+ * The exact-alarm rung of the restart ladder (issue #2). Delivery of an exact alarm is one of the
+ * documented exemptions from the background foreground-service-start restriction, so the service
+ * start attempted from here can succeed where the two rungs before it were refused. Nothing is left
+ * after this one, so a refusal posts the "Lock is off" notification.
+ */
+class ServiceRestartAlarmReceiver : BroadcastReceiver() {
+
+    @EntryPoint
+    @InstallIn(SingletonComponent::class)
+    interface Deps {
+        fun restarter(): ServiceRestarter
+    }
+
+    override fun onReceive(context: Context, intent: Intent) {
+        val deps = runCatching {
+            EntryPointAccessors.fromApplication(context.applicationContext, Deps::class.java)
+        }.getOrNull() ?: return
+        // Synchronous and short: starting a service is a single binder call, so there is no need
+        // for goAsync() and nothing here may be allowed to throw out of a receiver.
+        runCatching {
+            val restarter = deps.restarter()
+            if (!restarter.restart(RestartMethod.EXACT_ALARM)) restarter.showLockOff()
+        }.onFailure { Log.w(TAG, "exact-alarm restart rung failed", it) }
+    }
+
+    private companion object {
+        const val TAG = "ServiceRestartAlarm"
     }
 }
 
@@ -189,14 +240,22 @@ class AlarmReceiver : BroadcastReceiver() {
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                if (deps.poster().post(kind)) {
-                    deps.analytics().capture("reminder_fired", mapOf("kind" to kind.eventValue))
-                }
-                deps.scheduler().scheduleReminders()
+                // An uncaught throw here would be an uncaught throw on a bare scope, which kills
+                // the process. A reminder that failed to draw is not worth a crash.
+                runCatching {
+                    if (deps.poster().post(kind)) {
+                        deps.analytics().capture("reminder_fired", mapOf("kind" to kind.eventValue))
+                    }
+                    deps.scheduler().scheduleReminders()
+                }.onFailure { Log.w(TAG, "reminder alarm for ${kind.eventValue} failed", it) }
             } finally {
                 pending.finish()
             }
         }
+    }
+
+    private companion object {
+        const val TAG = "AlarmReceiver"
     }
 }
 
@@ -229,6 +288,34 @@ class WorkScheduler @Inject constructor(
             .build()
         wm?.enqueueUniqueWork("kept_service_restart", ExistingWorkPolicy.REPLACE, req)
     }
+
+    /**
+     * The last rung: a near-immediate exact alarm whose delivery exempts the receiver from the
+     * background foreground-service-start restriction (issue #2). Returns false when the alarm
+     * could not be armed at all, which is the caller's signal to fall through to the "Lock is off"
+     * notification rather than wait for a start that will never come.
+     *
+     * [EXACT_ALARM_DELAY_MILLIS] is short but non-zero: `setExactAndAllowWhileIdle` is documented
+     * to fire no more often than once every few minutes per app in Doze, and asking for "now"
+     * would be no faster than asking for two seconds from now.
+     */
+    fun requestExactAlarmRestart(): Boolean = runCatching {
+        val am = ctx.getSystemService(AlarmManager::class.java) ?: return false
+        if (Build.VERSION.SDK_INT >= 31 && !am.canScheduleExactAlarms()) return false
+        am.setExactAndAllowWhileIdle(
+            AlarmManager.RTC_WAKEUP,
+            System.currentTimeMillis() + EXACT_ALARM_DELAY_MILLIS,
+            restartAlarmIntent(),
+        )
+        true
+    }.getOrDefault(false)
+
+    private fun restartAlarmIntent(): PendingIntent = PendingIntent.getBroadcast(
+        ctx,
+        RESTART_REQUEST_CODE,
+        Intent(ctx, ServiceRestartAlarmReceiver::class.java),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
 
     fun scheduleNextRollover() {
         val now = time.localDateTime()
@@ -275,5 +362,9 @@ class WorkScheduler @Inject constructor(
 
     private companion object {
         const val REMINDER_REQUEST_BASE = 100
+
+        /** Distinct from every reminder rung's request code so they never replace one another. */
+        const val RESTART_REQUEST_CODE = 200
+        const val EXACT_ALARM_DELAY_MILLIS = 2_000L
     }
 }

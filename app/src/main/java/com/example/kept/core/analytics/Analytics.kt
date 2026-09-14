@@ -8,7 +8,10 @@ package com.example.kept.core.analytics
  * silent build, and the opt-out rule lives in one place instead of at every call site.
  *
  * KEPT never calls `identify`. The distinct ID is the SDK's random anonymous one, and no event
- * carries a name, an email, a habit title or an app label the user typed.
+ * carries a name, an email, a habit title, an app label, or **the package name of any app** — not
+ * the app the lock stepped in front of and not the one the user made an exception for. The apps
+ * you open never leave the device, which every privacy surface promises and
+ * `AnalyticsPropertyNamesTest` enforces against the source.
  */
 interface Analytics {
 

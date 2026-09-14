@@ -154,7 +154,7 @@ fun SettingsScreen(
         }
         Spacer(Modifier.height(20.dp))
 
-        Text("KEPT never shares your app usage, screen time, or location with anyone. Your buddy sees only your streak, today's done flag and Sprig's form.", style = MaterialTheme.typography.bodySmall, color = c.textMuted)
+        Text("KEPT never shares your app usage, screen time, or location with anyone.", style = MaterialTheme.typography.bodySmall, color = c.textMuted)
         Spacer(Modifier.height(28.dp))
     }
 

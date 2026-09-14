@@ -17,6 +17,7 @@ class GapRulesTest {
         everHeartbeat: Boolean = true,
         screenInUseAt: List<Long> = emptyList(),
         lockedAppResumed: Boolean = false,
+        evidenceFrom: Long = heartbeatMillis,
     ) = GapRules.Input(
         lockShouldBeActive = lockShouldBeActive,
         lockPermissionsGranted = lockPermissionsGranted,
@@ -25,6 +26,7 @@ class GapRulesTest {
         everHeartbeat = everHeartbeat,
         screenInUseAtMillis = screenInUseAt,
         lockedAppResumedDuringWindow = lockedAppResumed,
+        evidenceFromMillis = evidenceFrom,
     )
 
     @Test fun `a fresh heartbeat means the service is alive`() {
@@ -59,7 +61,9 @@ class GapRulesTest {
     }
 
     @Test fun `a wake at the tail plus an earlier use is still a gap`() {
-        val v = GapRules.evaluate(input(screenInUseAt = listOf(ago(40 * 60_000), ago(2_000))))
+        // Both stamps are inside the stale window (the heartbeat is 30 minutes old); the earlier
+        // one is what makes this a gap rather than a wake.
+        val v = GapRules.evaluate(input(screenInUseAt = listOf(ago(20 * 60_000), ago(2_000))))
         assertEquals(GapRules.Verdict.GAP_SCREEN_ON, v)
     }
 
@@ -96,7 +100,8 @@ class GapRulesTest {
 
     @Test fun `the stale threshold is two minutes and the boundary is not stale`() {
         assertEquals(2 * 60_000L, GapRules.STALE_AFTER_MILLIS)
-        val use = listOf(ago(10 * 60_000))
+        // Use inside the stale window and old enough not to be the wake that triggered the check.
+        val use = listOf(ago(90_000))
         assertFalse(GapRules.evaluate(input(heartbeatMillis = ago(GapRules.STALE_AFTER_MILLIS), screenInUseAt = use)).isGap)
         assertTrue(GapRules.evaluate(input(heartbeatMillis = ago(GapRules.STALE_AFTER_MILLIS + 1), screenInUseAt = use)).isGap)
     }
@@ -105,6 +110,60 @@ class GapRulesTest {
         assertEquals(60_000L, GapRules.WAKE_TAIL_MILLIS)
         assertTrue(GapRules.evaluate(input(screenInUseAt = listOf(ago(GapRules.WAKE_TAIL_MILLIS)))).isGap)
         assertFalse(GapRules.evaluate(input(screenInUseAt = listOf(ago(GapRules.WAKE_TAIL_MILLIS - 1)))).isGap)
+    }
+
+    @Test fun `use from before the window being judged is not evidence`() {
+        // The night the watchdog cannot see: last night's window closed at 23:00, the service
+        // stopped, the phone was used until 01:00, and this morning's window opened at 07:00. A
+        // watchdog run at 07:30 still sees a heartbeat from 23:00 and usage events from 01:00 —
+        // which belong to a window that is over, not to today (issue #2).
+        val windowStart = ago(30 * 60_000)
+        val v = GapRules.evaluate(
+            input(
+                heartbeatMillis = ago(8 * 60 * 60_000),
+                evidenceFrom = windowStart,
+                screenInUseAt = listOf(ago(6 * 60 * 60_000)),
+            ),
+        )
+        assertEquals(GapRules.Verdict.DOZE_NOT_A_GAP, v)
+        assertFalse(v.isGap)
+        // Still worth restarting: the service really is not running.
+        assertTrue(v.serviceLooksDead)
+    }
+
+    @Test fun `use inside the clamped window is still a gap`() {
+        val windowStart = ago(30 * 60_000)
+        val v = GapRules.evaluate(
+            input(
+                heartbeatMillis = ago(8 * 60 * 60_000),
+                evidenceFrom = windowStart,
+                screenInUseAt = listOf(ago(6 * 60 * 60_000), ago(20 * 60_000)),
+            ),
+        )
+        assertEquals(GapRules.Verdict.GAP_SCREEN_ON, v)
+    }
+
+    @Test fun `the clamp never moves the floor earlier than the heartbeat`() {
+        // A window that opened before the service last checked in: the heartbeat still wins, so
+        // the minutes the lock *was* being enforced cannot be blamed on it.
+        val v = GapRules.evaluate(
+            input(
+                heartbeatMillis = ago(10 * 60_000),
+                evidenceFrom = ago(5 * 60 * 60_000),
+                screenInUseAt = listOf(ago(3 * 60 * 60_000)),
+            ),
+        )
+        assertEquals(GapRules.Verdict.DOZE_NOT_A_GAP, v)
+    }
+
+    @Test fun `an event stamped after now is ignored`() {
+        // Probe queries are inclusive at the edges and an OEM can stamp an event a moment late.
+        val v = GapRules.evaluate(input(screenInUseAt = listOf(now + 5_000)))
+        assertEquals(GapRules.Verdict.DOZE_NOT_A_GAP, v)
+    }
+
+    @Test fun `the evidence floor defaults to the heartbeat`() {
+        assertEquals(ago(30 * 60_000), input().evidenceFloorMillis)
     }
 
     @Test fun `every gap verdict carries copy for the record and the notification`() {

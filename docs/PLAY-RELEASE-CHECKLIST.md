@@ -57,11 +57,12 @@ Answers implied by the PostHog integration as it ships:
 | --- | --- |
 | Does your app collect or share any of the required user data types? | **Yes** |
 | Is all data encrypted in transit? | **Yes** (HTTPS to `us.i.posthog.com`) |
-| Do you provide a way for users to request data deletion? | **No in-app deletion request**; state that data carries no user identifier and that uninstalling removes all on-device data, and that collection can be switched off in Settings. |
-| **App activity → App interactions** | Collected, **not** shared. Purpose: Analytics. **Optional** (the Settings toggle). Screen views and product events; no identifiers. |
+| Do you provide a way for users to request data deletion? | **No in-app deletion request**; state that data carries no identifier tied to a person and that uninstalling removes all on-device data, and that collection can be switched off in Settings. |
+| **App activity → App interactions** | Collected, **not** shared. Purpose: Analytics. **Optional** (the Settings toggle). Screen views and product events; no identifier tied to a person (see Device or other IDs below for the random per-install id). |
 | **App info and performance → Crash logs** | Collected, **not** shared. Purpose: Analytics. **Optional** (same toggle). |
 | **App info and performance → Diagnostics** | Collected, **not** shared. Purpose: Analytics. **Optional**. App version, Android SDK level, manufacturer. |
-| Device or other IDs | **Not collected.** KEPT never calls `identify`; the distinct ID is a random value generated on the device and is not an advertising or device ID. |
+| App activity → *installed apps / app search* | **Not collected.** KEPT reads the foreground package and the launchable-app list on the device to enforce the lock, but no package name is ever attached to an event or transmitted — enforced by `AnalyticsPropertyNamesTest`. |
+| **Device or other IDs** | **Collected**, not shared. Purpose: Analytics. **Optional** (same toggle). PostHog generates and persists a random per-install `$device_id` and sends it with every event, which Play counts as a device or other ID even though it is not an advertising or hardware ID. KEPT never calls `identify`, so it is never linked to a name, an email or any account, and it is regenerated on reinstall. Declaring it "not collected" because it is anonymous would be wrong: the question asks whether an identifier is transmitted, not whether it is linked to a person. |
 | Personal info (name, email, user IDs) | **Not collected.** No account exists. |
 | Photos and videos | **Not collected.** Photo check-ins stay in app-private storage and are never uploaded. |
 | Location, contacts, messages, files | **Not collected.** |

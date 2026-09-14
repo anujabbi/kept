@@ -3,6 +3,7 @@ package com.example.kept.core.lock
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import com.example.kept.core.data.prefs.KeptPreferences
 import com.example.kept.core.work.WorkScheduler
 import dagger.hilt.EntryPoint
@@ -33,18 +34,26 @@ class BootReceiver : BroadcastReceiver() {
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val prefs = deps.prefs()
-                if (prefs.currentSettings().onboardingDone) {
-                    // No heartbeat write here either (issue #2). Only the service may claim the
-                    // lock is being enforced, and it writes one within a second of starting. The
-                    // time the phone was off cannot be mistaken for a gap on its own now: with no
-                    // evidence of the phone being used, a stale heartbeat is Doze, not a gap.
-                    ForegroundWatcherService.start(context)
-                    deps.scheduler().scheduleAll()
-                }
+                // A bare scope has no handler, so anything thrown here would take the process down
+                // during boot — the one moment KEPT has no user watching and no way to recover.
+                runCatching {
+                    val prefs = deps.prefs()
+                    if (prefs.currentSettings().onboardingDone) {
+                        // No heartbeat write here either (issue #2). Only the service may claim the
+                        // lock is being enforced, and it writes one within a second of starting. The
+                        // time the phone was off cannot be mistaken for a gap on its own now: with no
+                        // evidence of the phone being used, a stale heartbeat is Doze, not a gap.
+                        ForegroundWatcherService.start(context)
+                        deps.scheduler().scheduleAll()
+                    }
+                }.onFailure { Log.w(TAG, "boot restart failed", it) }
             } finally {
                 pending.finish()
             }
         }
+    }
+
+    private companion object {
+        const val TAG = "BootReceiver"
     }
 }

@@ -80,6 +80,12 @@
             android:name=".core.work.AlarmReceiver"
             android:exported="false" />
 
+        <!-- The last rung of the restart ladder: an exact alarm's delivery exempts this receiver
+             from the Android 12+ background foreground-service-start restriction (issue #2). -->
+        <receiver
+            android:name=".core.work.ServiceRestartAlarmReceiver"
+            android:exported="false" />
+
         <!-- "Mark done" on a reminder. Not exported: only KEPT's own PendingIntents reach it. -->
         <receiver
             android:name=".core.notify.NotificationActionReceiver"

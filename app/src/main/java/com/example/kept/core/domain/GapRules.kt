@@ -13,6 +13,8 @@ package com.example.kept.core.domain
  * - A missing lock permission is not judged here at all. The service is still running and records
  *   that gap itself from inside its tick, so a second, overlapping record from the watchdog would
  *   double-count it and blame the wrong thing.
+ * - Evidence from outside the window being judged is discarded. See [Input.evidenceFromMillis]:
+ *   the heartbeat can predate the lock window by hours, and last night's use is not today's gap.
  * - Use within [WAKE_TAIL_MILLIS] of the end of the window does not count on its own. The watchdog
  *   usually runs *because* the phone woke, so the wake that triggered the check would otherwise
  *   turn a quiet night into an unprotected day.
@@ -41,17 +43,39 @@ object GapRules {
         val screenInUseAtMillis: List<Long>,
         /** A package the lock would have blocked was resumed in the window. */
         val lockedAppResumedDuringWindow: Boolean,
+        /**
+         * The earliest moment evidence may come from: the later of [heartbeatMillis] and the start
+         * of the lock window being judged (issue #2).
+         *
+         * `UsageStatsManager` is queried over `[heartbeat, now]`, and a heartbeat can be much older
+         * than the window: the service stops at 23:00 when last night's window closed, the phone is
+         * used all evening, and a watchdog run after this morning's window opens would otherwise
+         * find yesterday's screen-on events and mark *today* unprotected. Defaults to
+         * [heartbeatMillis], so a caller with no window to clamp to keeps the old behaviour.
+         */
+        val evidenceFromMillis: Long = heartbeatMillis,
     ) {
         val heartbeatAgeMillis: Long get() = nowMillis - heartbeatMillis
         val stale: Boolean get() = everHeartbeat && heartbeatAgeMillis > STALE_AFTER_MILLIS
 
+        /** The lower bound evidence is judged against: never earlier than the heartbeat. */
+        val evidenceFloorMillis: Long get() = maxOf(heartbeatMillis, evidenceFromMillis)
+
+        /**
+         * Use that actually falls inside the window being judged. A probe can hand back events
+         * from outside `[floor, now]` — the query is inclusive at its edges and an OEM can stamp
+         * an event a little late — and an out-of-window event must never decide a day.
+         */
+        val useInWindow: List<Long>
+            get() = screenInUseAtMillis.filter { it >= evidenceFloorMillis && it <= nowMillis }
+
         /** Use old enough that it cannot be the wake that let this check run. */
         val inUseBeforeWakeTail: Boolean
-            get() = screenInUseAtMillis.any { it <= nowMillis - WAKE_TAIL_MILLIS }
+            get() = useInWindow.any { it <= nowMillis - WAKE_TAIL_MILLIS }
 
         /** The phone was used, but only in the last moments of the window. */
         val inUseOnlyAtWakeTail: Boolean
-            get() = screenInUseAtMillis.isNotEmpty() && !inUseBeforeWakeTail
+            get() = useInWindow.isNotEmpty() && !inUseBeforeWakeTail
     }
 
     enum class Verdict(val isGap: Boolean, val reason: String) {

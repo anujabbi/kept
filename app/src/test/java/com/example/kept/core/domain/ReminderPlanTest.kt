@@ -46,6 +46,56 @@ class ReminderPlanTest {
         assertTrue(d.openApp)
     }
 
+    @Test fun `a photo habit gets Open KEPT rather than a Mark done it cannot honour`() {
+        // "Mark done" on a photo habit would complete it with no photo at all, from the shade —
+        // an easier path than the app offers, and the opposite of what the proof is for (issue #9).
+        val d = decide(
+            remaining = listOf(ReminderPlan.Habit(1, "Tidy room", ProofType.PHOTO)),
+            totalHabits = 1,
+        ) as ReminderPlan.Decision.Post
+        assertEquals(emptyList<ReminderPlan.Action>(), d.actions)
+        assertTrue(d.openApp)
+    }
+
+    @Test fun `a mixed day keeps buttons for the manual habits and adds Open KEPT`() {
+        val d = decide(
+            remaining = listOf(
+                ReminderPlan.Habit(1, "Exercise"),
+                ReminderPlan.Habit(2, "Tidy room", ProofType.PHOTO),
+            ),
+            totalHabits = 2,
+        ) as ReminderPlan.Decision.Post
+        assertEquals(listOf(1L), d.actions.map { it.habitId })
+        assertTrue(d.openApp)
+        // Two habits remain, so the one button still names its habit.
+        assertEquals("Done: Exercise", d.actions.single().label)
+    }
+
+    @Test fun `a photo habit costs a button slot, never Open KEPT`() {
+        // Three manual habits would fill all three slots; with a photo habit outstanding, only two
+        // fit, because "Open KEPT" is the only way to finish the day.
+        val d = decide(
+            remaining = listOf(
+                ReminderPlan.Habit(1, "A"),
+                ReminderPlan.Habit(2, "B"),
+                ReminderPlan.Habit(3, "C"),
+                ReminderPlan.Habit(4, "Photo", ProofType.PHOTO),
+            ),
+            totalHabits = 4,
+        ) as ReminderPlan.Decision.Post
+        assertEquals(listOf(1L, 2L), d.actions.map { it.habitId })
+        assertTrue(d.openApp)
+    }
+
+    @Test fun `three manual habits still fill every slot`() {
+        val d = decide(
+            remaining = (1L..3L).map { ReminderPlan.Habit(it, "H$it") },
+            totalHabits = 3,
+        ) as ReminderPlan.Decision.Post
+        assertEquals(listOf(1L, 2L, 3L), d.actions.map { it.habitId })
+        assertTrue(!d.openApp)
+    }
+
     @Test fun `reminders switched off skip and take down what is on screen`() {
         assertEquals(ReminderPlan.Decision.Skip(clearExisting = true), decide(remindersEnabled = false))
     }

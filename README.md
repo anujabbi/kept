@@ -43,6 +43,13 @@ app/src/main/java/com/example/kept/
    adb install -r app/build/outputs/apk/debug/app-debug.apk
    ```
 
+> **Upgrading from a pre-release build:** the `applicationId` changed from `com.example.kept` to
+> `com.zenai.kept`, so Android treats the two as unrelated apps. A tester who already has an older
+> `com.example.kept` build must uninstall it — `adb uninstall com.example.kept`, or long-press the
+> icon and remove it — or they will end up with two KEPT icons, two lock services fighting over the
+> foreground, and their habits and streak stranded in the old one (app-private data is not migrated
+> between package names).
+
 ## Granting the special permissions from the command line
 
 The lock needs usage access and "display over other apps" (Android blocks activity starts from a
@@ -169,8 +176,12 @@ an "unprotected today" marker — there is no chat, no profiles, no search.
 
 Anonymous usage analytics and crash reports do go to PostHog (US cloud) under a random anonymous
 ID: onboarding steps, lock shown/broken, habit completed, reminders, settings changes and service
-health. KEPT never calls `identify`, session replay is off, and no habit title or app label is ever
-attached to an event. **Settings → Privacy → "Send anonymous usage data"** turns it all off.
+health. KEPT never calls `identify`, session replay is off, and no habit title, app label or
+**package name** is ever attached to an event — `lock_shown` carries only the minutes left before
+the give-up time, and the exception events carry nothing at all. `AnalyticsPropertyNamesTest` scans
+`app/src/main` and fails the build if a property named `package`, `blocked_package` or anything
+ending in `_package` ever reaches a capture. **Settings → Privacy → "Send anonymous usage data"**
+turns it all off.
 
 The full text is `docs/privacy-policy.md` (and `docs/privacy-policy.html` for GitHub Pages);
 `docs/PLAY-RELEASE-CHECKLIST.md` lists what Play needs before release.

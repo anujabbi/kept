@@ -1,6 +1,7 @@
 package com.example.kept.core.di
 
 import android.content.Context
+import android.util.Log
 import androidx.room.Room
 import com.example.kept.core.AppForeground
 import com.example.kept.core.data.BuddyNotifier
@@ -20,6 +21,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -44,8 +46,19 @@ annotation class ApplicationScope
 object AppModule {
     @Provides @Singleton fun clock(): Clock = Clock.systemDefaultZone()
 
+    /**
+     * The handler is not optional. `SupervisorJob` keeps one failed child from cancelling its
+     * siblings, but it does nothing about the exception itself: with no handler the throw reaches
+     * the thread's default handler and takes the process down. A tick taken on the lock screen
+     * runs here, so a failure in the follow-up work would crash the app out from under a user who
+     * had just kept their promise.
+     */
     @Provides @Singleton @ApplicationScope
-    fun applicationScope(): CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    fun applicationScope(): CoroutineScope = CoroutineScope(
+        SupervisorJob() + Dispatchers.IO + CoroutineExceptionHandler { ctx, t ->
+            Log.e("KeptAppScope", "uncaught failure in application-scope work ($ctx)", t)
+        },
+    )
 
     @Provides @Singleton
     fun database(@ApplicationContext ctx: Context): KeptDatabase =

@@ -3,6 +3,7 @@ package com.example.kept.core.domain
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.temporal.IsoFields
@@ -119,6 +120,32 @@ object GiveUpTime {
      */
     fun isPastDue(minuteOfDay: Int, lockFromMinute: Int, dueMinute: Int): Boolean =
         !wraps(lockFromMinute, dueMinute) && minuteOfDay >= dueMinute
+}
+
+/**
+ * Where the lock window that is open (or was last open) began (issue #2).
+ *
+ * The watchdog asks `UsageStatsManager` "was this phone in use while unprotected?" over
+ * `[lastHeartbeat, now]`. That interval is only meaningful inside a lock window: a phone used at
+ * 23:00 last night, hours after the window closed, is not evidence of anything, and a watchdog run
+ * at 08:00 this morning with a heartbeat still stamped from last night would have turned it into
+ * today's protection gap. Clamping the probe to this instant keeps the evidence inside the window
+ * it is supposed to be judging.
+ */
+object LockWindowStart {
+    /**
+     * The start of the window covering [nowLocal], or of the one that most recently started.
+     *
+     * A wrapping window (22:00 -> 06:00) asked at 02:00 started *yesterday* at 22:00, so a start
+     * time still ahead of [nowLocal] today means the answer belongs to the previous day. Works
+     * unchanged for a normal window, where today's start is always at or before now while the
+     * window is open.
+     */
+    fun instantFor(nowLocal: LocalDateTime, lockFromMinute: Int, zone: ZoneId): Instant {
+        val todayStart = nowLocal.toLocalDate().atTime(lockFromMinute / 60, lockFromMinute % 60)
+        val start = if (nowLocal.isBefore(todayStart)) todayStart.minusDays(1) else todayStart
+        return start.atZone(zone).toInstant()
+    }
 }
 
 /**

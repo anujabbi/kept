@@ -133,10 +133,10 @@ class SettingsViewModel @Inject constructor(
 
     fun toggleException(app: InstalledApp, allow: Boolean) = viewModelScope.launch {
         if (allow) lockRepo.addException(app.packageName, app.label) else lockRepo.removeException(app.packageName)
-        analytics.capture(
-            if (allow) "exception_added" else "exception_removed",
-            mapOf("package" to app.packageName),
-        )
+        // Which app was excepted is never reported. "No name, no email, never which apps you use"
+        // is what the Settings toggle, the README and the privacy policy all promise, and the
+        // package name is exactly "which apps you use" (issue #10).
+        analytics.capture(if (allow) "exception_added" else "exception_removed")
     }
 
     /** Adding an exception (or turning one on) opens an app early during an active lock (issue #1). */

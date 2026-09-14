@@ -173,8 +173,10 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     exempt set from `state.value`, a `WhileSubscribed` StateFlow: on any screen not collecting
     `state` that value is still the empty initial one, so stored exceptions could render as
     un-exempt. It now reads `lockRepo.observeExceptions().first()`.
-  - **PostHog `exception_added` / `exception_removed`** (property `package`) fire from the
-    settings toggle.
+  - **PostHog `exception_added` / `exception_removed`** fire from the settings toggle. They carry
+    *no properties*: the `package` property they originally had was removed in the final review
+    (see "Final review fixes" at the end of this section), because the package name is exactly the
+    thing every privacy surface promises never leaves the phone.
 - **The lock service restarts itself, and an unprotected day is hollow rather than fatal
   (issue #2).** Three separate failures were fixed together because they share one story: what
   happens when KEPT's own enforcement stops.
@@ -413,3 +415,107 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
       stats go out and Settings turns them off. `docs/privacy-policy.md` (and a GitHub-Pages-ready
       `docs/privacy-policy.html`) is the long form, and `docs/PLAY-RELEASE-CHECKLIST.md` carries the
       four permission declarations, the demo video brief and the Data safety answers.
+
+### Final review fixes (13 Sep)
+
+- **No analytics event carries a package name, and the privacy copy did not have to move.** Two
+  call sites contradicted every privacy surface KEPT ships: `lock_shown` sent `blocked_package` (the
+  app the lock had just covered) and `exception_added`/`exception_removed` sent `package`. The
+  Settings toggle says "never which apps you use", the README and `docs/privacy-policy.md` say the
+  foreground package is never sent anywhere, and the Play data-safety answers say no installed-app
+  data is collected. Weakening four honest promises to match two lines of code would have been the
+  wrong way round, and the events lose very little: `lock_shown` keeps `minutes_to_due`, which is
+  what the interesting question ("do people get ahead of the lock, or wait to be forced?") actually
+  needs, and the exception events carry nothing at all -- a count is enough to see whether people
+  use the feature.
+  - **The rule is enforced by a test that reads the source, not by review.**
+    `AnalyticsPropertyNamesTest` walks `app/src/main`, finds every `Analytics` / `capture(` /
+    `screen(` / `register(` call site, and fails on any property key named `package` or
+    `blocked_package`, or ending in `_package`. A text scan rather than a runtime assertion,
+    because the leak lives in the *source* of a capture and the dangerous one is always the capture
+    nobody thought to exercise. The test also asserts that it really found the sources, so a wrong
+    working directory cannot make it pass vacuously.
+  - **The full property list, after the fix.** `onboarding_step_viewed` (step),
+    `permission_granted` / `permission_denied` (permission), `onboarding_completed` (habit_count),
+    `lock_shown` (minutes_to_due), `lock_break_started`, `lock_break_cancelled`, `lock_broken`
+    (seconds_waited), `habit_completed` (before_due, minutes_after_lock_start, source),
+    `habit_completion_undone`, `habit_added` (proof_type), `habit_removed`, `day_completed`
+    (habit_count, minutes_before_due), `reminder_fired` (kind), `reminder_action_tapped` (kind,
+    action), `exception_added`, `exception_removed`, `settings_changed_during_lock` (setting),
+    `analytics_opt_in`, `analytics_opt_out`, `service_restart_attempted` (method, success),
+    `lock_off_notification_shown`, `protection_gap_recorded` (reason), `rollover` (kept, protected,
+    streak, form), `form_evolved` (from, to), `share_card_generated`, plus `$screen`. Every value is
+    a number, a boolean or a fixed enum string -- nothing the user typed, and nothing naming an app.
+  - **Play's Data safety form now declares "Device or other IDs: collected".** PostHog generates and
+    persists a random per-install `$device_id` and sends it with every event. It is not an
+    advertising or hardware ID and KEPT never calls `identify`, but the form asks whether an
+    identifier is *transmitted*, not whether it is linked to a person, so "not collected" was the
+    wrong answer. The honest declaration costs nothing: it is optional (the same toggle), unshared,
+    and regenerated on reinstall.
+  - **The Settings footer no longer mentions a buddy.** The tab is hidden outside debug builds, so
+    "Your buddy sees only your streak..." described a feature no shipped build has.
+- **The watchdog only judges evidence from inside the lock window it is judging.** `WatchdogWorker`
+  probed usage over `[lastHeartbeat, now]` with nothing tying that interval to a lock window. Last
+  night's window closes at 23:00 and the service stops; the phone is used until 01:00; this
+  morning's window opens at 07:00 and the watchdog runs at 07:30 with a heartbeat still stamped
+  23:00 -- and 01:00's screen-on events, from a window that was *over*, marked **today**
+  unprotected. The probe now starts at `max(lastHeartbeat, LockWindowStart.instantFor(now))`, and
+  `GapRules.Input` carries that floor (`evidenceFromMillis`) and discards any timestamp outside
+  `[floor, now]`, so a probe that over-returns cannot decide a day either. The recorded gap runs
+  from the clamped start too: the gap is the part of the window that went unprotected, not the hours
+  before it opened. `LockWindowStart` is a pure function with its own test; the wrapping-window case
+  (22:00 -> 06:00 asked at 02:00 started *yesterday*) is the one that matters.
+  - **A completed-but-unprotected day still does not increment the streak, and that is deliberate.**
+    The streak means "KEPT enforced the lock and the promise was kept". A day the lock could not be
+    enforced on has no evidence for the first half, so counting it would make the streak a record of
+    ticking boxes rather than of being held to them -- and it would hand anyone who noticed a
+    reliable way to buy a free day. The day is not punished either: `StreakRules` calls it *hollow*
+    -- recorded, never counted, costs no shield and does not reset the streak -- because KEPT
+    failed, not the teen. Hollow days are rare by construction now that Doze staleness and
+    out-of-window evidence are both excluded.
+- **The restart ladder gained the rung that is actually an exemption: an exact alarm.** Rung 2
+  (`ServiceRestartWorker` via expedited work) was doing no work: expedited work is *not* an
+  exemption from the Android 12+ background foreground-service-start restriction -- it only gets a
+  job scheduled sooner -- so whenever rung 1 was refused for that reason, rung 2 was refused for the
+  same reason, and the ladder was one rung of theatre followed by a notification. Delivery of an
+  exact alarm *is* on the documented exemption list, so a near-immediate `setExactAndAllowWhileIdle`
+  to `ServiceRestartAlarmReceiver`, which calls `startForegroundService` from the delivery, is the
+  rung that can genuinely rescue a refused start. `SCHEDULE_EXACT_ALARM` is already declared; when
+  `canScheduleExactAlarms()` is false there is nothing left to try and the ladder goes straight to
+  the persistent "Lock is off" notification rather than arming an alarm the platform will not
+  deliver. The expedited rung is kept -- it is free, needs no permission, and covers the ordinary
+  "the process was killed" case -- and `service_restart_attempted.method` now reports which rung
+  actually ran (`direct`, `expedited_work`, `exact_alarm`) instead of implying two.
+  `RestartLadder.after` holds the order as a pure function, with a test that every rung terminates.
+- **"Mark done" is offered only for MANUAL habits; a PHOTO habit gets "Open KEPT".** The
+  notification action completed a photo habit with no photo, from the lock screen, which made the
+  shade a strictly easier path than the app and emptied the proof of its meaning.
+  `ReminderActions.plan` now takes the manual habit ids plus "is a photo habit outstanding?", and
+  spends a slot on "Open KEPT" whenever one is -- so the reminder always offers a way to finish the
+  day, just the honest one. `NotificationActionReceiver` re-checks the proof type before completing
+  as well, because a notification already in the shade when a habit is edited to PHOTO would
+  otherwise still carry a live button.
+- **Fire-and-forget coroutines can no longer kill the process.** The `@ApplicationScope`
+  `CoroutineScope` had a `SupervisorJob` but no `CoroutineExceptionHandler`: the supervisor stops a
+  failed child cancelling its siblings and does nothing about the exception, which then reaches the
+  thread's default handler and takes the app down. `LockViewModel.complete` runs its follow-up work
+  there, so a database failure would have crashed the app out from under a user who had just kept
+  their promise. The scope logs instead, and `NotificationActionReceiver`, `AlarmReceiver` and
+  `BootReceiver` each wrap their `CoroutineScope(Dispatchers.IO)` body in `runCatching` with a log:
+  a notification tap, a reminder alarm and a boot broadcast are all places where a crash is both
+  invisible to the user and unrecoverable.
+- **A refused `startForeground` degrades instead of crashing.** `ForegroundWatcherService.onCreate`
+  called it unguarded, and it can throw: `ForegroundServiceStartNotAllowedException` on API 31+ and
+  the foreground-service-type checks on 34+. The call is wrapped now, and a refusal calls
+  `stopSelf()` -- which leaves the heartbeat stale, which is exactly the condition the watchdog's
+  restart ladder and "Lock is off" notification exist for. A crash would have taken the whole app
+  down for a condition KEPT already knows how to handle honestly.
+- **A debug build with no `.env` starts.** `KeptApplication` called `require(!BuildConfig.DEBUG)`
+  when `POSTHOG_PROJECT_TOKEN` or `POSTHOG_HOST` was blank, so a fresh clone could not launch a
+  debug build at all. It is a `Log.w` now and PostHog is simply not set up; the wrapper already
+  drops every capture when the SDK is absent, so the only consequence is silence in the dashboard --
+  a far better failure than an app that will not start.
+- **The README warns testers about the applicationId change.** `com.zenai.kept` installs alongside
+  an older `com.example.kept` build rather than upgrading it, so a tester ends up with two icons,
+  two lock services fighting over the foreground, and their history stranded in the old app. The
+  old build has to be uninstalled first.

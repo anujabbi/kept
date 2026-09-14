@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.util.Log
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleService
@@ -71,7 +72,17 @@ class ForegroundWatcherService : LifecycleService() {
 
     override fun onCreate() {
         super.onCreate()
-        startInForeground("KEPT is running", "Checking today's habits")
+        // `startForeground` can be refused outright: `ForegroundServiceStartNotAllowedException` on
+        // API 31+ when the start came from the background without an exemption, and the
+        // foreground-service-type checks on API 34+. Crashing the process there would take the
+        // whole app down for a condition the watchdog already knows how to handle, so a refusal
+        // stops the service instead and the watchdog's "Lock is off" path picks it up (issue #2).
+        val started = runCatching { startInForeground("KEPT is running", "Checking today's habits") }
+        if (started.isFailure) {
+            Log.w(TAG, "startForeground refused; stopping so the watchdog can fall back", started.exceptionOrNull())
+            stopSelf()
+            return
+        }
         // The lock is running again, so the "Lock is off" fallback has done its job (issue #2).
         runCatching { notifications.clearLockOff() }
         registerPackageChanges()
@@ -199,11 +210,10 @@ class ForegroundWatcherService : LifecycleService() {
             lastLockShownAt = now
             // Reported here rather than in LockActivity: this is the moment the lock actually
             // stepped in front of something, and the debounce above has already collapsed the
-            // duplicates an OEM can cause (issue #10).
-            analytics.capture(
-                "lock_shown",
-                mapOf("blocked_package" to fg, "minutes_to_due" to minutesToDue(s, now)),
-            )
+            // duplicates an OEM can cause (issue #10). The blocked package is deliberately *not*
+            // a property: every privacy surface promises that the apps you open never leave the
+            // device, and one event property would make all of them false.
+            analytics.capture("lock_shown", mapOf("minutes_to_due" to minutesToDue(s, now)))
             LockActivity.show(this, fg, apps.label(fg))
         }
     }
@@ -236,6 +246,8 @@ class ForegroundWatcherService : LifecycleService() {
     }
 
     companion object {
+        private const val TAG = "ForegroundWatcher"
+
         /**
          * Starts the watcher. Returns false when the platform refused, which on Android 12+ means
          * `ForegroundServiceStartNotAllowedException` from the background (issue #2). KEPT is

@@ -3,6 +3,7 @@ package com.example.kept.core.notify
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import com.example.kept.BuildConfig
 import com.example.kept.core.analytics.Analytics
 import com.example.kept.core.data.CompletionSource
@@ -10,6 +11,7 @@ import com.example.kept.core.data.HabitActions
 import com.example.kept.core.data.HabitRepository
 import com.example.kept.core.data.TimeSource
 import com.example.kept.core.data.prefs.KeptPreferences
+import com.example.kept.core.domain.ProofType
 import com.example.kept.core.domain.ReminderKind
 import com.example.kept.core.domain.ReminderLadder
 import com.example.kept.core.domain.ReminderPlan
@@ -54,7 +56,8 @@ class ReminderPoster @Inject constructor(
             kind = kind,
             onboardingDone = s.onboardingDone,
             remindersEnabled = s.remindersEnabled,
-            remaining = today.habits.filter { !it.isDone }.map { ReminderPlan.Habit(it.id, it.habit.title) },
+            remaining = today.habits.filter { !it.isDone }
+                .map { ReminderPlan.Habit(it.id, it.habit.title, it.habit.proofType) },
             totalHabits = today.total,
             minutesLeft = Duration.between(now, deadline).toMinutes().toInt(),
             streakDays = prefs.currentSprig().streakDays,
@@ -96,6 +99,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
         /** Namespaced by applicationId so it can never collide with another app's broadcast. */
         val ACTION_MARK_DONE: String = BuildConfig.APPLICATION_ID + ".action.MARK_DONE"
         const val EXTRA_HABIT_ID = "habit_id"
+        private const val TAG = "NotifActionReceiver"
     }
 
     @EntryPoint
@@ -104,6 +108,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
         fun actions(): HabitActions
         fun poster(): ReminderPoster
         fun analytics(): Analytics
+        fun habits(): HabitRepository
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -119,14 +124,29 @@ class NotificationActionReceiver : BroadcastReceiver() {
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                deps.analytics().capture(
-                    "reminder_action_tapped",
-                    mapOf("kind" to kind.eventValue, "action" to "mark_done"),
-                )
-                deps.actions().complete(habitId, source = CompletionSource.NOTIFICATION)
-                // Either the day is done, and the decision clears the reminder, or the buttons have
-                // to lose the habit that was just ticked.
-                deps.poster().post(kind, alertOnce = true)
+                // A notification tap must never crash the app. This runs on a bare scope with no
+                // handler, so a failure inside `complete` — a database error, a habit deleted
+                // between the draw and the tap — would otherwise be an uncaught exception on a
+                // process the user did not even know was running.
+                runCatching {
+                    // Belt and braces behind [ReminderActions.plan], which never draws a button for
+                    // a photo habit: a notification already in the shade when the habit was edited
+                    // to PHOTO would otherwise tick it with no proof. Redraw and stop.
+                    val outstanding = deps.habits().today().habits.firstOrNull { it.id == habitId }
+                    if (outstanding != null && outstanding.habit.proofType != ProofType.MANUAL) {
+                        Log.w(TAG, "ignoring mark-done for a habit that needs photo proof")
+                        deps.poster().post(kind, alertOnce = true)
+                        return@runCatching
+                    }
+                    deps.analytics().capture(
+                        "reminder_action_tapped",
+                        mapOf("kind" to kind.eventValue, "action" to "mark_done"),
+                    )
+                    deps.actions().complete(habitId, source = CompletionSource.NOTIFICATION)
+                    // Either the day is done, and the decision clears the reminder, or the buttons
+                    // have to lose the habit that was just ticked.
+                    deps.poster().post(kind, alertOnce = true)
+                }.onFailure { Log.w(TAG, "mark-done action failed for habit $habitId", it) }
             } finally {
                 pending.finish()
             }

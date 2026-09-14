@@ -37,19 +37,19 @@
 <p>Uninstalling the app deletes all of it. There is no cloud backup of it and no way to restore it.</p>
 <h2>What the app observes, and what it does not</h2>
 <p>To enforce the lock, KEPT needs to know <strong>which app is currently in the foreground</strong>. It reads this through Android&#x27;s usage-access permission (<code>PACKAGE_USAGE_STATS</code>), once a second while the lock window is open, and it uses <code>QUERY_ALL_PACKAGES</code> to list which apps are launchable so it can decide what to lock and build the exceptions picker.</p>
-<p>KEPT sees only the *package name* of the app in front — for example <code>com.android.chrome</code>. It never sees, records or transmits anything <strong>inside</strong> another app: no messages, no browsing history, no screen contents, no keystrokes. KEPT does not use an accessibility service. The foreground package is held in memory for the moment it takes to make the lock decision and is not written to storage and never sent off the device.</p>
+<p>KEPT sees only the <em>package name</em> of the app in front — for example <code>com.android.chrome</code>. It never sees, records or transmits anything <strong>inside</strong> another app: no messages, no browsing history, no screen contents, no keystrokes. KEPT does not use an accessibility service. The foreground package is held in memory for the moment it takes to make the lock decision and is not written to storage and never sent off the device.</p>
 <h2>Anonymous usage analytics and crash reports</h2>
 <p>KEPT sends anonymous product analytics and crash reports to <strong>PostHog</strong> (PostHog Inc., US Cloud, <code>https://us.i.posthog.com</code>), which acts as our analytics processor.</p>
-<p>These reports are tied to a <strong>random anonymous ID</strong> generated on your device. KEPT never calls PostHog&#x27;s <code>identify</code>, so that ID is never linked to a person. No name, no email address, no phone number, no advertising ID, no habit title you typed and no label of any app you chose is ever attached to an event.</p>
+<p>These reports are tied to a <strong>random anonymous ID</strong> generated on your device. KEPT never calls PostHog&#x27;s <code>identify</code>, so that ID is never linked to a person. No name, no email address, no phone number, no advertising ID, no habit title you typed, no label of any app you chose and <strong>no package name of any app</strong> is ever attached to an event. That last point is exact: not the app the lock stepped in front of, and not the app you added as an exception. An automated test (<code>AnalyticsPropertyNamesTest</code>) reads the app&#x27;s own source and fails the build if any analytics call site is given a property called <code>package</code>, <code>blocked_package</code> or anything ending in <code>_package</code>.</p>
 <p>The event categories sent are:</p>
 <table>
 <thead><tr><th>Category</th><th>What it records</th></tr></thead>
 <tbody>
 <tr><td>Onboarding</td><td>Which onboarding step was viewed, whether a permission was granted or refused, and that onboarding completed (with how many habits you set up).</td></tr>
-<tr><td>Lock shown / broken</td><td>That the lock screen appeared, that a lock break was started, cancelled or used, and that the lock was off when it should have been on.</td></tr>
+<tr><td>Lock shown / broken</td><td>That the lock screen appeared and how many minutes were left before the give-up time — never which app it appeared over. Also that a lock break was started, cancelled or used, and that the lock was off when it should have been on.</td></tr>
 <tr><td>Habit completed</td><td>That a habit was ticked (and from where — the app, the lock screen, or a notification), undone, added or removed. Never the habit&#x27;s title.</td></tr>
 <tr><td>Reminders</td><td>That a reminder fired, and that a reminder&#x27;s &quot;Mark done&quot; action was tapped.</td></tr>
-<tr><td>Settings changes</td><td>That analytics were turned on or off, and that Settings were opened while the lock was active.</td></tr>
+<tr><td>Settings changes</td><td>That analytics were turned on or off, that an app exception was added or removed (never which app), that a permission was granted or refused, and that a setting was changed while the lock was active.</td></tr>
 <tr><td>Service health</td><td>That the lock&#x27;s background service had to be restarted, and that a protection gap was recorded.</td></tr>
 <tr><td>Progress</td><td>Day rollover (streak and whether the day counted), Sprig evolution, and share-card generation.</td></tr>
 <tr><td>Screen views</td><td>The name of the screen you are on — a fixed name such as <code>home</code> or <code>settings</code>, never a date, a habit or a row id.</td></tr>

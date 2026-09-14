@@ -1,6 +1,7 @@
 package com.example.kept
 
 import android.app.Application
+import android.util.Log
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.example.kept.core.analytics.AnalyticsInitializer
@@ -26,16 +27,16 @@ class KeptApplication : Application(), Configuration.Provider {
     private fun setUpPostHog() {
         val apiKey = BuildConfig.POSTHOG_PROJECT_TOKEN
         val host = BuildConfig.POSTHOG_HOST
+        // A missing token is a warning, never a crash. The PostHog wrapper drops every capture
+        // when the SDK was never set up, so the only consequence is silence in the dashboard — and
+        // a `require` here meant a fresh clone with no `.env` could not launch a debug build at
+        // all, which is a far worse failure than un-reported events.
         if (apiKey.isBlank()) {
-            require(!BuildConfig.DEBUG) {
-                "POSTHOG_PROJECT_TOKEN variable required by PostHog is missing or un-configured, this causes events to be silently missed. This error stops appearing once POSTHOG_PROJECT_TOKEN is configured"
-            }
+            Log.w(TAG, "POSTHOG_PROJECT_TOKEN is not configured; analytics are disabled for this build")
             return
         }
         if (host.isBlank()) {
-            require(!BuildConfig.DEBUG) {
-                "POSTHOG_HOST variable required by PostHog is missing or un-configured, this causes events to be silently missed. This error stops appearing once POSTHOG_HOST is configured"
-            }
+            Log.w(TAG, "POSTHOG_HOST is not configured; analytics are disabled for this build")
             return
         }
 
@@ -58,4 +59,8 @@ class KeptApplication : Application(), Configuration.Provider {
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder().setWorkerFactory(workerFactory).build()
+
+    private companion object {
+        const val TAG = "KeptApplication"
+    }
 }
