@@ -29,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -75,11 +76,11 @@ fun SettingsScreen(
         SectionLabel("Lock window")
         Spacer(Modifier.height(8.dp))
         KeptCard {
-            TimeRow("Lock apps from", s.settings.lockFromMinute) { vm.setLockWindow(it, s.settings.dueMinute) }
+            TimeRow("Lock apps from", s.settings.lockFromMinute) { vm.requestSetLockWindow(it, s.settings.dueMinute) }
             Spacer(Modifier.height(10.dp))
-            TimeRow("Give-up time", s.settings.dueMinute) { vm.setLockWindow(s.settings.lockFromMinute, it) }
+            TimeRow("Give-up time", s.settings.dueMinute) { vm.requestSetLockWindow(s.settings.lockFromMinute, it) }
             Spacer(Modifier.height(6.dp))
-            Text("Apps lock between these times until today's habits are done. After the give-up time they open, and the day counts as missed.", style = MaterialTheme.typography.bodySmall, color = c.textMuted)
+            Text("Apps lock between these times until today's habits are done. After the give-up time they open, and anything you tick counts for nothing: the day is missed.", style = MaterialTheme.typography.bodySmall, color = c.textMuted)
         }
         Spacer(Modifier.height(20.dp))
 
@@ -105,10 +106,28 @@ fun SettingsScreen(
         KeptCard {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Two hours before give-up", style = MaterialTheme.typography.bodyMedium, color = c.textPrimary)
-                    Text("Only if something is still undone.", style = MaterialTheme.typography.bodySmall, color = c.textMuted)
+                    Text("Three nudges a day", style = MaterialTheme.typography.bodyMedium, color = c.textPrimary)
+                    Text("When apps lock, two hours before give-up, and thirty minutes before. Only if something is still undone.", style = MaterialTheme.typography.bodySmall, color = c.textMuted)
                 }
                 Switch(checked = s.settings.remindersEnabled, onCheckedChange = vm::setReminders, colors = SwitchDefaults.colors(checkedTrackColor = c.purple600))
+            }
+        }
+        Spacer(Modifier.height(20.dp))
+
+        SectionLabel("Privacy")
+        Spacer(Modifier.height(8.dp))
+        KeptCard {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Send anonymous usage data", style = MaterialTheme.typography.bodyMedium, color = c.textPrimary)
+                    Text("Helps us see what works. No name, no email, never which apps you use.", style = MaterialTheme.typography.bodySmall, color = c.textMuted)
+                }
+                Switch(
+                    checked = s.settings.analyticsEnabled,
+                    onCheckedChange = vm::setAnalyticsEnabled,
+                    colors = SwitchDefaults.colors(checkedTrackColor = c.purple600),
+                    modifier = Modifier.testTag("analytics_toggle"),
+                )
             }
         }
         Spacer(Modifier.height(20.dp))
@@ -122,7 +141,7 @@ fun SettingsScreen(
                 s.history.take(14).forEachIndexed { i, r ->
                     val d = LocalDate.parse(r.date)
                     Row(Modifier.fillMaxWidth().clickable { onOpenRecap(r.date) }.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        WeekDots(listOf(when { r.unprotected -> DayDot.UNPROTECTED; r.countedForStreak -> DayDot.DONE; r.shieldConsumed -> DayDot.SHIELDED; else -> DayDot.MISSED }), c.purple400, size = 14.dp)
+                        WeekDots(listOf(when { r.unprotected && !r.writtenOff -> DayDot.UNPROTECTED; r.countedForStreak -> DayDot.DONE; r.shieldConsumed -> DayDot.SHIELDED; else -> DayDot.MISSED }), c.purple400, size = 14.dp)
                         Spacer(Modifier.width(12.dp))
                         Text(d.format(DateTimeFormatter.ofPattern("EEE d MMM")), style = MaterialTheme.typography.bodyMedium, color = c.textPrimary, modifier = Modifier.weight(1f))
                         Text("${r.habitsDone}/${r.habitsTotal}" + if (r.breaksUsed > 0) " · ${r.breaksUsed} break" else "", style = MaterialTheme.typography.bodySmall, color = c.textSecondary)
@@ -135,9 +154,32 @@ fun SettingsScreen(
         }
         Spacer(Modifier.height(20.dp))
 
-        Text("KEPT never shares your app usage, screen time, or location with anyone. Your buddy sees only your streak, today's done flag and Sprig's form.", style = MaterialTheme.typography.bodySmall, color = c.textMuted)
+        Text("KEPT never shares your app usage, screen time, or location with anyone.", style = MaterialTheme.typography.bodySmall, color = c.textMuted)
         Spacer(Modifier.height(28.dp))
     }
+
+    LockChangeConfirmDialog(vm)
+}
+
+/**
+ * Shown on any settings screen that guards a change with [SettingsViewModel.pendingLockChange]
+ * (issue #1). Also keeps [SettingsViewModel.lockActive] subscribed while such a screen is on
+ * screen, since its `WhileSubscribed` StateFlow would otherwise sit on its stale initial value.
+ */
+@Composable
+fun LockChangeConfirmDialog(vm: SettingsViewModel) {
+    vm.lockActive.collectAsStateWithLifecycle()
+    val pending by vm.pendingLockChange.collectAsStateWithLifecycle()
+    val current = pending ?: return
+    val c = KeptTheme.colors
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = vm::cancelPendingLockChange,
+        title = { Text("Apps are locked right now") },
+        text = { Text(current.message) },
+        confirmButton = { androidx.compose.material3.TextButton(onClick = vm::confirmPendingLockChange) { Text("Change it anyway", color = c.danger) } },
+        dismissButton = { androidx.compose.material3.TextButton(onClick = vm::cancelPendingLockChange) { Text("Cancel") } },
+        containerColor = c.surface2,
+    )
 }
 
 @Composable

@@ -40,7 +40,10 @@ class AppViewModel @Inject constructor(
             val s = prefs.currentSettings()
             if (s.onboardingDone) {
                 rollover.runPending()
-                prefs.heartbeat(System.currentTimeMillis())
+                // No heartbeat write here (issue #2): the heartbeat means "the lock is being
+                // enforced", and only the service, inside its tick and past the permission gate,
+                // can say that. Refreshing it on resume hid a stopped lock from the watchdog and
+                // moved the start of the stale window.
                 ForegroundWatcherService.start(ctx)
                 scheduler.scheduleAll()
             }

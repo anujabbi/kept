@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.SystemClock
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -36,24 +37,47 @@ class LockActivity : ComponentActivity() {
         setContent {
             val s by vm.state.collectAsStateWithLifecycle()
             var breaking by androidx.compose.runtime.remember { mutableStateOf(false) }
+            var breakStartedAt by androidx.compose.runtime.remember { androidx.compose.runtime.mutableLongStateOf(0L) }
+            // How long the break screen was held open. The countdown only unlocks the button after
+            // a minute, so this says how much longer than that the user sat with it (issue #10).
+            fun secondsWaited() = ((SystemClock.elapsedRealtime() - breakStartedAt) / 1000L).toInt()
 
-            // Lock lifted (habits done, break granted, window ended): get out of the way.
-            LaunchedEffect(s.lockActive, s.loaded) { if (s.loaded && !s.lockActive) goHome() }
+            // This activity is its own surface, so the screens it shows report themselves.
+            LaunchedEffect(breaking) {
+                if (breaking) {
+                    breakStartedAt = SystemClock.elapsedRealtime()
+                    vm.reportBreakScreenOpened()
+                } else {
+                    vm.reportLockScreenViewed()
+                }
+            }
 
-            BackHandler { if (breaking) breaking = false else goHome() }
+            // Lock lifted (habits done, break granted, window ended) or this very package added as
+            // an exception from Settings (issue #4): get out of the way. Finishing the day is the
+            // one case that goes to KEPT instead of the launcher, because the celebration is
+            // waiting on Home and this screen cannot show it (issue #9).
+            LaunchedEffect(s.shouldDismiss) {
+                if (s.shouldDismiss) { if (s.finishedToday) openApp("home") else goHome() }
+            }
+
+            val cancelBreak = {
+                vm.reportBreakCancelled()
+                breaking = false
+            }
+
+            BackHandler { if (breaking) cancelBreak() else goHome() }
 
             KeptTheme {
                 if (breaking) {
                     BreakLockScreen(
                         state = s,
-                        onCancel = { breaking = false },
-                        onConfirm = { vm.breakLock { goHome() } },
+                        onCancel = cancelBreak,
+                        onConfirm = { vm.breakLock(secondsWaited()) { goHome() } },
                     )
                 } else {
                     LockScreen(
                         state = s,
                         blockedLabel = blockedLabel,
-                        onDoHabit = { habitId -> openApp("timer/$habitId") },
                         onComplete = { vm.complete(it) },
                         onBreak = { breaking = true },
                         onEmergency = { dial() },
@@ -72,6 +96,9 @@ class LockActivity : ComponentActivity() {
     private fun readIntent(i: Intent?) {
         blockedPackage = i?.getStringExtra(EXTRA_PKG) ?: blockedPackage
         blockedLabel = i?.getStringExtra(EXTRA_LABEL) ?: blockedLabel
+        // Tell the ViewModel which package this screen is covering so it can drop the screen the
+        // moment that package stops being blocked (issue #4).
+        vm.setBlockedPackage(blockedPackage)
     }
 
     private fun goHome() {

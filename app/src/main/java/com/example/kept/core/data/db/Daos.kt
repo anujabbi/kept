@@ -71,11 +71,8 @@ interface DayRecordDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertIfAbsent(record: DayRecordEntity)
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun upsert(record: DayRecordEntity)
 
-    @Query("UPDATE day_records SET lockedMillis = lockedMillis + :millis, pointsEarned = pointsEarned + :points WHERE date = :date")
-    suspend fun addLockedTime(date: String, millis: Long, points: Long)
-
-    @Query("UPDATE day_records SET pointsEarned = pointsEarned + :points WHERE date = :date")
-    suspend fun addPoints(date: String, points: Long)
+    @Query("UPDATE day_records SET lockedMillis = lockedMillis + :millis WHERE date = :date")
+    suspend fun addLockedTime(date: String, millis: Long)
 
     @Query("UPDATE day_records SET breaksUsed = breaksUsed + 1, broken = 1, writtenOff = writtenOff OR :writtenOff WHERE date = :date")
     suspend fun recordBreak(date: String, writtenOff: Boolean)

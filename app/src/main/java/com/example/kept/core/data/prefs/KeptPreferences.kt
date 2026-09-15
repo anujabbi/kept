@@ -31,7 +31,19 @@ data class Settings(
     val seeded: Boolean = false,
     val lastServiceHeartbeat: Long = 0,
     val pendingRecapDate: String? = null,
+    /**
+     * ISO date of a day that was finished on time and has not had its celebration shown yet
+     * (issue #9). Stored rather than raised as an in-memory event so a day finished from a
+     * notification action, with no process alive to see it, still celebrates on next open.
+     */
+    val celebrationPendingDate: String? = null,
     val myInviteCode: String = "",
+    /**
+     * "Send anonymous usage data" (issue #10). On by default; off calls `PostHog.optOut()` and
+     * mutes the wrapper. Stored here rather than read back from the SDK so the Settings switch has
+     * a flow to follow and so the preference survives a build with no project token.
+     */
+    val analyticsEnabled: Boolean = true,
 )
 
 @Singleton
@@ -48,10 +60,11 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
         val SEEDED = booleanPreferencesKey("seeded")
         val HEARTBEAT = longPreferencesKey("service_heartbeat")
         val PENDING_RECAP = stringPreferencesKey("pending_recap_date")
+        val PENDING_CELEBRATION = stringPreferencesKey("pending_celebration_date")
         val INVITE_CODE = stringPreferencesKey("my_invite_code")
+        val ANALYTICS = booleanPreferencesKey("analytics_enabled")
 
         val LEVEL = intPreferencesKey("sprig_level")
-        val POINTS = longPreferencesKey("sprig_points")
         val STREAK = intPreferencesKey("sprig_streak")
         val BEST_STREAK = intPreferencesKey("sprig_best_streak")
         val SHIELD = booleanPreferencesKey("sprig_shield")
@@ -59,6 +72,7 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
         val LAST_ROLLOVER = stringPreferencesKey("sprig_last_rollover")
         val WILTED = booleanPreferencesKey("sprig_wilted")
         val PAIR_STREAK = intPreferencesKey("sprig_pair_streak")
+        val LEVEL_GRANTED = stringPreferencesKey("sprig_level_granted_date")
     }
 
     private fun Preferences.toSettings() = Settings(
@@ -72,12 +86,13 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
         seeded = this[K.SEEDED] ?: false,
         lastServiceHeartbeat = this[K.HEARTBEAT] ?: 0L,
         pendingRecapDate = this[K.PENDING_RECAP],
+        celebrationPendingDate = this[K.PENDING_CELEBRATION],
         myInviteCode = this[K.INVITE_CODE] ?: "",
+        analyticsEnabled = this[K.ANALYTICS] ?: true,
     )
 
     private fun Preferences.toSprig() = SprigState(
         level = this[K.LEVEL] ?: 1,
-        points = this[K.POINTS] ?: 0L,
         streakDays = this[K.STREAK] ?: 0,
         bestStreak = this[K.BEST_STREAK] ?: 0,
         shieldAvailable = this[K.SHIELD] ?: true,
@@ -85,6 +100,7 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
         lastRolloverDate = this[K.LAST_ROLLOVER]?.let(LocalDate::parse),
         wilted = this[K.WILTED] ?: false,
         pairStreak = this[K.PAIR_STREAK] ?: 0,
+        levelGrantedDate = this[K.LEVEL_GRANTED],
     )
 
     val settings: Flow<Settings> = context.dataStore.data.map { it.toSettings() }
@@ -106,7 +122,9 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
             p[K.SEEDED] = n.seeded
             p[K.HEARTBEAT] = n.lastServiceHeartbeat
             if (n.pendingRecapDate == null) p.remove(K.PENDING_RECAP) else p[K.PENDING_RECAP] = n.pendingRecapDate
+            if (n.celebrationPendingDate == null) p.remove(K.PENDING_CELEBRATION) else p[K.PENDING_CELEBRATION] = n.celebrationPendingDate
             p[K.INVITE_CODE] = n.myInviteCode
+            p[K.ANALYTICS] = n.analyticsEnabled
         }
     }
 
@@ -114,7 +132,6 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
         context.dataStore.edit { p ->
             val n = block(p.toSprig())
             p[K.LEVEL] = n.level
-            p[K.POINTS] = n.points
             p[K.STREAK] = n.streakDays
             p[K.BEST_STREAK] = n.bestStreak
             p[K.SHIELD] = n.shieldAvailable
@@ -122,6 +139,7 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
             if (n.lastRolloverDate == null) p.remove(K.LAST_ROLLOVER) else p[K.LAST_ROLLOVER] = n.lastRolloverDate.toString()
             p[K.WILTED] = n.wilted
             p[K.PAIR_STREAK] = n.pairStreak
+            if (n.levelGrantedDate == null) p.remove(K.LEVEL_GRANTED) else p[K.LEVEL_GRANTED] = n.levelGrantedDate
         }
     }
 

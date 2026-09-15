@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import java.time.Instant
+import java.time.LocalTime
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -44,6 +45,15 @@ data class LockState(
         launchable = launchable,
         onboardingDone = settings.onboardingDone,
     )
+
+    /**
+     * True when the lock is in force right now (window open, a habit still undone, no active
+     * break). Used to gate the "are you sure" confirmation on lock-affecting settings changes
+     * (issue #1): which package is foreground is irrelevant here, so [hardAllowlist] and
+     * [launchable] play no part in [LockPolicy.isLockActive] and are passed empty/null.
+     */
+    fun isLockActiveNow(now: Instant, localTime: LocalTime): Boolean =
+        LockPolicy.isLockActive(now, localTime, snapshot(hardAllowlist = emptySet(), launchable = null))
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)

@@ -17,13 +17,14 @@ minSdk 26, target/compile 35, JDK 17, Gradle 8.9 (wrapper included).
 
 ```
 app/src/main/java/com/example/kept/
+  core/analytics  the Analytics seam in front of PostHog, screen-name map, opt-out gate
   core/domain     pure Kotlin rules: LockPolicy, StreakRules, BreakCap, RolloverEngine, SprigForm
   core/data       Room entities/DAOs, DataStore prefs, repositories, RolloverRunner, DebugSeeder
   core/lock       ForegroundWatcherService (UsageStats poll), AllowlistResolver, Permissions
   core/work       RolloverWorker, WatchdogWorker, reminder alarm, WorkScheduler
   core/notify     notification channels
   core/ui         theme tokens, components, Sprig canvas renderer, share card
-  feature/*       onboarding, home, timer, lock, recap, buddy, gallery, settings
+  feature/*       onboarding, home, lock, recap, buddy, gallery, settings
 ```
 
 ## Setup
@@ -42,6 +43,13 @@ app/src/main/java/com/example/kept/
    adb install -r app/build/outputs/apk/debug/app-debug.apk
    ```
 
+> **Upgrading from a pre-release build:** the `applicationId` changed from `com.example.kept` to
+> `com.zenai.kept`, so Android treats the two as unrelated apps. A tester who already has an older
+> `com.example.kept` build must uninstall it — `adb uninstall com.example.kept`, or long-press the
+> icon and remove it — or they will end up with two KEPT icons, two lock services fighting over the
+> foreground, and their habits and streak stranded in the old one (app-private data is not migrated
+> between package names).
+
 ## Granting the special permissions from the command line
 
 The lock needs usage access and "display over other apps" (Android blocks activity starts from a
@@ -49,11 +57,37 @@ background service without it); the emulator's settings UI is slow to click thro
 with adb:
 
 ```
-adb shell appops set com.example.kept GET_USAGE_STATS allow
-adb shell appops set com.example.kept SYSTEM_ALERT_WINDOW allow
-adb shell pm grant com.example.kept android.permission.POST_NOTIFICATIONS
-adb shell dumpsys deviceidle whitelist +com.example.kept
+adb shell appops set com.zenai.kept GET_USAGE_STATS allow
+adb shell appops set com.zenai.kept SYSTEM_ALERT_WINDOW allow
+adb shell pm grant com.zenai.kept android.permission.POST_NOTIFICATIONS
+adb shell dumpsys deviceidle whitelist +com.zenai.kept
 ```
+
+## Release builds
+
+`applicationId` is `com.zenai.kept` (the Kotlin source package stayed `com.example.kept`, so adb
+component names need the class spelled out in full: `com.zenai.kept/com.example.kept.MainActivity`).
+
+Release is minified and resource-shrunk by R8; keep rules live in `app/proguard-rules.pro`. Always
+install and walk a release build before shipping — R8 stripping something shows up only at runtime.
+
+```
+./gradlew :app:assembleRelease     # APK
+./gradlew :app:bundleRelease       # AAB for Play
+```
+
+Signing is optional for a local build: with no keystore configured the release artifact assembles
+unsigned rather than failing. To sign it, generate a keystore once and keep it outside the repo —
+lose it and the app can never be updated on Play:
+
+```
+keytool -genkeypair -v -keystore kept-release.jks -alias kept -keyalg RSA -keysize 4096 -validity 10000
+```
+
+Then either copy `keystore.properties.example` to `keystore.properties` (git-ignored) and fill in
+`storeFile` (relative to the repo root, or absolute), `storePassword`, `keyAlias` and `keyPassword`,
+or set `KEPT_KEYSTORE_FILE`, `KEPT_KEYSTORE_PASSWORD`, `KEPT_KEY_ALIAS` and `KEPT_KEY_PASSWORD` in
+the environment — the environment wins. Never commit the keystore or the properties file.
 
 ## Demo data
 
@@ -61,10 +95,19 @@ Debug builds can seed 12 days of history, a paired buddy (Maya) and two habits s
 has content. It runs only when asked:
 
 ```
-adb shell am start -n com.example.kept/.MainActivity --ez seed true
+adb shell am start -n com.zenai.kept/com.example.kept.MainActivity --ez seed true
 ```
 
 Launching without the flag goes through onboarding like a fresh install.
+
+To watch the reminder ladder without waiting for the real window, move it with the debug extras
+(minutes of day) and relaunch so the alarms are re-armed; `adb shell dumpsys alarm | grep -A3
+AlarmReceiver` shows the three rungs:
+
+```
+adb shell am start -n com.zenai.kept/com.example.kept.MainActivity --ei lock_from 960 --ei due 1078
+adb shell am start -n com.zenai.kept/com.example.kept.MainActivity
+```
 
 ## Verifying the lock end to end
 
@@ -77,7 +120,7 @@ sleep 3
 adb shell dumpsys activity activities | grep -E "mResumedActivity|topResumedActivity"
 ```
 
-You should see `com.example.kept/.feature.lock.LockActivity`. From the lock screen, "Break lock"
+You should see `com.zenai.kept/com.example.kept.feature.lock.LockActivity`. From the lock screen, "Break lock"
 starts a 60-second countdown before "Unlock anyway" is enabled; "Emergency call" opens the dialer
 immediately. Screenshots of every screen are in `verification/`.
 
@@ -89,10 +132,13 @@ Unit tests (pure Kotlin, no emulator):
 ./gradlew testDebugUnitTest
 ```
 
-Covers points accrual, level up/down/floor, streak increment, shield consumption and Monday
-refill, break cap over a rolling 7-day window, rollover across a year boundary and multi-day
-gaps, evolution thresholds and weekly variant determinism, lock policy (window, wrap-around,
-break suspension), and the allowlist (the dialer can never be locked).
+Covers level up/down/floor, streak increment, shield consumption and Monday refill, break cap
+over a rolling 7-day window, rollover across a year boundary and multi-day gaps, evolution
+thresholds and weekly variant determinism, lock policy (window, wrap-around, break suspension),
+the allowlist (the dialer can never be locked), gap detection (a heartbeat that went stale in Doze
+is not a protection gap), hollow days (a day the lock was off costs neither streak nor shield), and
+the reminder ladder (when each of the three rungs fires, including windows that wrap midnight, and
+the copy each one shows).
 
 Instrumented tests (need a running emulator):
 
@@ -100,9 +146,11 @@ Instrumented tests (need a running emulator):
 ./gradlew connectedDebugAndroidTest
 ```
 
-Six tests: onboarding completes and persists; home reflects seeded state; timer advances and
-awards the finish bonus; lock screen renders with habits remaining; break-lock countdown gates
-"Unlock anyway"; buddy empty state shows a code and pairing moves to the paired state.
+Covers onboarding completing and persisting; home reflecting seeded state; the lock screen
+rendering with habits remaining; the break-lock countdown gating "Unlock anyway"; the buddy empty
+state and pairing; exceptions being honoured and the picker staying in sync; and the Room
+migrations (1 -> 2, 2 -> 3 and 1 -> 3 end to end, validated against the exported schemas in
+`app/schemas`). There is no destructive-migration fallback, so a broken migration fails here.
 
 `scripts/verify.sh` drives the emulator end to end with adb (install, grant, seed, block Chrome,
 assert `LockActivity` is on top) and writes screenshots to `verification/`.
@@ -120,5 +168,20 @@ No `AccessibilityService` is used.
 
 ## Privacy
 
-Nothing leaves the device. The buddy contract (`BuddyStatus`) carries streak, done flag, Sprig
-form and an "unprotected today" marker. There is no chat, no profiles, no search, no analytics.
+There is no account and no parent dashboard. Your habits, photo check-ins, streak and history are
+stored only in the app's private storage and are never uploaded. The lock reads the *package name*
+of the app in front (usage access) and nothing inside it; that package name is never stored and
+never sent anywhere. The buddy contract (`BuddyStatus`) carries streak, done flag, Sprig form and
+an "unprotected today" marker — there is no chat, no profiles, no search.
+
+Anonymous usage analytics and crash reports do go to PostHog (US cloud) under a random anonymous
+ID: onboarding steps, lock shown/broken, habit completed, reminders, settings changes and service
+health. KEPT never calls `identify`, session replay is off, and no habit title, app label or
+**package name** is ever attached to an event — `lock_shown` carries only the minutes left before
+the give-up time, and the exception events carry nothing at all. `AnalyticsPropertyNamesTest` scans
+`app/src/main` and fails the build if a property named `package`, `blocked_package` or anything
+ending in `_package` ever reaches a capture. **Settings → Privacy → "Send anonymous usage data"**
+turns it all off.
+
+The full text is `docs/privacy-policy.md` (and `docs/privacy-policy.html` for GitHub Pages);
+`docs/PLAY-RELEASE-CHECKLIST.md` lists what Play needs before release.

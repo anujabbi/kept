@@ -10,17 +10,22 @@ object RolloverEngine {
 
     data class DayInput(
         val date: LocalDate,
+        /** Habits ticked at any point that day, late ones included. Recorded, but not what counts. */
         val habitsDone: Int,
+        /**
+         * Habits ticked before that day's give-up time (issue #7). Only these count: the copy has
+         * always said a day is missed once the give-up time passes, so the rollover enforces it.
+         */
+        val habitsDoneBeforeDue: Int,
         val habitsTotal: Int,
         val lockedMillis: Long,
-        val pointsEarned: Long,
         val breaksUsed: Int,
         val writtenOff: Boolean,
         val unprotected: Boolean,
         /** Null when no buddy is paired. */
         val buddyDoneThatDay: Boolean?,
     ) {
-        val allDone: Boolean get() = habitsTotal > 0 && habitsDone >= habitsTotal
+        val allDone: Boolean get() = habitsTotal > 0 && habitsDoneBeforeDue >= habitsTotal
     }
 
     data class DaySummary(
@@ -28,9 +33,10 @@ object RolloverEngine {
         val habitsDone: Int,
         val habitsTotal: Int,
         val lockedMillis: Long,
-        val pointsEarned: Long,
         val breaksUsed: Int,
         val unprotected: Boolean,
+        /** Unprotected and not written off: shown hollow, costs nothing (issue #2). */
+        val hollow: Boolean,
         val broken: Boolean,
         val writtenOff: Boolean,
         val countedForStreak: Boolean,
@@ -95,9 +101,9 @@ object RolloverEngine {
             habitsDone = input.habitsDone,
             habitsTotal = input.habitsTotal,
             lockedMillis = input.lockedMillis,
-            pointsEarned = input.pointsEarned,
             breaksUsed = input.breaksUsed,
             unprotected = input.unprotected,
+            hollow = streakResult.hollow,
             broken = input.breaksUsed > 0,
             writtenOff = input.writtenOff,
             countedForStreak = streakResult.counted,

@@ -4,18 +4,21 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.example.kept.core.FeatureFlags
 import com.example.kept.core.data.DebugSeeder
 import com.example.kept.core.data.db.KeptDatabase
 import com.example.kept.core.data.prefs.KeptPreferences
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import kotlinx.coroutines.runBlocking
+import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -41,11 +44,33 @@ class HomeAndBuddyTest {
             compose.onNodeWithText("12 day streak").assertIsDisplayed()
             compose.onNodeWithText("Exercise 30 min").assertIsDisplayed()
             compose.onNodeWithText("Read 10 pages").assertIsDisplayed()
-            compose.onNodeWithText("18/30").assertIsDisplayed()
+            compose.onAllNodesWithText("Tap when done", substring = true)[0].assertIsDisplayed()
+        }
+    }
+
+    @Test fun home_says_it_is_too_late_once_the_give_up_time_has_passed() {
+        // A non-wrapping window whose give-up minute is the current one, so "now" is always at or
+        // after it (issue #7). Keeping lockFrom <= due matters: a wrapping window does not expire
+        // during its own calendar day, so it is never too late.
+        runBlocking {
+            seeder.seedIfNeeded()
+            val nowMinute = java.time.LocalTime.now().let { it.hour * 60 + it.minute }
+            prefs.updateSettings { it.copy(lockFromMinute = 0, dueMinute = nowMinute) }
+        }
+        ActivityScenario.launch(MainActivity::class.java).use {
+            compose.waitUntil(10_000) {
+                compose.onAllNodes(hasText("Too late for today", substring = true)).fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNodeWithText("Too late for today", substring = true).assertIsDisplayed()
+            // The checklist still works: the habits are there to tick.
+            compose.onAllNodesWithText("Tap when done", substring = true)[0].assertIsDisplayed()
         }
     }
 
     @Test fun buddy_empty_state_pairs_with_a_code() {
+        // The Buddy tab only exists behind FeatureFlags.showBuddy (debug builds); skip rather
+        // than fail if this ever runs against a build where it's hidden. See issue #6.
+        assumeTrue(FeatureFlags.showBuddy)
         runBlocking {
             prefs.updateSettings { it.copy(onboardingDone = true, firstUseDate = java.time.LocalDate.now()) }
         }

@@ -5,7 +5,6 @@ import com.example.kept.core.data.db.GalleryDao
 import com.example.kept.core.data.db.GalleryEntryEntity
 import com.example.kept.core.data.prefs.KeptPreferences
 import com.example.kept.core.domain.LevelRules
-import com.example.kept.core.domain.PointsRules
 import com.example.kept.core.domain.SprigForm
 import com.example.kept.core.domain.SprigState
 import com.example.kept.core.domain.Variants
@@ -48,24 +47,14 @@ class SprigRepository @Inject constructor(
     suspend fun onHabitEvent(event: HabitEvent) {
         val date = time.todayKey()
         when (event) {
-            is HabitEvent.Completed -> {
-                dayDao.addPoints(date, PointsRules.HABIT_BONUS)
-                prefs.updateSprig { s ->
-                    s.copy(
-                        points = s.points + PointsRules.HABIT_BONUS,
-                        level = if (event.allDoneNow) LevelRules.up(s.level) else s.level,
-                    )
-                }
-            }
-            is HabitEvent.Undone -> {
-                dayDao.addPoints(date, -PointsRules.HABIT_BONUS)
-                prefs.updateSprig { s ->
-                    s.copy(
-                        points = maxOf(0, s.points - PointsRules.HABIT_BONUS),
-                        level = if (event.wasAllDone) LevelRules.down(s.level) else s.level,
-                    )
-                }
-            }
+            // A day finished after the give-up time counts for nothing, so it earns no level
+            // either. The grant is recorded against the date (issue #7).
+            is HabitEvent.Completed ->
+                prefs.updateSprig { s -> LevelRules.grantForDay(s, date, event.allDoneNow && event.beforeDue) }
+            // Only a recorded grant can be taken back, so moving the give-up time during the day
+            // cannot make the refund wrong in either direction.
+            is HabitEvent.Undone ->
+                prefs.updateSprig { s -> LevelRules.revokeForDay(s, date) }
         }
     }
 
@@ -78,9 +67,7 @@ class SprigRepository @Inject constructor(
     }
 
     suspend fun addLockedTime(millis: Long) {
-        val pts = PointsRules.forLockedMillis(millis)
-        dayDao.addLockedTime(time.todayKey(), millis, pts)
-        if (pts > 0) prefs.updateSprig { s -> s.copy(points = s.points + pts) }
+        dayDao.addLockedTime(time.todayKey(), millis)
     }
 
     suspend fun write(state: SprigState) = prefs.updateSprig { state }

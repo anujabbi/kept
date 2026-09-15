@@ -6,6 +6,10 @@ import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -21,6 +25,15 @@ class InstalledAppsSource @Inject constructor(@ApplicationContext private val ct
     @Volatile private var launchableCache: Set<String>? = null
     @Volatile private var cacheAt = 0L
 
+    private val _revision = MutableStateFlow(0L)
+
+    /**
+     * Bumped every time the cached view of installed apps is thrown away (issue #4). Screens that
+     * render the app list collect this so installing or removing an app while the exceptions
+     * picker is open does not leave a stale list on screen.
+     */
+    val revision: StateFlow<Long> = _revision.asStateFlow()
+
     fun launchablePackages(): Set<String> {
         val now = System.currentTimeMillis()
         launchableCache?.let { if (now - cacheAt < 5 * 60_000) return it }
@@ -30,7 +43,17 @@ class InstalledAppsSource @Inject constructor(@ApplicationContext private val ct
         return set
     }
 
-    fun invalidate() { launchableCache = null }
+    /**
+     * Drops the cached launchable set. Called when a package is added, replaced or removed
+     * (issue #4): without it a newly installed app stayed invisible to the lock for up to five
+     * minutes, so it could not be locked and, once it could, the picker and the lock disagreed
+     * about which packages even exist.
+     */
+    fun invalidate() {
+        launchableCache = null
+        cacheAt = 0L
+        _revision.update { it + 1 }
+    }
 
     suspend fun listLaunchable(): List<InstalledApp> = withContext(Dispatchers.IO) {
         query().sortedBy { it.label.lowercase() }

@@ -1,11 +1,19 @@
 package com.example.kept.core.domain
 
+import com.example.kept.BuildConfig
+
 /**
  * The hard allowlist is assembled from role holders resolved on the device (dialer, SMS, home,
  * camera, maps, IME, etc.) plus these static packages. It is enforced in code and never editable.
  */
 object Allowlist {
-    const val OWN_PACKAGE = "com.example.kept"
+    /**
+     * KEPT can never lock itself. Read from [BuildConfig.APPLICATION_ID] rather than written out,
+     * so the applicationId is the single source of truth (issue #5); the source package stayed
+     * `com.example.kept` and the two no longer agree. Code holding a [android.content.Context]
+     * should prefer `ctx.packageName`; this constant exists for the pure rules that have none.
+     */
+    val OWN_PACKAGE: String = BuildConfig.APPLICATION_ID
 
     val STATIC: Set<String> = setOf(
         OWN_PACKAGE,

@@ -46,6 +46,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import com.example.kept.core.analytics.Analytics
+import com.example.kept.core.analytics.Screens
 import com.example.kept.core.data.HabitRepository
 import com.example.kept.core.data.TimeSource
 import com.example.kept.core.data.db.HabitEntity
@@ -103,6 +105,7 @@ class OnboardingViewModel @Inject constructor(
     private val scheduler: WorkScheduler,
     private val time: TimeSource,
     val permissions: Permissions,
+    private val analytics: Analytics,
 ) : ViewModel() {
     private val _state = MutableStateFlow(OnboardingState())
     val state: StateFlow<OnboardingState> = _state
@@ -117,6 +120,22 @@ class OnboardingViewModel @Inject constructor(
     fun next() = _state.update { it.copy(step = it.step + 1) }
     fun back() = _state.update { it.copy(step = (it.step - 1).coerceAtLeast(0)) }
 
+    /**
+     * Onboarding is one nav destination but five screens to the person walking it, so the step —
+     * not the route — is what a funnel needs (issue #10). Steps are numbered as the header shows
+     * them, from 1.
+     */
+    fun reportStepViewed(step: Int) {
+        analytics.screen(Screens.ONBOARDING, mapOf("onboarding_step" to step))
+        analytics.capture("onboarding_step_viewed", mapOf("step" to step))
+    }
+
+    /** One Grant tap, answered (issue #10). */
+    fun reportPermissionAnswer(kind: PermissionKind, granted: Boolean) = analytics.capture(
+        if (granted) "permission_granted" else "permission_denied",
+        mapOf("permission" to kind.eventValue),
+    )
+
     /** Persists habits and settings when leaving step 1 so the exceptions/permission steps can already use them. */
     fun persistDraft() = viewModelScope.launch {
         val s = _state.value
@@ -130,6 +149,7 @@ class OnboardingViewModel @Inject constructor(
         prefs.updateSettings { it.copy(onboardingDone = true, onboardingStep = 5) }
         ForegroundWatcherService.start(ctx)
         scheduler.scheduleAll()
+        analytics.capture("onboarding_completed", mapOf("habit_count" to _state.value.chosen.size))
         onDone()
     }
 }
@@ -140,6 +160,8 @@ private const val STEPS = 5
 fun OnboardingScreen(onDone: () -> Unit, vm: OnboardingViewModel = hiltViewModel()) {
     val s by vm.state.collectAsStateWithLifecycle()
     val c = KeptTheme.colors
+
+    androidx.compose.runtime.LaunchedEffect(s.step) { vm.reportStepViewed(s.step + 1) }
     Column(Modifier.fillMaxSize().background(c.surface1).statusBarsPadding().navigationBarsPadding()) {
         // Header: back + progress + counter
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -233,7 +255,7 @@ private fun StepRule(s: OnboardingState, vm: OnboardingViewModel) {
             TimeRow("Give-up time", s.due) { vm.setWindow(s.lockFrom, it) }
         }
         Spacer(Modifier.height(8.dp))
-        MutedText("After the give-up time apps open again, and that day counts as missed.")
+        MutedText("After the give-up time apps open again. Anything you tick after that still shows as done, but the day counts as missed.")
         Spacer(Modifier.height(20.dp))
         SectionLabel("If you break the lock, apps open for")
         Spacer(Modifier.height(8.dp))
@@ -280,9 +302,9 @@ private fun StepPermissions(s: OnboardingState, vm: OnboardingViewModel) {
     val requiredOk = (states[PermissionKind.USAGE_ACCESS] ?: vm.permissions.usageAccessGranted()) && (states[PermissionKind.OVERLAY] ?: vm.permissions.overlayGranted())
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).testTag("onboarding_permissions")) {
         Spacer(Modifier.height(8.dp))
-        ScreenTitle("Let KEPT do its job", "The lock needs to see which app is in front, and to step in front of it. KEPT never stores or shares what you use.")
+        ScreenTitle("Let KEPT do its job", "The lock needs to see which app is in front, and to step in front of it. It never reads what is inside them. KEPT sends anonymous usage stats — turn them off in Settings.")
         Spacer(Modifier.height(18.dp))
-        PermissionCards(vm.permissions, kinds) { states = it }
+        PermissionCards(vm.permissions, kinds, vm::reportPermissionAnswer) { states = it }
         Spacer(Modifier.height(20.dp))
         PrimaryButton(if (requiredOk) "Continue" else "Continue without the lock", onClick = vm::next, modifier = Modifier.testTag("onboarding_next"))
         if (!requiredOk) {
@@ -317,7 +339,7 @@ private fun StepMeetSprig(s: OnboardingState, vm: OnboardingViewModel, onDone: (
         Spacer(Modifier.height(8.dp))
         MutedText("Each form you reach stays in your collection, in this week's look only. Share them anywhere.", Modifier.fillMaxWidth(), TextAlign.Center)
         Spacer(Modifier.height(20.dp))
-        InfoBox("One weekly shield forgives a missed day. A buddy can cheer Sprig back to health. Everything else is on you.")
+        InfoBox("One weekly shield forgives a missed day. Everything else is on you.")
         Spacer(Modifier.height(20.dp))
         PrimaryButton(if (s.saving) "Starting…" else "Start today", enabled = !s.saving, onClick = { vm.finish(onDone) }, modifier = Modifier.testTag("onboarding_finish"))
         Spacer(Modifier.height(20.dp))

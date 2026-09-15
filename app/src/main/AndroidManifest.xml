@@ -38,6 +38,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:label="@string/app_name"
             android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize"
             android:theme="@style/Theme.Kept">
@@ -50,6 +51,7 @@
         <activity
             android:name=".feature.lock.LockActivity"
             android:exported="false"
+            android:label="@string/app_name"
             android:launchMode="singleInstance"
             android:excludeFromRecents="true"
             android:taskAffinity=""
@@ -76,6 +78,17 @@
 
         <receiver
             android:name=".core.work.AlarmReceiver"
+            android:exported="false" />
+
+        <!-- The last rung of the restart ladder: an exact alarm's delivery exempts this receiver
+             from the Android 12+ background foreground-service-start restriction (issue #2). -->
+        <receiver
+            android:name=".core.work.ServiceRestartAlarmReceiver"
+            android:exported="false" />
+
+        <!-- "Mark done" on a reminder. Not exported: only KEPT's own PendingIntents reach it. -->
+        <receiver
+            android:name=".core.notify.NotificationActionReceiver"
             android:exported="false" />
 
         <provider

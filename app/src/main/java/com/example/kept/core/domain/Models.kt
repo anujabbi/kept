@@ -2,7 +2,7 @@ package com.example.kept.core.domain
 
 import java.time.LocalDate
 
-enum class ProofType { TIMER, MANUAL, PHOTO }
+enum class ProofType { MANUAL, PHOTO }
 
 enum class SprigPose { IDLE, BLOCK, DROOP, CHEER, WAVE }
 
@@ -80,7 +80,6 @@ object Variants {
 /** Persistent state of the creature and the streak. Stored in DataStore. */
 data class SprigState(
     val level: Int = 1,
-    val points: Long = 0,
     val streakDays: Int = 0,
     val bestStreak: Int = 0,
     val shieldAvailable: Boolean = true,
@@ -88,6 +87,11 @@ data class SprigState(
     val lastRolloverDate: LocalDate? = null,
     val wilted: Boolean = false,
     val pairStreak: Int = 0,
+    /**
+     * ISO date of the day whose completion granted the same-day level, or null. Stored rather than
+     * recomputed so an undo can only take back a level that was actually given (issue #7).
+     */
+    val levelGrantedDate: String? = null,
 ) {
     val form: SprigForm get() = SprigForm.forStreak(streakDays)
 }

@@ -9,13 +9,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 
-class PointsAndLevelTest {
-    @Test fun `two points per whole minute off apps`() {
-        assertEquals(0L, PointsRules.forLockedMillis(59_000))
-        assertEquals(2L, PointsRules.forLockedMillis(60_000))
-        assertEquals(20L, PointsRules.forLockedMillis(10 * 60_000 + 999))
-    }
-
+class LevelTest {
     @Test fun `level up and down with floor of one`() {
         assertEquals(5, LevelRules.up(4))
         assertEquals(3, LevelRules.down(4))
@@ -64,9 +58,24 @@ class StreakRulesTest {
         assertEquals(0, r.streak); assertTrue(r.reset)
     }
 
-    @Test fun `unprotected day does not count even if habits done`() {
-        val r = StreakRules.apply(3, false, StreakRules.DayOutcome(true, unprotected = true, writtenOff = false))
-        assertEquals(0, r.streak); assertFalse(r.counted)
+    @Test fun `unprotected day is hollow - it does not count, but it costs nothing`() {
+        // Issue #2: the lock being off is not the teen's fault, so the day is recorded and skipped
+        // rather than burning the streak or the shield.
+        val r = StreakRules.apply(3, true, StreakRules.DayOutcome(true, unprotected = true, writtenOff = false))
+        assertEquals(3, r.streak); assertFalse(r.counted); assertTrue(r.hollow)
+        assertTrue(r.shieldAvailable); assertFalse(r.shieldConsumed); assertFalse(r.reset)
+    }
+
+    @Test fun `an unprotected day with no shield left still does not reset the streak`() {
+        val r = StreakRules.apply(3, false, StreakRules.DayOutcome(false, unprotected = true, writtenOff = false))
+        assertEquals(3, r.streak); assertTrue(r.hollow); assertFalse(r.reset); assertFalse(r.shieldAvailable)
+    }
+
+    @Test fun `an unprotected day that was also written off is still written off`() {
+        // Breaking the lock past the cap is a deliberate act; a gap on the same day does not
+        // launder it.
+        val r = StreakRules.apply(3, false, StreakRules.DayOutcome(true, unprotected = true, writtenOff = true))
+        assertEquals(0, r.streak); assertFalse(r.hollow); assertTrue(r.reset)
     }
 
     @Test fun `written off day does not count`() {
@@ -117,6 +126,17 @@ class LockPolicyTest {
         assertFalse(LockPolicy.shouldLock("com.spotify.music", now, LocalTime.of(12, 0), base))
     }
 
+    @Test fun `a protected package is one the lock covers whenever the window is open`() {
+        // Used to decide, after the fact, whether a package resumed during a gap was one the lock
+        // would have stopped (issue #2). Time plays no part: the window is judged separately.
+        assertTrue(LockPolicy.isProtectedPackage("com.instagram.android", base))
+        assertFalse(LockPolicy.isProtectedPackage("com.spotify.music", base))
+        assertFalse(LockPolicy.isProtectedPackage("com.google.android.dialer", base))
+        assertFalse(LockPolicy.isProtectedPackage("com.android.providers.media", base))
+        // Launchability unknown: assume anything could have been locked.
+        assertTrue(LockPolicy.isProtectedPackage("com.android.providers.media", base.copy(launchable = null)))
+    }
+
     @Test fun `non-launchable system packages are ignored`() {
         assertFalse(LockPolicy.shouldLock("com.android.providers.media", now, LocalTime.of(12, 0), base))
     }
@@ -141,6 +161,47 @@ class LockPolicyTest {
         val s = base.copy(breakActiveUntil = now.plusSeconds(600))
         assertFalse(LockPolicy.shouldLock("com.instagram.android", now, LocalTime.of(12, 0), s))
         assertTrue(LockPolicy.shouldLock("com.instagram.android", now.plusSeconds(601), LocalTime.of(12, 10), s))
+    }
+
+    /**
+     * Issue #4: an exception added while the lock is running must be honoured on the very next
+     * decision, from nothing but the snapshot the service recombines. No restart, no cache.
+     */
+    @Test fun `an exception added after the fact exempts the package immediately`() {
+        assertTrue(LockPolicy.shouldLock("com.instagram.android", now, LocalTime.of(12, 0), base))
+        val afterAdding = base.copy(userExceptions = base.userExceptions + "com.instagram.android")
+        assertFalse(LockPolicy.shouldLock("com.instagram.android", now, LocalTime.of(12, 0), afterAdding))
+        // and removing it again puts the package straight back under the lock
+        val afterRemoving = afterAdding.copy(userExceptions = afterAdding.userExceptions - "com.instagram.android")
+        assertTrue(LockPolicy.shouldLock("com.instagram.android", now, LocalTime.of(12, 0), afterRemoving))
+    }
+
+    /** Issue #4: the lock screen on top of a package must come down when that package is excepted. */
+    @Test fun `the lock screen comes down as soon as its package is excepted`() {
+        assertTrue(LockPolicy.lockScreenShouldStay("com.instagram.android", now, LocalTime.of(12, 0), base))
+        val excepted = base.copy(userExceptions = base.userExceptions + "com.instagram.android")
+        assertFalse(LockPolicy.lockScreenShouldStay("com.instagram.android", now, LocalTime.of(12, 0), excepted))
+    }
+
+    @Test fun `the lock screen still comes down when the lock itself lifts`() {
+        assertFalse(LockPolicy.lockScreenShouldStay("com.instagram.android", now, LocalTime.of(12, 0), base.copy(habitsIncomplete = false)))
+        assertFalse(LockPolicy.lockScreenShouldStay("com.instagram.android", now, LocalTime.of(21, 0), base))
+        assertFalse(LockPolicy.lockScreenShouldStay("com.instagram.android", now, LocalTime.of(12, 0), base.copy(breakActiveUntil = now.plusSeconds(600))))
+    }
+
+    /**
+     * A package the installed-apps source has not caught up with yet (issue #4: the launchable set
+     * was cached for five minutes and never invalidated) is still covered by the lock screen that
+     * is already showing for it; only the exception list may take it away.
+     */
+    @Test fun `the lock screen ignores launchability`() {
+        assertTrue(LockPolicy.lockScreenShouldStay("com.newly.installed", now, LocalTime.of(12, 0), base))
+        assertFalse(LockPolicy.shouldLock("com.newly.installed", now, LocalTime.of(12, 0), base))
+    }
+
+    @Test fun `without a package the lock screen follows the global lock`() {
+        assertTrue(LockPolicy.lockScreenShouldStay(null, now, LocalTime.of(12, 0), base))
+        assertFalse(LockPolicy.lockScreenShouldStay("", now, LocalTime.of(12, 0), base.copy(habitsIncomplete = false)))
     }
 
     @Test fun `allowlist filters the picker`() {

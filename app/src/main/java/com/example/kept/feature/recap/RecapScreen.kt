@@ -26,7 +26,6 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
-import com.example.kept.core.data.BuddyRepository
 import com.example.kept.core.data.DayRepository
 import com.example.kept.core.data.SprigRepository
 import com.example.kept.core.data.db.DayRecordEntity
@@ -43,22 +42,21 @@ import com.example.kept.core.ui.sprig.SprigSpec
 import com.example.kept.core.ui.sprig.SprigView
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
-data class RecapUi(val record: DayRecordEntity? = null, val buddyName: String? = null, val date: LocalDate = LocalDate.now())
+data class RecapUi(val record: DayRecordEntity? = null, val date: LocalDate = LocalDate.now())
 
 @HiltViewModel
 class RecapViewModel @Inject constructor(
     dayRepo: DayRepository,
-    buddy: BuddyRepository,
     saved: SavedStateHandle,
 ) : ViewModel() {
     private val date: LocalDate = LocalDate.parse(saved.get<String>("date")!!)
-    val state = combine(dayRepo.observe(date), buddy.observeBuddy()) { r, b -> RecapUi(r, b?.displayName, date) }
+    val state = dayRepo.observe(date).map { r -> RecapUi(r, date) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RecapUi(date = date))
 }
 
@@ -69,6 +67,12 @@ fun RecapScreen(date: String, onClose: () -> Unit, vm: RecapViewModel = hiltView
     val ctx = LocalContext.current
     val r = s.record
     val kept = r?.countedForStreak == true
+    // Hollow: the lock was off and the day was not also written off, so it cost nothing (issue #2).
+    val hollow = r != null && r.unprotected && !r.writtenOff
+    // Everything was ticked and nothing else went wrong, so the only thing that can have cost the
+    // day is the give-up time (issue #7).
+    val tooLate = r != null && !kept && !r.unprotected && !r.writtenOff && !r.shieldConsumed &&
+        r.habitsTotal > 0 && r.habitsDone >= r.habitsTotal
     val form = SprigForm.fromId(r?.formId ?: 1)
     val variant = Variants.forDate(s.date)
     val isToday = s.date == LocalDate.now()
@@ -83,22 +87,25 @@ fun RecapScreen(date: String, onClose: () -> Unit, vm: RecapViewModel = hiltView
         val sub = if (kept) c.teal600 else if (r?.shieldConsumed == true) c.blue400 else c.textSecondary
         KeptCard(Modifier.fillMaxWidth(), background = bg, border = null, shape = RoundedCornerShape(16.dp), padding = androidx.compose.foundation.layout.PaddingValues(20.dp)) {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                SprigView(form, if (kept) SprigPose.CHEER else SprigPose.DROOP, Modifier.size(150.dp), variant = variant, wilted = !kept && r?.shieldConsumed != true)
+                // A hollow day costs nothing, so Sprig does not wilt over it (issue #2).
+                SprigView(form, if (kept) SprigPose.CHEER else SprigPose.DROOP, Modifier.size(150.dp), variant = variant, wilted = !kept && r?.shieldConsumed != true && !hollow)
                 Spacer(Modifier.height(8.dp))
                 val headline = when {
                     r == null -> "Nothing recorded"
                     kept -> "The promise was kept"
-                    r.unprotected -> "The lock was off"
+                    hollow -> "Lock was off"
                     r.shieldConsumed -> "Shield used"
                     r.writtenOff -> "Day written off"
+                    tooLate -> "Too late to count"
                     else -> "The promise slipped"
                 }
                 Text(headline, style = MaterialTheme.typography.titleMedium, color = fg)
                 val detail = when {
                     r == null -> ""
                     kept -> "${form.displayName} · that's ${r.streakEnd} day${if (r.streakEnd == 1) "" else "s"} running."
-                    r.unprotected -> "Days without protection don't count. Streak held at ${r.streakEnd}."
+                    hollow -> "That one is on us. The day doesn't count, but your ${r.streakEnd}-day streak is safe."
                     r.shieldConsumed -> "Your weekly shield kept the ${r.streakEnd}-day streak alive."
+                    tooLate -> "Everything got ticked, but after the give-up time. Late doesn't count."
                     else -> "Streak reset. Sprig is back to Sprig. Today is a fresh start."
                 }
                 Text(detail, style = MaterialTheme.typography.bodySmall, color = sub, textAlign = TextAlign.Center)
@@ -110,13 +117,12 @@ fun RecapScreen(date: String, onClose: () -> Unit, vm: RecapViewModel = hiltView
             Column(Modifier.fillMaxWidth()) {
                 KeyValueRow("Habits done", "${r.habitsDone} of ${r.habitsTotal}")
                 KeyValueRow("Time off apps", formatMillis(r.lockedMillis))
-                KeyValueRow("Points earned", "+${r.pointsEarned}")
                 KeyValueRow("Locks broken", "${r.breaksUsed}", valueColor = if (r.breaksUsed > 0) c.danger else c.textPrimary, divider = false)
             }
         }
         Spacer(Modifier.height(18.dp))
         SecondaryButton(
-            if (s.buddyName != null) "Share with ${s.buddyName}" else "Share",
+            "Share",
             onClick = {
                 ShareCard.share(
                     ctx,

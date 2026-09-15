@@ -106,9 +106,17 @@ class BuddyViewModel @Inject constructor(
         val ok = repo.pair(input)
         error.value = if (ok) null else "That code doesn't look right. It's two groups of three, like K4W-92B."
     }
-    fun unpair() = viewModelScope.launch { repo.unpair() }
-    fun nudge() = viewModelScope.launch { repo.nudge(); toast.value = "Nudge sent" }
-    fun cheer() = viewModelScope.launch { repo.cheer(); toast.value = "Cheer sent" }
+    fun unpair() = viewModelScope.launch {
+        repo.unpair()
+    }
+    fun nudge() = viewModelScope.launch {
+        repo.nudge()
+        toast.value = "Nudge sent"
+    }
+    fun cheer() = viewModelScope.launch {
+        repo.cheer()
+        toast.value = "Cheer sent"
+    }
     fun clearToast() { toast.value = null }
 }
 
@@ -201,7 +209,7 @@ private fun SprigColumn(name: String, form: SprigForm, streak: Int, wilted: Bool
 private fun myDot(d: LocalDate, r: DayRecordEntity?, doneToday: Boolean): DayDot = when {
     d == LocalDate.now() -> if (doneToday) DayDot.DONE else DayDot.TODAY
     r == null -> DayDot.MISSED
-    r.unprotected -> DayDot.UNPROTECTED
+    r.unprotected && !r.writtenOff -> DayDot.UNPROTECTED
     r.countedForStreak -> DayDot.DONE
     r.shieldConsumed -> DayDot.SHIELDED
     else -> DayDot.MISSED

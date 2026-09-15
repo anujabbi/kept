@@ -31,6 +31,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -41,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.runtime.remember
+import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -48,8 +50,12 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.kept.core.FeatureFlags
+import com.example.kept.core.analytics.Analytics
+import com.example.kept.core.analytics.Screens
 import com.example.kept.core.ui.KeptTheme
 import com.example.kept.feature.buddy.BuddyScreen
+import com.example.kept.feature.celebration.CelebrationHost
 import com.example.kept.feature.gallery.EvolutionRevealScreen
 import com.example.kept.feature.gallery.GalleryScreen
 import com.example.kept.feature.gallery.RoadmapScreen
@@ -60,7 +66,6 @@ import com.example.kept.feature.settings.ExceptionsScreen
 import com.example.kept.feature.settings.HabitsEditScreen
 import com.example.kept.feature.settings.PermissionsScreen
 import com.example.kept.feature.settings.SettingsScreen
-import com.example.kept.feature.timer.TimerScreen
 
 object Routes {
     const val ONBOARDING = "onboarding"
@@ -68,7 +73,6 @@ object Routes {
     const val GALLERY = "gallery"
     const val BUDDY = "buddy"
     const val SETTINGS = "settings"
-    const val TIMER = "timer/{habitId}"
     const val RECAP = "recap/{date}"
     const val EXCEPTIONS = "exceptions"
     const val HABITS = "habits"
@@ -76,34 +80,62 @@ object Routes {
     const val REVEAL = "reveal/{galleryId}"
     const val ROADMAP = "roadmap"
 
-    fun timer(habitId: Long) = "timer/$habitId"
     fun recap(date: String) = "recap/$date"
     fun reveal(id: Long) = "reveal/$id"
 }
 
+/**
+ * The `$screen_name` for a nav destination (issue #10). Route patterns are matched, not the filled
+ * routes, so a `$screen` never carries the date or the gallery id in the path.
+ *
+ * Onboarding is deliberately absent: it reports one screen view per step, with the step on it, from
+ * inside `OnboardingScreen`. Reporting it here as well would double every first-run screen view.
+ */
+fun screenNameFor(route: String?): String? = when (route) {
+    Routes.HOME -> Screens.HOME
+    Routes.GALLERY -> Screens.GALLERY
+    Routes.BUDDY -> Screens.BUDDY
+    Routes.SETTINGS -> Screens.SETTINGS
+    Routes.RECAP -> Screens.RECAP
+    Routes.EXCEPTIONS -> Screens.EXCEPTIONS
+    Routes.HABITS -> Screens.HABITS
+    Routes.PERMISSIONS -> Screens.PERMISSIONS
+    Routes.REVEAL -> Screens.REVEAL
+    Routes.ROADMAP -> Screens.ROADMAP
+    else -> null
+}
+
 private data class Tab(val route: String, val label: String, val icon: ImageVector, val selectedIcon: ImageVector)
 
-private val tabs = listOf(
+private val tabs = listOfNotNull(
     Tab(Routes.HOME, "Today", Icons.Outlined.Home, Icons.Rounded.Home),
     Tab(Routes.GALLERY, "Sprig", Icons.Outlined.Spa, Icons.Rounded.Spa),
-    Tab(Routes.BUDDY, "Buddy", Icons.Outlined.People, Icons.Rounded.People),
+    if (FeatureFlags.showBuddy) Tab(Routes.BUDDY, "Buddy", Icons.Outlined.People, Icons.Rounded.People) else null,
     Tab(Routes.SETTINGS, "Settings", Icons.Outlined.Settings, Icons.Rounded.Settings),
 )
 
 @Composable
-fun KeptApp(startDestination: String, pendingRoute: String?, consumeRoute: () -> Unit) {
+fun KeptApp(startDestination: String, pendingRoute: String?, consumeRoute: () -> Unit, analytics: Analytics) {
     val nav = rememberNavController()
     val c = KeptTheme.colors
     val backStack by nav.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
     val showBar = currentRoute in tabs.map { it.route }
 
+    // One listener for the whole graph, so a new destination cannot be added without a screen view.
+    DisposableEffect(nav, analytics) {
+        val listener = NavController.OnDestinationChangedListener { _, destination, _ ->
+            screenNameFor(destination.route)?.let { analytics.screen(it) }
+        }
+        nav.addOnDestinationChangedListener(listener)
+        onDispose { nav.removeOnDestinationChangedListener(listener) }
+    }
+
     LaunchedEffect(pendingRoute) {
         val r = pendingRoute ?: return@LaunchedEffect
         when {
-            r.startsWith("timer/") -> nav.navigate(r) { launchSingleTop = true }
             r == "recap" -> nav.navigate(Routes.HOME) { popUpTo(Routes.HOME) { inclusive = true } }
-            r == "buddy" -> nav.navigate(Routes.BUDDY) { launchSingleTop = true }
+            r == "buddy" && FeatureFlags.showBuddy -> nav.navigate(Routes.BUDDY) { launchSingleTop = true }
             r == "settings" -> nav.navigate(Routes.SETTINGS) { launchSingleTop = true }
             else -> nav.navigate(Routes.HOME) { launchSingleTop = true }
         }
@@ -119,7 +151,6 @@ fun KeptApp(startDestination: String, pendingRoute: String?, consumeRoute: () ->
                     }
                     composable(Routes.HOME) {
                         HomeScreen(
-                            onOpenTimer = { nav.navigate(Routes.timer(it)) },
                             onOpenRecap = { nav.navigate(Routes.recap(it)) },
                             onOpenReveal = { nav.navigate(Routes.reveal(it)) },
                             onOpenPermissions = { nav.navigate(Routes.PERMISSIONS) },
@@ -128,7 +159,9 @@ fun KeptApp(startDestination: String, pendingRoute: String?, consumeRoute: () ->
                         )
                     }
                     composable(Routes.GALLERY) { GalleryScreen(onOpenRoadmap = { nav.navigate(Routes.ROADMAP) }) }
-                    composable(Routes.BUDDY) { BuddyScreen() }
+                    if (FeatureFlags.showBuddy) {
+                        composable(Routes.BUDDY) { BuddyScreen() }
+                    }
                     composable(Routes.SETTINGS) {
                         SettingsScreen(
                             onOpenExceptions = { nav.navigate(Routes.EXCEPTIONS) },
@@ -136,9 +169,6 @@ fun KeptApp(startDestination: String, pendingRoute: String?, consumeRoute: () ->
                             onOpenPermissions = { nav.navigate(Routes.PERMISSIONS) },
                             onOpenRecap = { nav.navigate(Routes.recap(it)) },
                         )
-                    }
-                    composable(Routes.TIMER, arguments = listOf(navArgument("habitId") { type = NavType.LongType })) {
-                        TimerScreen(habitId = it.arguments!!.getLong("habitId"), onBack = { nav.popBackStack() })
                     }
                     composable(Routes.RECAP, arguments = listOf(navArgument("date") { type = NavType.StringType })) {
                         RecapScreen(date = it.arguments!!.getString("date")!!, onClose = { nav.popBackStack() })
@@ -156,6 +186,10 @@ fun KeptApp(startDestination: String, pendingRoute: String?, consumeRoute: () ->
                 BottomBar(nav, currentRoute)
             }
         }
+        // Above the nav graph and the bottom bar: the celebration is a full-screen moment, and it
+        // must be able to cover whichever tab is open when the day is finished (issue #9). Kept out
+        // of HomeScreen, which is long enough already.
+        if (currentRoute != Routes.ONBOARDING) CelebrationHost()
     }
 }
 

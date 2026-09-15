@@ -37,7 +37,7 @@ class DebugSeeder @Inject constructor(
         val today = time.today()
         val now = time.nowMillis()
 
-        val exercise = habitDao.insert(HabitEntity(title = "Exercise", iconKey = "run", proofType = ProofType.TIMER, targetValue = 30, unit = "min", sortOrder = 0, createdAt = now))
+        val exercise = habitDao.insert(HabitEntity(title = "Exercise", iconKey = "run", proofType = ProofType.MANUAL, targetValue = 30, unit = "min", sortOrder = 0, createdAt = now))
         val read = habitDao.insert(HabitEntity(title = "Read", iconKey = "book", proofType = ProofType.MANUAL, targetValue = 10, unit = "pages", sortOrder = 1, createdAt = now))
 
         // 13 finished days, one shielded miss on day 5, so the streak reads 12.
@@ -51,7 +51,7 @@ class DebugSeeder @Inject constructor(
             val key = date.toString()
             entryDao.upsertAll(
                 listOf(
-                    HabitEntryEntity(habitId = exercise, date = key, progressValue = 30 * 60, completedAt = time.instantAt(date, 8 * 60 + 12).toEpochMilli()),
+                    HabitEntryEntity(habitId = exercise, date = key, progressValue = 30, completedAt = time.instantAt(date, 8 * 60 + 12).toEpochMilli()),
                     HabitEntryEntity(habitId = read, date = key, progressValue = if (missed) 0 else 10, completedAt = if (missed) null else time.instantAt(date, 20 * 60 + 5).toEpochMilli()),
                 ),
             )
@@ -59,7 +59,7 @@ class DebugSeeder @Inject constructor(
                 DayRecordEntity(
                     date = key, habitsDone = done, habitsTotal = 2,
                     lockedMillis = (2L + (i % 3)) * 3_600_000L + 24 * 60_000L,
-                    pointsEarned = 200L + i * 9, breaksUsed = 0,
+                    breaksUsed = 0,
                     unprotected = false, broken = false, writtenOff = false,
                     countedForStreak = !missed, shieldConsumed = missed,
                     levelEnd = level, formId = SprigForm.forStreak(streak).id, streakEnd = streak, finalized = true,
@@ -74,10 +74,9 @@ class DebugSeeder @Inject constructor(
         // Base form is always in the gallery.
         sprig.insertUnlock(SprigForm.SPRIG, Variants.forDate(today.minusDays(13)), today.minusDays(13), 0, seen = true)
 
-        // Today: exercise 18/30 in progress, reading not done.
+        // Today: neither habit done yet (both are manual tap-to-complete).
         val todayKey = today.toString()
-        entryDao.upsert(HabitEntryEntity(habitId = exercise, date = todayKey, progressValue = 18 * 60))
-        dayDao.upsert(DayRecordEntity(date = todayKey, habitsDone = 0, habitsTotal = 2, lockedMillis = 96 * 60_000L, pointsEarned = 192))
+        dayDao.upsert(DayRecordEntity(date = todayKey, habitsDone = 0, habitsTotal = 2, lockedMillis = 96 * 60_000L))
 
         buddyDao.upsert(
             BuddyEntity(
@@ -88,7 +87,7 @@ class DebugSeeder @Inject constructor(
 
         sprig.write(
             SprigState(
-                level = level, points = 2_840, streakDays = streak, bestStreak = streak,
+                level = level, streakDays = streak, bestStreak = streak,
                 shieldAvailable = true, shieldWeekKey = StreakRules.weekKey(today),
                 lastRolloverDate = today.minusDays(1), wilted = false, pairStreak = 4,
             ),

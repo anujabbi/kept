@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KEPT - Privacy Policy</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { max-width: 46rem; margin: 0 auto; padding: 2rem 1.25rem 4rem;
+         font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  h1 { font-size: 1.9rem; margin-bottom: .25rem; }
+  h2 { font-size: 1.25rem; margin-top: 2.25rem; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .9em; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; display: block; overflow-x: auto; }
+  th, td { border: 1px solid #8884; padding: .5rem .6rem; text-align: left; vertical-align: top; }
+  th { background: #8881; }
+</style>
+</head>
+<body>
+<h1>KEPT — Privacy Policy</h1>
+<p><strong>Last updated: 13 September 2026</strong></p>
+<p>KEPT (&quot;the app&quot;) locks the apps on your phone until the daily habits you chose are done. This policy describes exactly what the app does with information. It is short because the app collects very little.</p>
+<h2>No account</h2>
+<p>There is no sign-up, no login, no email address and no password. You never tell KEPT who you are, and we have no way of finding out.</p>
+<h2>No parent or guardian dashboard</h2>
+<p>Nobody is watching you through KEPT. There is no parental control, no remote monitoring, no administrator and no reporting to anyone. The accountability buddy feature shows one person you choose your streak, whether today is done, your Sprig&#x27;s form, and whether the lock was off — and nothing else.</p>
+<h2>What stays on your phone</h2>
+<p>Everything you create in KEPT is stored only on your device, in the app&#x27;s private storage:</p>
+<ul>
+<li>your habits and their titles</li>
+<li>which habits you completed and when</li>
+<li>photo check-ins (photos are never uploaded anywhere)</li>
+<li>your streak, level and Sprig collection</li>
+<li>your app exceptions and settings</li>
+<li>the daily recap history</li>
+</ul>
+<p>Uninstalling the app deletes all of it. There is no cloud backup of it and no way to restore it.</p>
+<h2>What the app observes, and what it does not</h2>
+<p>To enforce the lock, KEPT needs to know <strong>which app is currently in the foreground</strong>. It reads this through Android&#x27;s usage-access permission (<code>PACKAGE_USAGE_STATS</code>), once a second while the lock window is open, and it uses <code>QUERY_ALL_PACKAGES</code> to list which apps are launchable so it can decide what to lock and build the exceptions picker.</p>
+<p>KEPT sees only the <em>package name</em> of the app in front — for example <code>com.android.chrome</code>. It never sees, records or transmits anything <strong>inside</strong> another app: no messages, no browsing history, no screen contents, no keystrokes. KEPT does not use an accessibility service. The foreground package is held in memory for the moment it takes to make the lock decision and is not written to storage and never sent off the device.</p>
+<h2>Anonymous usage analytics and crash reports</h2>
+<p>KEPT sends anonymous product analytics and crash reports to <strong>PostHog</strong> (PostHog Inc., US Cloud, <code>https://us.i.posthog.com</code>), which acts as our analytics processor.</p>
+<p>These reports are tied to a <strong>random anonymous ID</strong> generated on your device. KEPT never calls PostHog&#x27;s <code>identify</code>, so that ID is never linked to a person. No name, no email address, no phone number, no advertising ID, no habit title you typed, no label of any app you chose and <strong>no package name of any app</strong> is ever attached to an event. That last point is exact: not the app the lock stepped in front of, and not the app you added as an exception. An automated test (<code>AnalyticsPropertyNamesTest</code>) reads the app&#x27;s own source and fails the build if any analytics call site is given a property called <code>package</code>, <code>blocked_package</code> or anything ending in <code>_package</code>.</p>
+<p>The event categories sent are:</p>
+<table>
+<thead><tr><th>Category</th><th>What it records</th></tr></thead>
+<tbody>
+<tr><td>Onboarding</td><td>Which onboarding step was viewed, whether a permission was granted or refused, and that onboarding completed (with how many habits you set up).</td></tr>
+<tr><td>Lock shown / broken</td><td>That the lock screen appeared and how many minutes were left before the give-up time — never which app it appeared over. Also that a lock break was started, cancelled or used, and that the lock was off when it should have been on.</td></tr>
+<tr><td>Habit completed</td><td>That a habit was ticked (and from where — the app, the lock screen, or a notification), undone, added or removed. Never the habit&#x27;s title.</td></tr>
+<tr><td>Reminders</td><td>That a reminder fired, and that a reminder&#x27;s &quot;Mark done&quot; action was tapped.</td></tr>
+<tr><td>Settings changes</td><td>That analytics were turned on or off, that an app exception was added or removed (never which app), that a permission was granted or refused, and that a setting was changed while the lock was active.</td></tr>
+<tr><td>Service health</td><td>That the lock&#x27;s background service had to be restarted, and that a protection gap was recorded.</td></tr>
+<tr><td>Progress</td><td>Day rollover (streak and whether the day counted), Sprig evolution, and share-card generation.</td></tr>
+<tr><td>Screen views</td><td>The name of the screen you are on — a fixed name such as <code>home</code> or <code>settings</code>, never a date, a habit or a row id.</td></tr>
+</tbody></table>
+<p>Crash and error reports include the exception, the stack trace, the app version, the Android version and the device manufacturer and model.</p>
+<p><strong>There is no session recording.</strong> PostHog&#x27;s session replay is explicitly disabled, so no video, screenshot or recording of your screen is ever captured.</p>
+<p>Surveys are enabled: PostHog may show an in-app question. Answering one is optional and the answer is stored against the same anonymous ID.</p>
+<h2>Turning analytics off</h2>
+<p>Open <strong>Settings → Privacy</strong> and turn off <strong>&quot;Send anonymous usage data&quot;</strong>. From that moment nothing is sent, including crash reports. You can turn it back on in the same place.</p>
+<h2>Permissions and why they are needed</h2>
+<table>
+<thead><tr><th>Permission</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td><code>PACKAGE_USAGE_STATS</code> (usage access)</td><td>To know which app is in the foreground so the lock can act.</td></tr>
+<tr><td><code>QUERY_ALL_PACKAGES</code></td><td>To list launchable apps for the exceptions picker and to decide what is lockable.</td></tr>
+<tr><td><code>SYSTEM_ALERT_WINDOW</code> (display over other apps)</td><td>To show the lock screen over the app you opened.</td></tr>
+<tr><td><code>FOREGROUND_SERVICE_SPECIAL_USE</code></td><td>To keep the lock watcher running while the lock window is open.</td></tr>
+<tr><td><code>POST_NOTIFICATIONS</code></td><td>Reminders and the lock&#x27;s ongoing notification.</td></tr>
+<tr><td><code>CAMERA</code></td><td>Only if you create a photo check-in habit. Photos stay on the device.</td></tr>
+<tr><td><code>SCHEDULE_EXACT_ALARM</code>, <code>RECEIVE_BOOT_COMPLETED</code>, <code>WAKE_LOCK</code>, <code>VIBRATE</code></td><td>Reminders at the right minute, and the lock surviving a reboot.</td></tr>
+</tbody></table>
+<h2>Children</h2>
+<p>KEPT is aimed at teenagers. It collects no personal information from anyone, of any age, and shows no advertising.</p>
+<h2>Data sharing and selling</h2>
+<p>We do not sell data and we do not share it with advertisers, data brokers or anyone else. The only third party that receives anything at all is PostHog, as the analytics processor described above.</p>
+<h2>Your choices</h2>
+<ul>
+<li>Turn analytics off in <strong>Settings → Privacy</strong>.</li>
+<li>Revoke usage access or &quot;display over other apps&quot; in Android Settings at any time (the lock stops working; nothing else changes).</li>
+<li>Uninstall the app to delete everything it stored.</li>
+</ul>
+<p>Because reports carry no identifier that points to you, we cannot look up &quot;your&quot; analytics data to export or delete it individually. Turning the toggle off stops any further collection.</p>
+<h2>Changes to this policy</h2>
+<p>If this policy changes, the &quot;Last updated&quot; date above changes with it, and the new version is published at the same URL.</p>
+<h2>Contact</h2>
+<p>Questions about this policy: open an issue at <a href="https://github.com/anujabbi/kept/issues">https://github.com/anujabbi/kept/issues</a>.</p>
+</body>
+</html>

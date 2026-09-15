@@ -28,12 +28,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CameraAlt
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.HourglassBottom
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material.icons.rounded.LocalFireDepartment
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -76,7 +76,6 @@ import java.util.Locale
 
 @Composable
 fun HomeScreen(
-    onOpenTimer: (Long) -> Unit,
     onOpenRecap: (String) -> Unit,
     onOpenReveal: (Long) -> Unit,
     onOpenPermissions: () -> Unit,
@@ -130,6 +129,15 @@ fun HomeScreen(
 
         SectionLabel("Today", trailing = if (s.today.total > 0) "${s.today.done} of ${s.today.total}" else null)
         Spacer(Modifier.height(8.dp))
+        if (s.pastDue && s.today.total > 0 && !s.today.allDoneOnTime) {
+            InfoBox(
+                "Too late for today. You can still tick these off, but today won't count.",
+                icon = Icons.Outlined.HourglassBottom,
+                background = c.surface2,
+                foreground = c.textSecondary,
+            )
+            Spacer(Modifier.height(8.dp))
+        }
         if (s.today.total == 0) {
             KeptCard(onClick = onOpenHabits) {
                 Text("No habits yet", style = MaterialTheme.typography.titleSmall, color = c.textPrimary)
@@ -137,7 +145,7 @@ fun HomeScreen(
             }
         }
         s.today.habits.forEach { h ->
-            HabitRow(h, onOpenTimer = { onOpenTimer(h.id) }, onComplete = { vm.complete(h.id) }, onUndo = { vm.undo(h.id) }, onPhoto = { vm.completeWithPhoto(h.id, it) })
+            HabitRow(h, onComplete = { vm.complete(h.id) }, onUndo = { vm.undo(h.id) }, onPhoto = { vm.completeWithPhoto(h.id, it) })
             Spacer(Modifier.height(8.dp))
         }
         Spacer(Modifier.height(4.dp))
@@ -148,11 +156,18 @@ fun HomeScreen(
         Spacer(Modifier.height(8.dp))
         KeptCard {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                WeekDots(s.lastSeven.map { (d, r) -> dotFor(d == s.date, r, s.today.allDone) }, c.purple400)
-                Column(horizontalAlignment = Alignment.End) {
-                    Text("Best ${s.sprig.bestStreak}", style = MaterialTheme.typography.labelMedium, color = c.textSecondary)
-                    Text("${s.sprig.points} pts", style = MaterialTheme.typography.labelMedium, color = c.textMuted)
-                }
+                WeekDots(s.lastSeven.map { (d, r) -> dotFor(d == s.date, r, s.today.allDoneOnTime) }, c.purple400)
+                Text("Best ${s.sprig.bestStreak}", style = MaterialTheme.typography.labelMedium, color = c.textSecondary)
+            }
+            // A hollow square is a day KEPT could not watch. It is explained rather than left to
+            // look like a miss, because it costs nothing (issue #2).
+            if (s.lastSeven.any { (d, r) -> d != s.date && r != null && r.unprotected && !r.writtenOff }) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Hollow days are days the lock was off. They don't count, and they don't break your streak.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = c.textMuted,
+                )
             }
         }
         Spacer(Modifier.height(28.dp))
@@ -175,7 +190,8 @@ private fun StreakPill(streak: Int) {
 @Composable
 private fun SprigPanel(s: HomeUiState, onOpenRoadmap: () -> Unit) {
     val c = KeptTheme.colors
-    val allDone = s.today.allDone
+    // Only a day finished before the give-up time is worth cheering about (issue #7).
+    val allDone = s.today.allDoneOnTime
     val pose = when {
         s.sprig.wilted -> SprigPose.DROOP
         allDone -> SprigPose.CHEER
@@ -203,13 +219,16 @@ private fun SprigPanel(s: HomeUiState, onOpenRoadmap: () -> Unit) {
             val headline = when {
                 s.sprig.wilted -> "Sprig is wilting"
                 allDone -> "Promise kept today"
+                s.today.anyLate && s.today.allDone -> "Ticked, but too late"
                 s.lockActive -> "Sprig is growing"
                 else -> "Sprig is ${if (s.form.streakThreshold >= 7) "thriving" else "stretching"}"
             }
             Text(headline, style = MaterialTheme.typography.titleMedium, color = fg)
             Spacer(Modifier.height(2.dp))
             val detail = when {
-                s.sprig.wilted -> "Finish today's habits, or a buddy cheer, and Sprig recovers."
+                s.sprig.wilted -> "Finish today's habits and Sprig recovers."
+                s.today.anyLate && s.today.allDone ->
+                    "The give-up time passed, so today doesn't count. Start earlier tomorrow."
                 s.nextForm == null -> "${s.form.displayName} · Lv ${s.sprig.level} · the final form"
                 else -> "${s.form.displayName} · Lv ${s.sprig.level} · ${s.daysToNext} day${if (s.daysToNext == 1) "" else "s"} to ${s.nextForm!!.displayName}"
             }
@@ -229,7 +248,6 @@ private fun SprigPanel(s: HomeUiState, onOpenRoadmap: () -> Unit) {
 @Composable
 fun HabitRow(
     h: HabitToday,
-    onOpenTimer: () -> Unit,
     onComplete: () -> Unit,
     onUndo: () -> Unit,
     onPhoto: (String) -> Unit,
@@ -254,49 +272,51 @@ fun HabitRow(
     val onClick: () -> Unit = {
         when {
             h.isDone -> Unit
-            h.habit.proofType == ProofType.TIMER -> onOpenTimer()
             h.habit.proofType == ProofType.MANUAL -> onComplete()
             h.habit.proofType == ProofType.PHOTO -> cameraPermission.launch(android.Manifest.permission.CAMERA)
         }
     }
 
+    // A tick after the give-up time still shows as done, but not as a win.
+    val counts = !h.late
     val shape = RoundedCornerShape(12.dp)
     Row(
-        modifier.fillMaxWidth().clip(shape).background(if (h.isDone) c.green50 else c.surface2)
+        modifier.fillMaxWidth().clip(shape).background(if (h.isDone && counts) c.green50 else c.surface2)
             .then(if (h.isDone) Modifier else Modifier.background(Color.Transparent))
             .combinedClickable(onClick = onClick, onLongClick = { if (h.isDone) onUndo() })
             .padding(horizontal = 14.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(if (h.isDone) c.green400.copy(alpha = 0.25f) else c.purple50), contentAlignment = Alignment.Center) {
-            Icon(if (h.isDone) Icons.Outlined.Check else HabitIcons.of(h.habit.iconKey), null, tint = if (h.isDone) c.green600 else c.purple600, modifier = Modifier.size(20.dp))
+        Box(Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(if (h.isDone && counts) c.green400.copy(alpha = 0.25f) else c.purple50), contentAlignment = Alignment.Center) {
+            Icon(if (h.isDone) Icons.Outlined.Check else HabitIcons.of(h.habit.iconKey), null, tint = if (h.isDone && counts) c.green600 else if (h.isDone) c.textMuted else c.purple600, modifier = Modifier.size(20.dp))
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("${h.habit.title} ${h.subtitle}", style = MaterialTheme.typography.titleSmall, color = if (h.isDone) c.green600 else c.textPrimary, modifier = Modifier.weight(1f))
+                Text("${h.habit.title} ${h.subtitle}", style = MaterialTheme.typography.titleSmall, color = if (h.isDone && counts) c.green600 else c.textPrimary, modifier = Modifier.weight(1f))
                 Text(
-                    if (h.isDone) "Done" else h.progressLabel,
-                    style = MaterialTheme.typography.labelMedium.copy(fontFamily = if (h.habit.proofType == ProofType.TIMER && !h.isDone) androidx.compose.ui.text.font.FontFamily.Monospace else null),
-                    color = if (h.isDone) c.green600 else c.textMuted,
+                    if (h.late) "Too late" else if (h.isDone) "Done" else h.progressLabel,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (h.isDone && counts) c.green600 else c.textMuted,
                 )
             }
-            if (h.habit.proofType == ProofType.TIMER && !h.isDone) {
-                Spacer(Modifier.height(8.dp))
-                ThinProgress(h.fraction)
-            } else if (!h.isDone) {
+            if (!h.isDone) {
                 Text(
-                    when (h.habit.proofType) { ProofType.MANUAL -> "Tap when done"; ProofType.PHOTO -> "Tap to snap a photo"; else -> "" },
+                    when (h.habit.proofType) { ProofType.MANUAL -> "Tap when done"; ProofType.PHOTO -> "Tap to snap a photo" },
                     style = MaterialTheme.typography.bodySmall, color = c.textMuted,
                 )
             } else {
-                Text("Hold to undo", style = MaterialTheme.typography.bodySmall, color = c.green600.copy(alpha = 0.7f))
+                Text(
+                    if (h.late) "Doesn't count today. Hold to undo." else "Hold to undo",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (counts) c.green600.copy(alpha = 0.7f) else c.textMuted,
+                )
             }
         }
         if (!h.isDone) {
             Spacer(Modifier.width(8.dp))
             Icon(
-                when (h.habit.proofType) { ProofType.TIMER -> Icons.Rounded.PlayArrow; ProofType.PHOTO -> Icons.Outlined.CameraAlt; else -> Icons.Outlined.Check },
+                when (h.habit.proofType) { ProofType.PHOTO -> Icons.Outlined.CameraAlt; ProofType.MANUAL -> Icons.Outlined.Check },
                 null, tint = c.textMuted, modifier = Modifier.size(20.dp),
             )
         }
@@ -319,7 +339,8 @@ private fun LockStatusBox(s: HomeUiState) {
     val remaining = s.today.remaining
     val (icon, text) = when {
         s.today.total == 0 -> Icons.Outlined.LockOpen to "Nothing to lock for. Add a habit."
-        s.today.allDone -> Icons.Outlined.LockOpen to "Apps are open. You kept today."
+        s.today.allDoneOnTime -> Icons.Outlined.LockOpen to "Apps are open. You kept today."
+        s.pastDue -> Icons.Outlined.LockOpen to "Apps are open. Today is missed — the lock is back at $from."
         lock.breakActiveUntil != null -> Icons.Outlined.LockOpen to "Lock paused. Apps re-lock soon. Sprig noticed."
         s.lockActive -> Icons.Outlined.Lock to "Everything but essentials is locked until ${if (remaining == 1) "this is" else "both are"} done or $due."
         else -> Icons.Outlined.Lock to "Apps lock at $from until today's habits are done."
@@ -330,7 +351,7 @@ private fun LockStatusBox(s: HomeUiState) {
 private fun dotFor(isToday: Boolean, r: com.example.kept.core.data.db.DayRecordEntity?, allDoneToday: Boolean): DayDot = when {
     isToday -> if (allDoneToday) DayDot.DONE else DayDot.TODAY
     r == null -> DayDot.MISSED
-    r.unprotected -> DayDot.UNPROTECTED
+    r.unprotected && !r.writtenOff -> DayDot.UNPROTECTED
     r.countedForStreak -> DayDot.DONE
     r.shieldConsumed -> DayDot.SHIELDED
     else -> DayDot.MISSED

@@ -14,7 +14,14 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
-enum class PermissionKind { USAGE_ACCESS, OVERLAY, NOTIFICATIONS, BATTERY, CAMERA }
+/** The string is the `permission` property on `permission_granted` / `permission_denied` (issue #10). */
+enum class PermissionKind(val eventValue: String) {
+    USAGE_ACCESS("usage_access"),
+    OVERLAY("overlay"),
+    NOTIFICATIONS("notifications"),
+    BATTERY("battery"),
+    CAMERA("camera"),
+}
 
 @Singleton
 class Permissions @Inject constructor(@ApplicationContext private val ctx: Context) {
