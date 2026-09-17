@@ -22,8 +22,6 @@ object RolloverEngine {
         val breaksUsed: Int,
         val writtenOff: Boolean,
         val unprotected: Boolean,
-        /** Null when no buddy is paired. */
-        val buddyDoneThatDay: Boolean?,
     ) {
         val allDone: Boolean get() = habitsTotal > 0 && habitsDoneBeforeDue >= habitsTotal
     }
@@ -67,23 +65,14 @@ object RolloverEngine {
         )
         val streakResult = StreakRules.apply(refilled.streakDays, refilled.shieldAvailable, outcome)
 
-        val pairStreak = when {
-            input.buddyDoneThatDay == null -> 0
-            outcome.counts && input.buddyDoneThatDay -> refilled.pairStreak + 1
-            else -> 0
-        }
-
         val unlocks = mutableListOf<Unlock>()
         val variant = Variants.forDate(input.date)
         val formAfter = SprigForm.forStreak(streakResult.streak)
         if (streakResult.counted) {
             // Any form whose threshold is crossed exactly today is a fresh unlock.
             SprigForm.entries
-                .filter { !it.isPairOnly && it.streakThreshold == streakResult.streak && it.streakThreshold > 0 }
+                .filter { it.streakThreshold == streakResult.streak && it.streakThreshold > 0 }
                 .forEach { unlocks += Unlock(it, variant, input.date, streakResult.streak) }
-            if (pairStreak == SprigForm.DUO_PAIR_STREAK) {
-                unlocks += Unlock(SprigForm.DUO, variant, input.date, streakResult.streak)
-            }
         }
 
         val newState = refilled.copy(
@@ -93,7 +82,6 @@ object RolloverEngine {
             lastRolloverDate = input.date,
             // A completed day heals a wilt; anything else keeps it.
             wilted = if (streakResult.counted) false else refilled.wilted,
-            pairStreak = pairStreak,
         )
 
         val summary = DaySummary(

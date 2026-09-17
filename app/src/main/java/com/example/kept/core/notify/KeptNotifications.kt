@@ -25,11 +25,9 @@ class KeptNotifications @Inject constructor(@ApplicationContext private val ctx:
     companion object {
         const val CH_LOCK = "kept_lock"
         const val CH_RECAP = "kept_recap"
-        const val CH_BUDDY = "kept_buddy"
         const val CH_REMINDER = "kept_reminder"
         const val ID_LOCK = 1
         const val ID_RECAP = 2
-        const val ID_BUDDY = 3
         const val ID_REMINDER = 4
         const val ID_PROTECTION = 5
         const val ID_LOCK_OFF = 6
@@ -61,7 +59,6 @@ class KeptNotifications @Inject constructor(@ApplicationContext private val ctx:
             setShowBadge(false)
         })
         nm.createNotificationChannel(NotificationChannel(CH_RECAP, "KEPT daily recap", NotificationManager.IMPORTANCE_DEFAULT))
-        nm.createNotificationChannel(NotificationChannel(CH_BUDDY, "KEPT buddy", NotificationManager.IMPORTANCE_DEFAULT))
         nm.createNotificationChannel(NotificationChannel(CH_REMINDER, "KEPT reminders", NotificationManager.IMPORTANCE_HIGH))
     }
 
@@ -108,8 +105,6 @@ class KeptNotifications @Inject constructor(@ApplicationContext private val ctx:
         val body = "${summary.habitsDone} of ${summary.habitsTotal} habits · ${summary.streakEnd} day streak"
         post(ID_RECAP, base(CH_RECAP, title, body, "recap").build())
     }
-
-    fun buddy(title: String, body: String) = post(ID_BUDDY, base(CH_BUDDY, title, body, "buddy").build())
 
     /**
      * A rung of the reminder ladder (issue #9). Each remaining habit carries a "Mark done" action

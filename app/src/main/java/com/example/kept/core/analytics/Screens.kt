@@ -10,7 +10,6 @@ object Screens {
     const val ONBOARDING = "Onboarding"
     const val HOME = "Home"
     const val GALLERY = "Gallery"
-    const val BUDDY = "Buddy"
     const val SETTINGS = "Settings"
     const val RECAP = "Recap"
     const val EXCEPTIONS = "Exceptions"

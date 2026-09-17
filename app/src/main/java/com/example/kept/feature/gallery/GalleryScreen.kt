@@ -140,7 +140,7 @@ fun GalleryScreen(onOpenRoadmap: () -> Unit, vm: GalleryViewModel = hiltViewMode
             Column { Spacer(Modifier.height(10.dp)); SectionLabel("Still to earn") }
         }
         items(SprigForm.entries.filter { it !in unlockedForms }, key = { it.id }) { form ->
-            FormCard(form, s.thisWeek, unlocked = false, caption = if (form.isPairOnly) "Pair streak ${SprigForm.DUO_PAIR_STREAK}" else "${form.streakThreshold}-day streak", onClick = onOpenRoadmap)
+            FormCard(form, s.thisWeek, unlocked = false, caption = "${form.streakThreshold}-day streak", onClick = onOpenRoadmap)
         }
     }
 
@@ -241,7 +241,7 @@ fun RoadmapScreen(onBack: () -> Unit, vm: GalleryViewModel = hiltViewModel()) {
         Text("Every day you keep your habits, the streak grows. Streak milestones evolve Sprig. Miss a day without a shield and Sprig goes back to the start, but every form you've reached stays in your collection.", style = MaterialTheme.typography.bodyMedium, color = c.textSecondary)
         Spacer(Modifier.height(18.dp))
         SprigForm.entries.forEach { form ->
-            val reached = if (form.isPairOnly) s.state.pairStreak >= SprigForm.DUO_PAIR_STREAK else s.state.streakDays >= form.streakThreshold
+            val reached = s.state.streakDays >= form.streakThreshold
             val current = form == s.state.form
             KeptCard(Modifier.fillMaxWidth(), background = if (current) c.purple50 else c.surface2, border = if (current) null else c.border, padding = androidx.compose.foundation.layout.PaddingValues(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -252,7 +252,7 @@ fun RoadmapScreen(onBack: () -> Unit, vm: GalleryViewModel = hiltViewModel()) {
                             Text(form.displayName, style = MaterialTheme.typography.titleSmall, color = c.textPrimary)
                             if (current) { Spacer(Modifier.width(8.dp)); Pill("Now", background = c.purple100, foreground = c.purple900) }
                         }
-                        Text(if (form.isPairOnly) "Pair streak of ${SprigForm.DUO_PAIR_STREAK} with a buddy" else if (form.streakThreshold == 0) "Where everyone starts" else "${form.streakThreshold}-day streak", style = MaterialTheme.typography.bodySmall, color = c.textSecondary)
+                        Text(if (form.streakThreshold == 0) "Where everyone starts" else "${form.streakThreshold}-day streak", style = MaterialTheme.typography.bodySmall, color = c.textSecondary)
                         Text(form.tagline, style = MaterialTheme.typography.labelMedium, color = c.textMuted)
                     }
                 }

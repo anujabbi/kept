@@ -8,7 +8,7 @@ enum class SprigPose { IDLE, BLOCK, DROOP, CHEER, WAVE }
 
 /**
  * Evolution forms. Ordered by rarity. [streakThreshold] is the streak length at which the
- * form becomes the displayed form. DUO is buddy-only and unlocked by the pair streak.
+ * form becomes the displayed form.
  */
 enum class SprigForm(
     val id: Int,
@@ -22,19 +22,14 @@ enum class SprigForm(
     THICKET(4, "Thicket", 14, "Two weeks. Roots are deep now."),
     GROVE(5, "Grove", 30, "A month of promises kept."),
     ANCIENT(6, "Ancient", 60, "Sixty days. Older than most habits."),
-    CELESTIAL(7, "Celestial", 100, "One hundred days. Beyond ordinary."),
-    DUO(8, "Duo", Int.MAX_VALUE, "Only grows in pairs. Seven days together.");
-
-    val isPairOnly: Boolean get() = this == DUO
+    CELESTIAL(7, "Celestial", 100, "One hundred days. Beyond ordinary.");
 
     companion object {
-        const val DUO_PAIR_STREAK = 7
-
         fun forStreak(streak: Int): SprigForm =
-            entries.filter { !it.isPairOnly && it.streakThreshold <= streak }.maxBy { it.streakThreshold }
+            entries.filter { it.streakThreshold <= streak }.maxBy { it.streakThreshold }
 
         fun next(form: SprigForm): SprigForm? =
-            entries.filter { !it.isPairOnly && it.streakThreshold > form.streakThreshold }.minByOrNull { it.streakThreshold }
+            entries.filter { it.streakThreshold > form.streakThreshold }.minByOrNull { it.streakThreshold }
 
         fun fromId(id: Int): SprigForm = entries.firstOrNull { it.id == id } ?: SPRIG
     }
@@ -86,7 +81,6 @@ data class SprigState(
     val shieldWeekKey: String = "",
     val lastRolloverDate: LocalDate? = null,
     val wilted: Boolean = false,
-    val pairStreak: Int = 0,
     /**
      * ISO date of the day whose completion granted the same-day level, or null. Stored rather than
      * recomputed so an undo can only take back a level that was actually given (issue #7).

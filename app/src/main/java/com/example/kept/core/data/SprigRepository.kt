@@ -62,10 +62,6 @@ class SprigRepository @Inject constructor(
         prefs.updateSprig { s -> s.copy(level = LevelRules.down(s.level), wilted = true) }
     }
 
-    suspend fun revive() {
-        prefs.updateSprig { s -> s.copy(wilted = false) }
-    }
-
     suspend fun addLockedTime(millis: Long) {
         dayDao.addLockedTime(time.todayKey(), millis)
     }

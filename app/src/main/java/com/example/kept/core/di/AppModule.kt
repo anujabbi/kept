@@ -4,15 +4,13 @@ import android.content.Context
 import android.util.Log
 import androidx.room.Room
 import com.example.kept.core.AppForeground
-import com.example.kept.core.data.BuddyNotifier
-import com.example.kept.core.data.BuddyRepository
 import com.example.kept.core.data.DayCompletionReactor
 import com.example.kept.core.data.ForegroundSignal
-import com.example.kept.core.data.LocalStubBuddyRepository
 import com.example.kept.core.data.RecapNotifier
 import com.example.kept.core.data.db.KeptDatabase
 import com.example.kept.core.data.db.MIGRATION_1_2
 import com.example.kept.core.data.db.MIGRATION_2_3
+import com.example.kept.core.data.db.MIGRATION_3_4
 import com.example.kept.core.notify.KeptNotifications
 import com.example.kept.core.notify.NotificationDayCompletion
 import dagger.Binds
@@ -34,8 +32,8 @@ import javax.inject.Singleton
  *
  * `LockActivity` calls `finishAndRemoveTask()` the instant the lock lifts, which kills its
  * ViewModel and cancels `viewModelScope` — so a tick taken there had its follow-up work (the
- * level grant, the celebration flag, the shade tidy-up) cancelled halfway, exactly the way the
- * old buddy-cheer coroutine was. Work that must finish once started belongs here instead.
+ * level grant, the celebration flag, the shade tidy-up) cancelled halfway. Work that must finish
+ * once started belongs here instead.
  */
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
@@ -63,7 +61,7 @@ object AppModule {
     @Provides @Singleton
     fun database(@ApplicationContext ctx: Context): KeptDatabase =
         Room.databaseBuilder(ctx, KeptDatabase::class.java, "kept.db")
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
             .build()
 
     @Provides fun habitDao(db: KeptDatabase) = db.habitDao()
@@ -73,10 +71,6 @@ object AppModule {
     @Provides fun lockBreakDao(db: KeptDatabase) = db.lockBreakDao()
     @Provides fun protectionGapDao(db: KeptDatabase) = db.protectionGapDao()
     @Provides fun galleryDao(db: KeptDatabase) = db.galleryDao()
-    @Provides fun buddyDao(db: KeptDatabase) = db.buddyDao()
-
-    @Provides @Singleton
-    fun buddyNotifier(n: KeptNotifications): BuddyNotifier = BuddyNotifier { title, body -> n.buddy(title, body) }
 
     @Provides @Singleton
     fun recapNotifier(n: KeptNotifications): RecapNotifier = RecapNotifier { summary, unlocks -> n.recap(summary, unlocks) }
@@ -85,8 +79,6 @@ object AppModule {
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class BindsModule {
-    @Binds @Singleton abstract fun buddyRepository(impl: LocalStubBuddyRepository): BuddyRepository
-
     /** The data layer raises a finished day; `core/notify` decides what the shade does (issue #9). */
     @Binds @Singleton abstract fun dayCompletionReactor(impl: NotificationDayCompletion): DayCompletionReactor
 

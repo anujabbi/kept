@@ -77,8 +77,8 @@ it.
 - Target audience: teens. Answer the **Families / target audience** questionnaire honestly; if
   under-13 users are in scope, the Families policy and its extra requirements apply, so the
   intended answer is 13+.
-- Content rating questionnaire (no violence, no user-generated content that is shared publicly —
-  the buddy feature shares a streak with one chosen person only).
+- Content rating questionnaire (no violence, no user-generated content: nothing a user creates in
+  KEPT leaves the device).
 - Ads: **none**. Declare "no ads".
 - App access: no login required — say so, so the reviewer is not blocked.
 - Screenshots (phone, at least 2; take them from `verification/`), feature graphic, short and full

@@ -3,8 +3,7 @@
 Keep Every Promise Today. An Android app for teens: commit to one to four daily habits, and until
 they are done every app on the phone is locked except the essentials (phone, messages, maps,
 camera, settings) and a short list of exceptions you choose. A creature called Sprig evolves as
-your streak grows; one accountability buddy sees your streak and whether today is done, nothing
-else.
+your streak grows.
 
 - Spec: `docs/superpowers/specs/2026-09-05-kept-android-design.md`
 - Decisions: `DECISIONS.md`
@@ -24,7 +23,7 @@ app/src/main/java/com/example/kept/
   core/work       RolloverWorker, WatchdogWorker, reminder alarm, WorkScheduler
   core/notify     notification channels
   core/ui         theme tokens, components, Sprig canvas renderer, share card
-  feature/*       onboarding, home, lock, recap, buddy, gallery, settings
+  feature/*       onboarding, home, lock, recap, gallery, settings
 ```
 
 ## Setup
@@ -91,8 +90,8 @@ the environment — the environment wins. Never commit the keystore or the prope
 
 ## Demo data
 
-Debug builds can seed 12 days of history, a paired buddy (Maya) and two habits so every screen
-has content. It runs only when asked:
+Debug builds can seed 12 days of history and two habits so every screen has content. It runs only
+when asked:
 
 ```
 adb shell am start -n com.zenai.kept/com.example.kept.MainActivity --ez seed true
@@ -147,10 +146,10 @@ Instrumented tests (need a running emulator):
 ```
 
 Covers onboarding completing and persisting; home reflecting seeded state; the lock screen
-rendering with habits remaining; the break-lock countdown gating "Unlock anyway"; the buddy empty
-state and pairing; exceptions being honoured and the picker staying in sync; and the Room
-migrations (1 -> 2, 2 -> 3 and 1 -> 3 end to end, validated against the exported schemas in
-`app/schemas`). There is no destructive-migration fallback, so a broken migration fails here.
+rendering with habits remaining; the break-lock countdown gating "Unlock anyway"; exceptions being
+honoured and the picker staying in sync; and the Room migrations (1 -> 2, 2 -> 3, 3 -> 4 and 1 -> 4
+end to end, validated against the exported schemas in `app/schemas`). There is no
+destructive-migration fallback, so a broken migration fails here.
 
 `scripts/verify.sh` drives the emulator end to end with adb (install, grant, seed, block Chrome,
 assert `LockActivity` is on top) and writes screenshots to `verification/`.
@@ -171,8 +170,7 @@ No `AccessibilityService` is used.
 There is no account and no parent dashboard. Your habits, photo check-ins, streak and history are
 stored only in the app's private storage and are never uploaded. The lock reads the *package name*
 of the app in front (usage access) and nothing inside it; that package name is never stored and
-never sent anywhere. The buddy contract (`BuddyStatus`) carries streak, done flag, Sprig form and
-an "unprotected today" marker — there is no chat, no profiles, no search.
+never sent anywhere. There is no account, no sharing and nobody else to see any of it.
 
 Anonymous usage analytics and crash reports do go to PostHog (US cloud) under a random anonymous
 ID: onboarding steps, lock shown/broken, habit completed, reminders, settings changes and service

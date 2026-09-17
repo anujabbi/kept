@@ -34,7 +34,6 @@ class RolloverRunner @Inject constructor(
     private val breakDao: LockBreakDao,
     private val gapDao: ProtectionGapDao,
     private val sprig: SprigRepository,
-    private val buddy: BuddyRepository,
     private val time: TimeSource,
     private val recap: RecapNotifier,
     private val analytics: Analytics,
@@ -92,7 +91,6 @@ class RolloverRunner @Inject constructor(
             breaksUsed = breaks.size,
             writtenOff = breaks.any { it.overCap } || (record?.writtenOff ?: false),
             unprotected = gaps > 0 || (record?.unprotected ?: false),
-            buddyDoneThatDay = buddy.buddyDoneOn(date),
         )
     }
 

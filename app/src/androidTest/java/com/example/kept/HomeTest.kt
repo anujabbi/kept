@@ -1,24 +1,18 @@
 package com.example.kept
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.example.kept.core.FeatureFlags
 import com.example.kept.core.data.DebugSeeder
 import com.example.kept.core.data.db.KeptDatabase
 import com.example.kept.core.data.prefs.KeptPreferences
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import kotlinx.coroutines.runBlocking
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -27,7 +21,7 @@ import javax.inject.Inject
 
 @HiltAndroidTest
 @RunWith(AndroidJUnit4::class)
-class HomeAndBuddyTest {
+class HomeTest {
     @get:Rule(order = 0) val hilt = HiltAndroidRule(this)
     @get:Rule(order = 1) val compose = createEmptyComposeRule()
 
@@ -64,26 +58,6 @@ class HomeAndBuddyTest {
             compose.onNodeWithText("Too late for today", substring = true).assertIsDisplayed()
             // The checklist still works: the habits are there to tick.
             compose.onAllNodesWithText("Tap when done", substring = true)[0].assertIsDisplayed()
-        }
-    }
-
-    @Test fun buddy_empty_state_pairs_with_a_code() {
-        // The Buddy tab only exists behind FeatureFlags.showBuddy (debug builds); skip rather
-        // than fail if this ever runs against a build where it's hidden. See issue #6.
-        assumeTrue(FeatureFlags.showBuddy)
-        runBlocking {
-            prefs.updateSettings { it.copy(onboardingDone = true, firstUseDate = java.time.LocalDate.now()) }
-        }
-        ActivityScenario.launch(MainActivity::class.java).use {
-            compose.waitUntil(10_000) { compose.onAllNodes(hasText("Buddy")).fetchSemanticsNodes().isNotEmpty() }
-            compose.onNodeWithText("Buddy").performClick()
-            compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("invite_code")).fetchSemanticsNodes().isNotEmpty() }
-            compose.onNodeWithTag("invite_code").assertIsDisplayed()
-            compose.onNodeWithTag("enter_code").performClick()
-            compose.onNodeWithTag("code_input").performTextInput("ABC-123")
-            compose.onNodeWithTag("pair_button").performClick()
-            compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("buddy_paired")).fetchSemanticsNodes().isNotEmpty() }
-            compose.onNodeWithText("9 day streak", substring = true).assertIsDisplayed()
         }
     }
 }

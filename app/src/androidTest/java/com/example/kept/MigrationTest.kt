@@ -7,6 +7,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.example.kept.core.data.db.KeptDatabase
 import com.example.kept.core.data.db.MIGRATION_1_2
 import com.example.kept.core.data.db.MIGRATION_2_3
+import com.example.kept.core.data.db.MIGRATION_3_4
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -17,8 +18,9 @@ import org.junit.runner.RunWith
 /**
  * Verifies the Room migrations. `fallbackToDestructiveMigration` is gone (issue #5), so a user on
  * any shipped schema must be able to reach the current one without losing a row: 1 -> 2 (the
- * timer removal, issue #3), 2 -> 3 (the points removal, issue #8), and 1 -> 3 end to end, which is
- * the path an installed-but-never-updated build actually takes.
+ * timer removal, issue #3), 2 -> 3 (the points removal, issue #8), 3 -> 4 (the buddy removal,
+ * issue #13), and 1 -> 4 end to end, which is the path an installed-but-never-updated build
+ * actually takes.
  */
 @RunWith(AndroidJUnit4::class)
 class MigrationTest {
@@ -100,12 +102,12 @@ class MigrationTest {
     }
 
     /**
-     * The path a phone that installed v1 and skipped v2 takes. Both migrations run in one go and
-     * `runMigrationsAndValidate` checks the result against the exported schema 3, so a column the
-     * migrations forgot fails here rather than in the field.
+     * The path a phone that installed v1 and never updated takes. Every migration runs in one go
+     * and `runMigrationsAndValidate` checks the result against the exported schema 4, so a column
+     * or a table the migrations forgot fails here rather than in the field.
      */
     @Test
-    fun migrate1To3_runsBothMigrationsAndKeepsData() {
+    fun migrate1To4_runsEveryMigrationAndKeepsData() {
         helper.createDatabase(dbName, 1).apply {
             execSQL(
                 "INSERT INTO habits (id, title, iconKey, proofType, targetValue, unit, sortOrder, isActive, createdAt) " +
@@ -119,7 +121,7 @@ class MigrationTest {
             close()
         }
 
-        val migrated = helper.runMigrationsAndValidate(dbName, 3, true, MIGRATION_1_2, MIGRATION_2_3)
+        val migrated = helper.runMigrationsAndValidate(dbName, 4, true, MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
 
         migrated.query("SELECT proofType FROM habits WHERE id = 1").use {
             assertTrue(it.moveToFirst())
@@ -136,5 +138,35 @@ class MigrationTest {
             while (it.moveToNext()) columnNames += it.getString(it.getColumnIndexOrThrow("name"))
         }
         assertFalse(columnNames.contains("pointsEarned"))
+    }
+
+    @Test
+    fun migrate3To4_dropsTheBuddyTable() {
+        helper.createDatabase(dbName, 3).apply {
+            execSQL(
+                "INSERT INTO buddy (id, displayName, initials, streakDays, doneToday, formId, " +
+                    "lastSevenDays, pairedAt, lastCheerAt, lastNudgeAt) " +
+                    "VALUES (1, 'Maya', 'MK', 9, 1, 3, '1101110', 0, NULL, NULL)",
+            )
+            execSQL(
+                "INSERT INTO habits (id, title, iconKey, proofType, targetValue, unit, sortOrder, isActive, createdAt) " +
+                    "VALUES (1, 'Read', 'book', 'MANUAL', 10, 'pages', 0, 1, 0)",
+            )
+            close()
+        }
+
+        val migrated = helper.runMigrationsAndValidate(dbName, 4, true, MIGRATION_3_4)
+
+        val tables = mutableListOf<String>()
+        migrated.query("SELECT name FROM sqlite_master WHERE type = 'table'").use {
+            while (it.moveToNext()) tables += it.getString(0)
+        }
+        assertFalse(tables.contains("buddy"))
+
+        // Everything else survives the drop.
+        migrated.query("SELECT title FROM habits WHERE id = 1").use {
+            assertTrue(it.moveToFirst())
+            assertEquals("Read", it.getString(0))
+        }
     }
 }

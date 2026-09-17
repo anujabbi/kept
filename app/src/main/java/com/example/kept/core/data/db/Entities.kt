@@ -89,18 +89,3 @@ data class GalleryEntryEntity(
     val streakAtUnlock: Int,
     val seen: Boolean = false,
 )
-
-@Entity(tableName = "buddy")
-data class BuddyEntity(
-    @PrimaryKey val id: Int = 1,
-    val displayName: String,
-    val initials: String,
-    val streakDays: Int,
-    val doneToday: Boolean,
-    val formId: Int,
-    /** Seven chars, oldest first: 1 done, 0 missed, u unprotected, - unknown. */
-    val lastSevenDays: String,
-    val pairedAt: Long,
-    val lastCheerAt: Long? = null,
-    val lastNudgeAt: Long? = null,
-)
