@@ -519,3 +519,45 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
   an older `com.example.kept` build rather than upgrading it, so a tester ends up with two icons,
   two lock services fighting over the foreground, and their history stranded in the old app. The
   old build has to be uninstalled first.
+
+## 2026-09-16
+
+- **The buddy feature is removed entirely (issue #13), superseding the 13 Sep decision to hide it
+  behind `FeatureFlags.showBuddy`.** Hiding it kept a fake person in the tree and still showed the
+  tab in every debug and test build, and the thing it was waiting for — auth and a backend that
+  can carry a pairing between two phones — does not exist and is not being built. A stub that
+  cannot become the real feature is not a head start, so it is gone rather than parked: if buddies
+  are ever built, they start from a design.
+  - Deleted: `feature/buddy/BuddyScreen.kt`, `core/data/BuddyRepository.kt` (interface, the local
+    stub, `BuddyStatus`, `BuddyNotifier`, the invite-code generator, `tickDaily`) and
+    `core/FeatureFlags.kt`, which had no other flag in it. The Buddy route, tab, nav destination,
+    `Screens.BUDDY` and the `"buddy"` notification deep link are gone with them, as are the
+    `buddyDao`/`buddyNotifier` providers and the `BuddyRepository` binding.
+  - **The `DUO` form and the pair streak went too**, because both existed only for buddies: a form
+    unlocked at a 7-day pair streak is unreachable without a buddy. `SprigForm.DUO`, `isPairOnly`,
+    `DUO_PAIR_STREAK`, its branch in `SprigArt`, `SprigState.pairStreak`, the
+    `sprig_pair_streak` DataStore key, `DayInput.buddyDoneThatDay` and the pair-streak branch in
+    `RolloverEngine` are all removed. `forStreak`/`next` no longer have to filter the pair-only
+    form out, and the gallery and roadmap no longer carry a "Pair streak of 7 with a buddy"
+    caption. Removing `DUO` is safe for stored data: forms are persisted by `id`, not by ordinal,
+    and `DUO` was the last id (8), so no other form's stored value shifts. `SprigForm.fromId`
+    already falls back to `SPRIG`, so a `day_records.formId` or gallery row left over from a
+    seeded debug build reads as Sprig instead of crashing.
+  - **Room is at version 4.** `MIGRATION_3_4` drops the `buddy` table; nothing is migrated out of
+    it, since the only row it ever held was seeded stub data. Schema 4 is exported and
+    `MigrationTest` covers 3 -> 4 and 1 -> 4 end to end. There is still no
+    `fallbackToDestructiveMigration`.
+  - **The `kept_buddy` notification channel is no longer created and nothing posts to it.**
+    Channels already created on a device stay until the app is uninstalled; that is harmless, and
+    deleting a channel is worse than leaving it, since a recreated id keeps the user's old
+    settings.
+  - **Stale DataStore keys are left alone.** `sprig_pair_streak` and `my_invite_code` are simply
+    no longer read or written. Deleting them would mean shipping a one-off migration for two
+    values nothing looks at.
+  - Docs: the README, the privacy policy (both the Markdown and the HTML that GitHub Pages
+    serves) and the Play release checklist no longer describe a buddy. Historical entries above,
+    the 5 Sep review and the dated plans under `docs/superpowers/` still mention it in the past
+    tense; they are a record of what was decided when, not a description of the app.
+  - Tests: `HomeAndBuddyTest` is now `HomeTest` with the pairing case deleted (the home cases are
+    unchanged), and `RolloverEngineTest` loses its pair-streak cases — the hollow-day case keeps
+    the half that is about healing a wilt.

@@ -16,7 +16,6 @@ enum class CompletionSource(val eventValue: String) {
 class HabitActions @Inject constructor(
     private val habits: HabitRepository,
     private val sprig: SprigRepository,
-    private val buddy: BuddyRepository,
     private val prefs: KeptPreferences,
     private val time: TimeSource,
     private val analytics: Analytics,
@@ -43,7 +42,7 @@ class HabitActions @Inject constructor(
             ),
         )
         if (event.allDoneNow && event.beforeDue) onDayCompleted(event)
-        react(event)
+        sprig.onHabitEvent(event)
         return event
     }
 
@@ -75,11 +74,4 @@ class HabitActions @Inject constructor(
      */
     private suspend fun minutesAfterLockStart(): Int =
         time.minuteOfDay() - prefs.currentSettings().lockFromMinute
-
-    private suspend fun react(event: HabitEvent) {
-        sprig.onHabitEvent(event)
-        if (event is HabitEvent.Completed && event.allDoneNow) {
-            buddy.simulateBuddyReaction("done")
-        }
-    }
 }

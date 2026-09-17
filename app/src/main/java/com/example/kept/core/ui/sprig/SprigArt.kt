@@ -90,7 +90,7 @@ private fun paletteFor(spec: SprigSpec): Palette {
         leaf = Color(0xFF97C459), leafLight = Color(0xFFC0DD97), stem = Color(0xFF639922),
     )
     return when (spec.form) {
-        SprigForm.SPRIG, SprigForm.BUD, SprigForm.BLOOM, SprigForm.DUO -> base
+        SprigForm.SPRIG, SprigForm.BUD, SprigForm.BLOOM -> base
         SprigForm.THICKET -> base.copy(body = Color(0xFF9C94E6), leaf = Color(0xFF7FB03F))
         SprigForm.GROVE -> base.copy(body = Color(0xFF8E86E0), belly = Color(0xFFE6E4FB), leaf = Color(0xFF6E9E2E))
         SprigForm.ANCIENT -> base.copy(
@@ -251,13 +251,6 @@ private fun DrawScope.drawSprout(spec: SprigSpec, p: Palette, pose: SprigPose, a
             fill(Paths.LEAF_L, p.leaf); fill(Paths.LEAF_R, p.leafLight)
             drawStar(Offset(60f, 6f), 5f, Color(0xFFFFE8A8))
         }
-        SprigForm.DUO -> {
-            stroke("M57 26 C56 20 54 15 52 12", p.stem, 2.5f)
-            stroke("M63 26 C64 20 66 15 68 12", p.stem, 2.5f)
-            drawLeaf(Offset(50f, 10f), 8f, p.leaf, 2.6f)
-            drawLeaf(Offset(70f, 10f), 8f, p.leafLight, 0.5f)
-            drawHeart(Offset(60f, 12f), 3.2f, accent)
-        }
     }
 }
 
@@ -292,16 +285,6 @@ private fun DrawScope.drawStar(center: Offset, r: Float, color: Color) {
         if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
     }
     path.close()
-    drawPath(path, color)
-}
-
-private fun DrawScope.drawHeart(center: Offset, r: Float, color: Color) {
-    val path = Path().apply {
-        moveTo(center.x, center.y + r)
-        cubicTo(center.x - 2.2f * r, center.y - 0.6f * r, center.x - 0.6f * r, center.y - 1.8f * r, center.x, center.y - 0.6f * r)
-        cubicTo(center.x + 0.6f * r, center.y - 1.8f * r, center.x + 2.2f * r, center.y - 0.6f * r, center.x, center.y + r)
-        close()
-    }
     drawPath(path, color)
 }
 

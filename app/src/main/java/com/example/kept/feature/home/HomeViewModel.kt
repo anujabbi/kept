@@ -2,7 +2,6 @@ package com.example.kept.feature.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.kept.core.data.BuddyRepository
 import com.example.kept.core.data.DayRepository
 import com.example.kept.core.data.GalleryCard
 import com.example.kept.core.data.HabitActions
@@ -45,7 +44,6 @@ data class HomeUiState(
     val usageAccessMissing: Boolean = false,
     val lastSeven: List<Pair<LocalDate, DayRecordEntity?>> = emptyList(),
     val todayRecord: DayRecordEntity? = null,
-    val buddyDoneToday: Boolean? = null,
 ) {
     val form: SprigForm get() = sprig.form
     val nextForm: SprigForm? get() = SprigForm.next(form)
@@ -61,7 +59,6 @@ class HomeViewModel @Inject constructor(
     private val dayRepo: DayRepository,
     private val prefs: KeptPreferences,
     private val permissions: Permissions,
-    private val buddy: BuddyRepository,
     private val time: TimeSource,
 ) : ViewModel() {
 
@@ -76,14 +73,13 @@ class HomeViewModel @Inject constructor(
     }
 
     val state: StateFlow<HomeUiState> = combine(
-        core, sprigRepo.unseenUnlocks, dayRepo.observeLastSeven(), dayRepo.observeToday(), buddy.observeBuddy(),
-    ) { s, unseen, seven, todayRec, b ->
+        core, sprigRepo.unseenUnlocks, dayRepo.observeLastSeven(), dayRepo.observeToday(),
+    ) { s, unseen, seven, todayRec ->
         s.copy(
             unseenUnlock = unseen.firstOrNull(),
             usageAccessMissing = !permissions.lockPermissionsGranted(),
             lastSeven = seven,
             todayRecord = todayRec,
-            buddyDoneToday = b?.doneToday,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 

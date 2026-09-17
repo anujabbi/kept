@@ -14,9 +14,7 @@ and we have no way of finding out.
 ## No parent or guardian dashboard
 
 Nobody is watching you through KEPT. There is no parental control, no remote monitoring, no
-administrator and no reporting to anyone. The accountability buddy feature shows one person you
-choose your streak, whether today is done, your Sprig's form, and whether the lock was off — and
-nothing else.
+administrator and no reporting to anyone. Nothing you do in KEPT is shared with anyone else.
 
 ## What stays on your phone
 

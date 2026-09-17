@@ -1,7 +1,6 @@
 package com.example.kept.core.data.db
 
 import androidx.room.Dao
-import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
@@ -138,17 +137,4 @@ interface GalleryDao {
     @Query("UPDATE gallery SET seen = 1 WHERE id = :id") suspend fun markSeen(id: Long)
     @Query("UPDATE gallery SET seen = 1") suspend fun markAllSeen()
     @Query("DELETE FROM gallery") suspend fun clear()
-}
-
-@Dao
-interface BuddyDao {
-    @Query("SELECT * FROM buddy WHERE id = 1")
-    fun observe(): Flow<BuddyEntity?>
-
-    @Query("SELECT * FROM buddy WHERE id = 1")
-    suspend fun get(): BuddyEntity?
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun upsert(b: BuddyEntity)
-    @Query("DELETE FROM buddy") suspend fun clear()
-    @Delete suspend fun delete(b: BuddyEntity)
 }

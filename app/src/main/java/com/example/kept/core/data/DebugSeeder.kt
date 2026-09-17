@@ -1,7 +1,5 @@
 package com.example.kept.core.data
 
-import com.example.kept.core.data.db.BuddyDao
-import com.example.kept.core.data.db.BuddyEntity
 import com.example.kept.core.data.db.DayRecordDao
 import com.example.kept.core.data.db.DayRecordEntity
 import com.example.kept.core.data.db.HabitDao
@@ -18,15 +16,14 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Debug-only. Populates 12 days of history, a paired buddy, two habits and a partially complete
- * today so every screen has something to show. Never runs in release builds.
+ * Debug-only. Populates 12 days of history, two habits and a partially complete today so every
+ * screen has something to show. Never runs in release builds.
  */
 @Singleton
 class DebugSeeder @Inject constructor(
     private val habitDao: HabitDao,
     private val entryDao: HabitEntryDao,
     private val dayDao: DayRecordDao,
-    private val buddyDao: BuddyDao,
     private val sprig: SprigRepository,
     private val prefs: KeptPreferences,
     private val time: TimeSource,
@@ -66,7 +63,7 @@ class DebugSeeder @Inject constructor(
                 ),
             )
             // Gallery unlocks as thresholds were crossed.
-            if (!missed && SprigForm.entries.any { !it.isPairOnly && it.streakThreshold == streak && streak > 0 }) {
+            if (!missed && SprigForm.entries.any { it.streakThreshold == streak && streak > 0 }) {
                 val form = SprigForm.forStreak(streak)
                 sprig.insertUnlock(form, Variants.forDate(date), date, streak, seen = true)
             }
@@ -78,25 +75,15 @@ class DebugSeeder @Inject constructor(
         val todayKey = today.toString()
         dayDao.upsert(DayRecordEntity(date = todayKey, habitsDone = 0, habitsTotal = 2, lockedMillis = 96 * 60_000L))
 
-        buddyDao.upsert(
-            BuddyEntity(
-                displayName = "Maya", initials = "MK", streakDays = 9, doneToday = true,
-                formId = SprigForm.BLOOM.id, lastSevenDays = "1101110", pairedAt = now - 9L * 86_400_000L,
-            ),
-        )
-
         sprig.write(
             SprigState(
                 level = level, streakDays = streak, bestStreak = streak,
                 shieldAvailable = true, shieldWeekKey = StreakRules.weekKey(today),
-                lastRolloverDate = today.minusDays(1), wilted = false, pairStreak = 4,
+                lastRolloverDate = today.minusDays(1), wilted = false,
             ),
         )
         prefs.updateSettings {
-            it.copy(
-                seeded = true, onboardingDone = true, firstUseDate = today.minusDays(13),
-                myInviteCode = "K4W-92B",
-            )
+            it.copy(seeded = true, onboardingDone = true, firstUseDate = today.minusDays(13))
         }
     }
 }

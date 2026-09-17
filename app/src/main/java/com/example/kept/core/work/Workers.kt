@@ -18,7 +18,6 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.example.kept.core.analytics.Analytics
-import com.example.kept.core.data.LocalStubBuddyRepository
 import com.example.kept.core.data.LockRepository
 import com.example.kept.core.data.RolloverRunner
 import com.example.kept.core.data.TimeSource
@@ -80,7 +79,6 @@ class WatchdogWorker @AssistedInject constructor(
     private val lockRepo: LockRepository,
     private val permissions: Permissions,
     private val notifications: KeptNotifications,
-    private val buddy: LocalStubBuddyRepository,
     private val time: TimeSource,
     private val restarter: ServiceRestarter,
     private val probe: UsageWindowProbe,
@@ -91,7 +89,6 @@ class WatchdogWorker @AssistedInject constructor(
         val settings = prefs.currentSettings()
         if (!settings.onboardingDone) return Result.success()
         runner.runPending()
-        buddy.tickDaily()
 
         val lockState = lockRepo.currentState()
         val snapshot = lockState.snapshot(hardAllowlist = emptySet(), launchable = null)

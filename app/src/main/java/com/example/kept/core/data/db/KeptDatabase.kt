@@ -49,6 +49,16 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
     }
 }
 
+/**
+ * v3 -> v4: the buddy feature is gone (issue #13). The `buddy` table held at most one row of
+ * seeded stub data ("Maya"), so it is dropped outright rather than migrated anywhere.
+ */
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("DROP TABLE IF EXISTS buddy")
+    }
+}
+
 @Database(
     entities = [
         HabitEntity::class,
@@ -58,9 +68,8 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
         LockBreakEntity::class,
         ProtectionGapEntity::class,
         GalleryEntryEntity::class,
-        BuddyEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -72,5 +81,4 @@ abstract class KeptDatabase : RoomDatabase() {
     abstract fun lockBreakDao(): LockBreakDao
     abstract fun protectionGapDao(): ProtectionGapDao
     abstract fun galleryDao(): GalleryDao
-    abstract fun buddyDao(): BuddyDao
 }

@@ -37,7 +37,6 @@ data class Settings(
      * notification action, with no process alive to see it, still celebrates on next open.
      */
     val celebrationPendingDate: String? = null,
-    val myInviteCode: String = "",
     /**
      * "Send anonymous usage data" (issue #10). On by default; off calls `PostHog.optOut()` and
      * mutes the wrapper. Stored here rather than read back from the SDK so the Settings switch has
@@ -61,7 +60,6 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
         val HEARTBEAT = longPreferencesKey("service_heartbeat")
         val PENDING_RECAP = stringPreferencesKey("pending_recap_date")
         val PENDING_CELEBRATION = stringPreferencesKey("pending_celebration_date")
-        val INVITE_CODE = stringPreferencesKey("my_invite_code")
         val ANALYTICS = booleanPreferencesKey("analytics_enabled")
 
         val LEVEL = intPreferencesKey("sprig_level")
@@ -71,7 +69,6 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
         val SHIELD_WEEK = stringPreferencesKey("sprig_shield_week")
         val LAST_ROLLOVER = stringPreferencesKey("sprig_last_rollover")
         val WILTED = booleanPreferencesKey("sprig_wilted")
-        val PAIR_STREAK = intPreferencesKey("sprig_pair_streak")
         val LEVEL_GRANTED = stringPreferencesKey("sprig_level_granted_date")
     }
 
@@ -87,7 +84,6 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
         lastServiceHeartbeat = this[K.HEARTBEAT] ?: 0L,
         pendingRecapDate = this[K.PENDING_RECAP],
         celebrationPendingDate = this[K.PENDING_CELEBRATION],
-        myInviteCode = this[K.INVITE_CODE] ?: "",
         analyticsEnabled = this[K.ANALYTICS] ?: true,
     )
 
@@ -99,7 +95,6 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
         shieldWeekKey = this[K.SHIELD_WEEK] ?: "",
         lastRolloverDate = this[K.LAST_ROLLOVER]?.let(LocalDate::parse),
         wilted = this[K.WILTED] ?: false,
-        pairStreak = this[K.PAIR_STREAK] ?: 0,
         levelGrantedDate = this[K.LEVEL_GRANTED],
     )
 
@@ -123,7 +118,6 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
             p[K.HEARTBEAT] = n.lastServiceHeartbeat
             if (n.pendingRecapDate == null) p.remove(K.PENDING_RECAP) else p[K.PENDING_RECAP] = n.pendingRecapDate
             if (n.celebrationPendingDate == null) p.remove(K.PENDING_CELEBRATION) else p[K.PENDING_CELEBRATION] = n.celebrationPendingDate
-            p[K.INVITE_CODE] = n.myInviteCode
             p[K.ANALYTICS] = n.analyticsEnabled
         }
     }
@@ -138,7 +132,6 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
             p[K.SHIELD_WEEK] = n.shieldWeekKey
             if (n.lastRolloverDate == null) p.remove(K.LAST_ROLLOVER) else p[K.LAST_ROLLOVER] = n.lastRolloverDate.toString()
             p[K.WILTED] = n.wilted
-            p[K.PAIR_STREAK] = n.pairStreak
             if (n.levelGrantedDate == null) p.remove(K.LEVEL_GRANTED) else p[K.LEVEL_GRANTED] = n.levelGrantedDate
         }
     }

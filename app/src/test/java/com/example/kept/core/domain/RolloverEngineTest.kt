@@ -16,8 +16,7 @@ class RolloverEngineTest {
         breaks: Int = 0,
         writtenOff: Boolean = false,
         unprotected: Boolean = false,
-        buddy: Boolean? = null,
-    ) = RolloverEngine.DayInput(date, done, beforeDue, total, 3 * 3_600_000L, breaks, writtenOff, unprotected, buddy)
+    ) = RolloverEngine.DayInput(date, done, beforeDue, total, 3 * 3_600_000L, breaks, writtenOff, unprotected)
 
     @Test fun `completing every habit extends the streak and records the date`() {
         val d = LocalDate.of(2026, 9, 5)
@@ -101,12 +100,11 @@ class RolloverEngineTest {
         assertTrue(out.summary.hollow)
     }
 
-    @Test fun `a hollow day does not heal a wilt or advance the pair streak`() {
+    @Test fun `a hollow day does not heal a wilt`() {
         val d = LocalDate.of(2026, 9, 5)
-        val state = SprigState(streakDays = 4, wilted = true, pairStreak = 3)
-        val out = RolloverEngine.rollover(state, day(d, unprotected = true, buddy = true))
+        val state = SprigState(streakDays = 4, wilted = true)
+        val out = RolloverEngine.rollover(state, day(d, unprotected = true))
         assertTrue(out.state.wilted)
-        assertEquals(0, out.state.pairStreak)
     }
 
     @Test fun `an unprotected day that broke the cap is still written off`() {
@@ -123,22 +121,6 @@ class RolloverEngineTest {
         val out = RolloverEngine.rollover(SprigState(streakDays = 1, shieldAvailable = false, shieldWeekKey = StreakRules.weekKey(d)), day(d, breaks = 4, writtenOff = true))
         assertEquals(0, out.state.streakDays)
         assertTrue(out.summary.writtenOff)
-    }
-
-    @Test fun `pair streak grows only when both did it and unlocks Duo at seven`() {
-        var state = SprigState(streakDays = 20)
-        var d = LocalDate.of(2026, 9, 1)
-        var duo = false
-        repeat(7) {
-            val out = RolloverEngine.rollover(state, day(d, buddy = true))
-            state = out.state
-            if (out.unlocks.any { it.form == SprigForm.DUO }) duo = true
-            d = d.plusDays(1)
-        }
-        assertEquals(7, state.pairStreak)
-        assertTrue(duo)
-        val broken = RolloverEngine.rollover(state, day(d, buddy = false))
-        assertEquals(0, broken.state.pairStreak)
     }
 
     @Test fun `pending dates across a multi-day gap are processed in order`() {

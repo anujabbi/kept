@@ -20,11 +20,9 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.People
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Spa
 import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Spa
 import androidx.compose.material3.Icon
@@ -50,11 +48,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.example.kept.core.FeatureFlags
 import com.example.kept.core.analytics.Analytics
 import com.example.kept.core.analytics.Screens
 import com.example.kept.core.ui.KeptTheme
-import com.example.kept.feature.buddy.BuddyScreen
 import com.example.kept.feature.celebration.CelebrationHost
 import com.example.kept.feature.gallery.EvolutionRevealScreen
 import com.example.kept.feature.gallery.GalleryScreen
@@ -71,7 +67,6 @@ object Routes {
     const val ONBOARDING = "onboarding"
     const val HOME = "home"
     const val GALLERY = "gallery"
-    const val BUDDY = "buddy"
     const val SETTINGS = "settings"
     const val RECAP = "recap/{date}"
     const val EXCEPTIONS = "exceptions"
@@ -94,7 +89,6 @@ object Routes {
 fun screenNameFor(route: String?): String? = when (route) {
     Routes.HOME -> Screens.HOME
     Routes.GALLERY -> Screens.GALLERY
-    Routes.BUDDY -> Screens.BUDDY
     Routes.SETTINGS -> Screens.SETTINGS
     Routes.RECAP -> Screens.RECAP
     Routes.EXCEPTIONS -> Screens.EXCEPTIONS
@@ -107,10 +101,9 @@ fun screenNameFor(route: String?): String? = when (route) {
 
 private data class Tab(val route: String, val label: String, val icon: ImageVector, val selectedIcon: ImageVector)
 
-private val tabs = listOfNotNull(
+private val tabs = listOf(
     Tab(Routes.HOME, "Today", Icons.Outlined.Home, Icons.Rounded.Home),
     Tab(Routes.GALLERY, "Sprig", Icons.Outlined.Spa, Icons.Rounded.Spa),
-    if (FeatureFlags.showBuddy) Tab(Routes.BUDDY, "Buddy", Icons.Outlined.People, Icons.Rounded.People) else null,
     Tab(Routes.SETTINGS, "Settings", Icons.Outlined.Settings, Icons.Rounded.Settings),
 )
 
@@ -135,7 +128,6 @@ fun KeptApp(startDestination: String, pendingRoute: String?, consumeRoute: () ->
         val r = pendingRoute ?: return@LaunchedEffect
         when {
             r == "recap" -> nav.navigate(Routes.HOME) { popUpTo(Routes.HOME) { inclusive = true } }
-            r == "buddy" && FeatureFlags.showBuddy -> nav.navigate(Routes.BUDDY) { launchSingleTop = true }
             r == "settings" -> nav.navigate(Routes.SETTINGS) { launchSingleTop = true }
             else -> nav.navigate(Routes.HOME) { launchSingleTop = true }
         }
@@ -159,9 +151,6 @@ fun KeptApp(startDestination: String, pendingRoute: String?, consumeRoute: () ->
                         )
                     }
                     composable(Routes.GALLERY) { GalleryScreen(onOpenRoadmap = { nav.navigate(Routes.ROADMAP) }) }
-                    if (FeatureFlags.showBuddy) {
-                        composable(Routes.BUDDY) { BuddyScreen() }
-                    }
                     composable(Routes.SETTINGS) {
                         SettingsScreen(
                             onOpenExceptions = { nav.navigate(Routes.EXCEPTIONS) },
