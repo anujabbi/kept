@@ -120,7 +120,7 @@ adb shell dumpsys activity activities | grep -E "mResumedActivity|topResumedActi
 ```
 
 You should see `com.zenai.kept/com.example.kept.feature.lock.LockActivity`. From the lock screen, "Break lock"
-starts a 60-second countdown before "Unlock anyway" is enabled; "Emergency call" opens the dialer
+starts a 60-second countdown before "Unlock anyway" is enabled; "Phone" opens the dialer
 immediately. Screenshots of every screen are in `verification/`.
 
 ## Tests

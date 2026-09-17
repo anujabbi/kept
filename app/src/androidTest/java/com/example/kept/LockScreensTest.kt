@@ -3,6 +3,7 @@ package com.example.kept
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -36,7 +37,8 @@ class LockScreensTest {
     }
 
     @Test fun lock_screen_shows_remaining_habits() {
-        compose.setContent { KeptTheme { LockScreen(sampleState(), "Instagram", {}, {}, {}, {}) } }
+        compose.setContent { KeptTheme { LockScreen(sampleState().copy(clockLabel = "9:41"), "Instagram", {}, {}, {}, {}) } }
+        compose.onNodeWithTag("lock_clock").assertTextEquals("9:41")
         compose.onNodeWithText("Instagram is locked").assertIsDisplayed()
         compose.onNodeWithText("2 things left").assertIsDisplayed()
         compose.onNodeWithText("Exercise 30 min").assertIsDisplayed()
