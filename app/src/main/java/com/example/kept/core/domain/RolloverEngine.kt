@@ -104,6 +104,18 @@ object RolloverEngine {
         return Output(newState, summary, unlocks, formBefore, formAfter)
     }
 
+    /**
+     * Which of a run's outputs the recap should show (issue #16). After a gap of several days the
+     * teen sees one recap, and the day that matters is the one where something happened to the
+     * streak: the first day that consumed the shield or reset the streak. Showing the last day
+     * instead reported a slipped day that was already at 0 as if it were the one that cost the
+     * streak. When no day did either, the most recent day is as good a summary as any.
+     */
+    fun recapDayFor(outputs: List<Output>): Output {
+        require(outputs.isNotEmpty()) { "no outputs to pick a recap day from" }
+        return outputs.firstOrNull { it.summary.streakReset || it.summary.shieldConsumed } ?: outputs.last()
+    }
+
     /** Dates that still need a rollover: from the day after the last rollover up to and including [yesterday]. */
     fun pendingDates(lastRolloverDate: LocalDate?, yesterday: LocalDate, firstUseDate: LocalDate): List<LocalDate> {
         val start = (lastRolloverDate?.plusDays(1) ?: firstUseDate)
