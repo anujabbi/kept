@@ -43,7 +43,8 @@ class LockScreensTest {
         compose.onNodeWithText("2 things left").assertIsDisplayed()
         compose.onNodeWithText("Exercise 30 min").assertIsDisplayed()
         compose.onNodeWithText("Read 10 pages").assertIsDisplayed()
-        compose.onNodeWithTag("emergency_call").assertIsDisplayed()
+        // The dialer button says what it is, not "Emergency call" (issue #17).
+        compose.onNodeWithTag("emergency_call").assertIsDisplayed().assertTextEquals("Phone")
         compose.onNodeWithTag("break_lock").assertIsDisplayed()
     }
 
