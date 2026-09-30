@@ -1,7 +1,7 @@
-name: Requirement
-description: A feature, change, or review item. One decision per issue.
+name: User story
+description: One thing a user can do once it ships. One decision per issue. If it is part of a feature, make it a sub-issue of that feature.
 title: "<what the user can do or see afterwards>"
-labels: [enhancement]
+labels: [enhancement, "type:story"]
 body:
   - type: textarea
     id: outcome

@@ -8,11 +8,25 @@ stage after that. Each agent picks up cards whose `Status` and `Agent` field mat
 does its job, and hands off by setting the next `Status` and `Agent`. An agent never skips a stage
 and never moves a card it does not own.
 
+## Issue hierarchy
+
+GitHub issue types are organization-only, so this repo uses labels plus sub-issues:
+
+| Level   | Label          | Form       | Who creates it | Parent            |
+|---------|----------------|------------|----------------|-------------------|
+| Feature | `type:feature` | Feature    | owner          | none              |
+| Story   | `type:story`   | User story or Bug | owner, or planner as a sub-issue of a feature | feature, or none for a standalone story |
+| Task    | `type:task`    | (planner writes it) | planner, as a sub-issue of a story | story |
+
+A story is the unit that moves through the pipeline. A feature card only tracks its stories
+(the board's "Sub-issues progress" field) and is Done when they all are. Tasks exist only when a
+story needs more than one PR; each task is one PR.
+
 ## Pipeline
 
 | Status      | Owned by | Picks up when                         | Produces                                          | Hands off to                          |
 |-------------|----------|---------------------------------------|---------------------------------------------------|---------------------------------------|
-| Backlog     | owner    | -                                     | An issue from the Requirement or Bug form         | Ready, when the requirement is final  |
+| Backlog     | owner    | -                                     | An issue from the Feature, User story or Bug form | Ready, when the requirement is final  |
 | Ready       | planner  | Status=Ready                          | Sub-issues if the work splits, a plan comment     | In progress, Agent=dev                |
 | In progress | dev      | Status=In progress, Agent=dev         | A branch, tests, a PR with `Closes #N`            | In review, Agent=reviewer             |
 | In review   | reviewer | Status=In review                      | A PR review: approve, or request changes          | QA, Agent=qa (or back to In progress) |
@@ -37,10 +51,12 @@ failed. The comment is the handoff; do not rely on the reviewer or QA agent's me
 
 ## Role notes
 
-**planner.** Read the issue and `docs/superpowers/specs/`. If the work is more than one PR,
-create sub-issues from the Requirement form, each with its own acceptance list, and add them to
-the board in Ready. Leave a comment on the parent linking them. Move the parent to In progress
-only when all sub-issues are Done.
+**planner.** Read the issue and `docs/superpowers/specs/`. For a feature, write one story
+sub-issue per line of "Candidate stories" using the User story form, each with its own acceptance
+list, and set the feature to In progress; it stays there until every story is Done. For a story
+that needs more than one PR, create `type:task` sub-issues, one per PR. Every sub-issue starts
+in Ready with `Agent=dev`. Create sub-issues with
+`gh api repos/anujabbi/kept/issues/<parent>/sub_issues -f sub_issue_id=<child database id>`.
 
 **dev.** Build the smallest change that meets the acceptance list. Keep the PR reviewable: one
 concern per PR. Include in the PR body how you verified it (test names, or screenshots from

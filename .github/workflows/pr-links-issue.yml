@@ -31,5 +31,5 @@ jobs:
             if (existing) return;
             await github.rest.issues.createComment({
               owner, repo, issue_number,
-              body: `${marker}\nThis PR does not reference an issue. Add \`Closes #N\` to the description so the board card moves to Done on merge. All work is tracked through the project; if there is no issue yet, open one from the Requirement or Bug form first.`
+              body: `${marker}\nThis PR does not reference an issue. Add \`Closes #N\` to the description so the board card moves to Done on merge. All work is tracked through the project; if there is no issue yet, open one from the User story or Bug form first.`
             });
