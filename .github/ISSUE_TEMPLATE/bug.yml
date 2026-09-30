@@ -1,0 +1,37 @@
+name: Bug
+description: Something the app does that it should not.
+title: "Bug: <one line of what goes wrong>"
+labels: [bug]
+body:
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps
+      description: Numbered, from a state anyone can reproduce (fresh install, seeded data, etc).
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual
+      description: Include a screenshot or logcat excerpt if you have one.
+    validations:
+      required: true
+  - type: input
+    id: build
+    attributes:
+      label: Build
+      description: Commit, branch, or Play version, plus Android version and device.
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options: [P0 now, P1 next, P2 later]
+    validations:
+      required: true
