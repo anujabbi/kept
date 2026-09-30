@@ -64,20 +64,25 @@ The `gh` token needs the `project` scope: `gh auth refresh -h github.com -s proj
 
 ```
 # Find my cards (replace the Agent value)
-gh project item-list <number> --owner anujabbi --format json \
+gh project item-list 2 --owner anujabbi --format json \
   | jq '.items[] | select(.status=="In progress" and .agent=="dev") | {title, number: .content.number}'
 
-# Move a card: field and option ids come from `gh project field-list <number> --owner anujabbi`
+# Move a card: field and option ids come from `gh project field-list 2 --owner anujabbi`
 gh project item-edit --project-id <PROJECT_ID> --id <ITEM_ID> \
   --field-id <STATUS_FIELD_ID> --single-select-option-id <OPTION_ID>
 
 # Add an issue to the board (auto-add does this for new issues; use for PRs or old issues)
-gh project item-add <number> --owner anujabbi --url https://github.com/anujabbi/kept/issues/<N>
+gh project item-add 2 --owner anujabbi --url https://github.com/anujabbi/kept/issues/<N>
 ```
 
-Project number and field ids are filled in below once the project exists.
+Board: https://github.com/users/anujabbi/projects/2
 
-- Project number: _pending_
-- Project ID: _pending_
-- Status field ID: _pending_
-- Agent field ID: _pending_
+- Project number: `2`
+- Project ID: `PVT_kwHOAHEsTM4BlQbs`
+- Status field: `PVTSSF_lAHOAHEsTM4BlQbszhj9_Tc` with options Backlog `433fb900`, Ready `8b0b785e`,
+  In progress `47fc9ee4`, In review `75ad4a94`, QA `12051a14`, Ship `ba2f5cb2`, Done `98236657`
+- Agent field: `PVTSSF_lAHOAHEsTM4BlQbszhj9_Zk` with options planner `0bd9f955`, dev `7e85139a`,
+  reviewer `80209de4`, qa `5d88e771`, release `4201c515`
+- Priority field: `PVTSSF_lAHOAHEsTM4BlQbszhj9_Yk` with options P0 now `b99d8616`, P1 next `78fd91da`,
+  P2 later `c8d7659c`
+- Size field: `PVTSSF_lAHOAHEsTM4BlQbszhj9_Zg`
