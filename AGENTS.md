@@ -54,7 +54,7 @@ failed. The comment is the handoff; do not rely on the reviewer or QA agent's me
 
 ## Rules every agent follows
 
-- **One card at a time.** Finish or hand off before picking up the next.
+- **One card at a time.** Claim it, finish or hand off, then stop; the loop brings you back.
 - **The issue is the spec.** If the requirement is unclear, comment on the issue and set
   `Status=Backlog` so the owner sees it. Do not guess.
 - **Branch per issue**, named `issue-<N>-<short-slug>`, cut from `main`.
@@ -119,6 +119,36 @@ it is a required check on `main`, so red blocks the merge for agents and humans 
 
 Comment prefixes, so a reader can tell agents apart in a thread: `**[planner]**`, `**[dev]**`,
 `**[reviewer]**`, `**[qa]**`, `**[release]**`. Commits carry a trailer `Agent: <role>`.
+
+## Running the agents
+
+Each role is a Claude Code skill in `.claude/skills/<role>/SKILL.md`. One terminal per role,
+from the repo root:
+
+```
+claude
+/loop 15m /dev          # likewise /planner, /reviewer, /qa, /release
+```
+
+Every pass starts with `scripts/board.sh next <role>`, takes one card, claims it, works it,
+hands off, and stops. An empty queue costs one board read. Close the terminal to stop the role.
+
+**Claims.** `scripts/board.sh claim <N> <role>` posts a hidden claim comment; `next` hides
+cards another session of the same role claimed in the last 60 minutes. Set `AGENT_SESSION`
+to name a session (default is host and pid). A crashed session's claim expires on its own.
+
+**Parallel dev.** Two `/dev` terminals are fine: claims keep them on different cards, and
+each card gets its own worktree at `../kept-issue-<N>`. Only one emulator is assumed, so run
+one `/qa` at a time.
+
+**Dev owns correctness.** Reviewer and QA are the safety net, not the first test. Dev writes
+the tests, runs the build, walks the acceptance list on the emulator itself, and self-reviews
+the diff before opening the PR. A card coming back from review or QA is a dev process failure
+to learn from, not the normal path.
+
+**Where you come in.** `scripts/board.sh next owner` is your queue: `needs-human` cards in
+Ship, and anything an agent sent to Backlog with a question. Cards in Backlog never move
+without you.
 
 ## Working the board from the command line
 
