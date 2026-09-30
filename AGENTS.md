@@ -114,7 +114,9 @@ marker comment, and the card's Status/Agent pair.
    and runs `move N backlog planner` so the owner sees it. Nothing merges from Backlog.
 
 The `review-recorded` workflow turns the marker into a commit status on the PR head: green when
-the newest marker is `approved` for the current head, red otherwise, and
+the newest marker is `approved` for the current head, red otherwise. When the owner reviews by
+hand, a comment that is just `/approve` (or `/changes`) counts as a marker for the head at the
+time it is posted; a later push needs a fresh one. The workflow re-runs on every comment, and
 it is a required check on `main`, so red blocks the merge for agents and humans alike.
 
 Comment prefixes, so a reader can tell agents apart in a thread: `**[planner]**`, `**[dev]**`,
