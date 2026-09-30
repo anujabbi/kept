@@ -74,7 +74,39 @@ with screenshots where the check is visual. Any unchecked box sends the card bac
 user-visible, bump `versionName`/`versionCode` in `app/build.gradle.kts` in the same PR or a
 follow-up card. Follow `docs/PLAY-RELEASE-CHECKLIST.md` for Play uploads.
 
+## Review loop
+
+All agents share one GitHub account, so the reviewer cannot approve or request changes through
+GitHub's review UI. The record is made of three things instead: the PR's review threads, a
+marker comment, and the card's Status/Agent pair.
+
+1. **dev** opens the PR with `Closes #N` and runs `scripts/board.sh move N review reviewer`.
+2. **reviewer** reads the diff since its last marker (or the whole PR the first time) and leaves
+   inline comments as a comment-type review, one thread per ask. Then it records the verdict:
+   `scripts/board.sh review <pr> changes "<summary>"` followed by `move N progress dev`, or
+   `review <pr> approved "<summary>"` followed by `move N qa qa`. The marker carries the head
+   commit it applies to.
+3. **dev** picks the card up again, lists the work with `scripts/board.sh threads <pr>`, fixes
+   each thread, replies on the thread with the commit that fixed it, and runs
+   `scripts/board.sh resolve <thread-id>`. If it disagrees with an ask, it replies with why and
+   leaves the thread open. Then push and `move N review reviewer`.
+4. **reviewer** re-reviews only new commits and threads still open. No open threads and nothing
+   new to ask means `review <pr> approved`.
+5. **Three-round cap.** If `scripts/board.sh rounds <pr>` is already 3 when the reviewer would
+   request changes again, it does not. It comments `**[reviewer]** escalating: <what is stuck>`
+   and runs `move N backlog planner` so the owner sees it. Nothing merges from Backlog.
+
+The `review-recorded` workflow turns the marker into a commit status on the PR head: green when
+the newest marker is `approved` for the current head, red otherwise. It is warn-only until the
+owner makes it a required check on `main`; agents treat red as blocking either way. **release**
+merges nothing whose `review-recorded` status is not green.
+
+Comment prefixes, so a reader can tell agents apart in a thread: `**[planner]**`, `**[dev]**`,
+`**[reviewer]**`, `**[qa]**`, `**[release]**`. Commits carry a trailer `Agent: <role>`.
+
 ## Working the board from the command line
+
+`scripts/board.sh` wraps everything below. Start every session with `scripts/board.sh next <role>`.
 
 The `gh` token needs the `project` scope: `gh auth refresh -h github.com -s project`.
 
