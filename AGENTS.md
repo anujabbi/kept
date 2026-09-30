@@ -150,3 +150,15 @@ Board: https://github.com/users/anujabbi/projects/2
 - Priority field: `PVTSSF_lAHOAHEsTM4BlQbszhj9_Yk` with options P0 now `b99d8616`, P1 next `78fd91da`,
   P2 later `c8d7659c`
 - Size field: `PVTSSF_lAHOAHEsTM4BlQbszhj9_Zg`
+
+## Engineering manager
+
+`/em` is run by hand, not on a loop. It reads the last few weeks of cards through
+`scripts/em-stats.sh`, finds regressions, mistakes that repeat across cards, and steps that cost
+more than they catch, and proposes edits to the other skills. Reports live in `docs/em/`. Every
+EM change ships as a `type:process` `needs-human` PR: the reviewer agent reviews it, the owner
+merges it. Nothing about how the agents work changes without a human reading the diff.
+
+**Regressions.** A bug in behaviour that a Done card already delivered gets the `regression`
+label (the EM applies it, the owner can too). On a `regression` card, dev's first test must
+reproduce the original failure before any fix, and the PR body names the PR that introduced it.
