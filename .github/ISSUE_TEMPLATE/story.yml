@@ -1,0 +1,39 @@
+name: User story
+description: One thing a user can do once it ships. One decision per issue. If it is part of a feature, make it a sub-issue of that feature.
+title: "<what the user can do or see afterwards>"
+labels: [enhancement, "type:story"]
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: What is true for the user once this ships. One or two sentences.
+    validations:
+      required: true
+  - type: textarea
+    id: today
+    attributes:
+      label: Today
+      description: What happens now, and why that is not good enough.
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance
+      description: Checks QA will run. Concrete, observable, one per line.
+      placeholder: |
+        - [ ] Lock screen shows a "Phone" button
+        - [ ] Tapping it opens the dialer, not the emergency dialer
+    validations:
+      required: true
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out of scope
+      description: Adjacent things this issue deliberately does not touch.
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options: [P0 now, P1 next, P2 later]
+    validations:
+      required: true
