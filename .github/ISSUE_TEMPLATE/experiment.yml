@@ -1,0 +1,38 @@
+name: Experiment
+description: A hypothesis to test. Shipping or discarding it is a human decision, so it carries needs-human.
+title: "Experiment: <what we think might be true>"
+labels: ["type:experiment", "needs-human"]
+body:
+  - type: textarea
+    id: hypothesis
+    attributes:
+      label: Hypothesis
+      description: "We believe <change> will <effect> for <who>. One sentence."
+    validations:
+      required: true
+  - type: textarea
+    id: measure
+    attributes:
+      label: How we will know
+      description: What to observe, where (PostHog event, emulator walk, tester feedback), and for how long.
+    validations:
+      required: true
+  - type: textarea
+    id: decision
+    attributes:
+      label: Decision rule
+      description: What result means keep, what means revert, and who decides. Default is the owner.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Smallest build that tests it
+      description: The narrowest change that gives a real signal. Agents build only this.
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options: [P0 now, P1 next, P2 later]
+    validations:
+      required: true

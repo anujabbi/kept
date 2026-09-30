@@ -8,6 +8,7 @@
 #   board.sh rounds <pr>                      how many change-requesting reviews so far
 #   board.sh move <issue-or-pr> <status> <agent>      set Status and Agent on that card
 #   board.sh add <issue-or-pr>                add an issue/PR number to the board
+#   board.sh merge <pr>                       release-agent merge: refuses needs-human or a red review-recorded
 #
 # Needs gh (with the project scope) and jq. Ids come from AGENTS.md.
 set -euo pipefail
@@ -38,6 +39,7 @@ agent_id() {
     reviewer) echo 80209de4 ;;
     qa) echo 5d88e771 ;;
     release) echo 4201c515 ;;
+    owner) echo 1a2cc759 ;;
     *) echo "unknown agent: $1" >&2; exit 2 ;;
   esac
 }
@@ -49,6 +51,7 @@ role_status() {
     reviewer) echo "In review" ;;
     qa) echo QA ;;
     release) echo Ship ;;
+    owner) echo Ship ;;
     *) echo "unknown role: $1" >&2; exit 2 ;;
   esac
 }
@@ -124,6 +127,23 @@ cmd_move() {
   echo "#$n -> $st / $ag"
 }
 
+cmd_merge() {
+  local pr="$1" labels head state
+  labels="$(gh pr view "$pr" --repo "$REPO" --json labels -q '.labels[].name' | tr '
+' ' ')"
+  if [[ " $labels " == *" needs-human "* ]]; then
+    echo "refusing: #$pr is labelled needs-human. Hand it to the owner: board.sh move <issue> ship owner" >&2
+    exit 1
+  fi
+  head="$(gh pr view "$pr" --repo "$REPO" --json headRefOid -q .headRefOid)"
+  state="$(gh api "repos/$REPO/commits/$head/status" -q '.statuses[] | select(.context=="review-recorded") | .state' | head -1)"
+  if [ "$state" != "success" ]; then
+    echo "refusing: review-recorded on $head is '${state:-missing}', not success" >&2
+    exit 1
+  fi
+  gh pr merge "$pr" --repo "$REPO" --squash --delete-branch
+}
+
 cmd_add() {
   local n="$1" url
   url="https://github.com/$REPO/issues/$n"
@@ -138,5 +158,6 @@ case "${1:-}" in
   rounds) cmd_rounds "$2" ;;
   move) cmd_move "$2" "$3" "$4" ;;
   add) cmd_add "$2" ;;
-  *) sed -n '2,12p' "$0"; exit 2 ;;
+  merge) cmd_merge "$2" ;;
+  *) sed -n '2,13p' "$0"; exit 2 ;;
 esac
