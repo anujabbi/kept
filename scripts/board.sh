@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # One way for every agent to read and move the KEPT board.
 #
-#   board.sh next <role>                      next card for planner|dev|reviewer|qa|release
+#   board.sh next <role>                      next cards for planner|dev|reviewer|qa|release|owner, unclaimed first
+#   board.sh claim <issue> <role>             claim a card for this session (AGENT_SESSION or host-pid), 60 min TTL
 #   board.sh threads <pr>                     unresolved review threads on a PR, with ids
 #   board.sh resolve <thread-id>              mark a review thread resolved
 #   board.sh review <pr> approved|changes "summary"   post the review marker comment
@@ -63,15 +64,51 @@ item_id_for() {
   items | jq -r --argjson n "$1" '.items[] | select(.content.number == $n) | .id' | head -1
 }
 
+# Claims: a hidden comment on the issue, <!-- claim:<role> session=<id> at=<epoch> -->.
+# A claim by the same role younger than CLAIM_TTL seconds hides the card from `next`.
+CLAIM_TTL="${CLAIM_TTL:-3600}"
+SESSION_ID="${AGENT_SESSION:-$(hostname)-$$}"
+
+# Prints "<session> <epoch>" of the newest claim for $2 on card $1, or nothing.
+latest_claim() {
+  gh api "repos/$REPO/issues/$1/comments" --paginate 2>/dev/null \
+    | jq -r --arg role "$2" '
+        [ .[] | .body | capture("<!-- claim:" + $role + " session=(?<s>[^ ]+) at=(?<t>[0-9]+) -->") ]
+        | last // empty | "\(.s) \(.t)"' | tr -d '\r'
+}
+
 cmd_next() {
-  local role="$1" st
+  local role="$1" st now n sess at age
   st="$(role_status "$role")"
+  now="$(date +%s)"
   items | jq -r --arg st "$st" --arg ag "$role" '
     .items
     | map(select(.status == $st and .agent == $ag))
     | sort_by(.priority // "P9")
     | .[]
-    | "#\(.content.number)\t\(.priority // "-")\t\(.title)\n  \(.content.url)"'
+    | "\(.content.number)\t\(.priority // "-")\t\(.title)\t\(.content.url)"' \
+  | while IFS=$'\t' read -r n pri title url; do
+      read -r sess at < <(latest_claim "$n" "$role" || true) || true
+      if [ -n "${at:-}" ] && [ $((now - at)) -lt "$CLAIM_TTL" ]; then
+        age=$(( (now - at) / 60 ))
+        echo "  (claimed) #$n by $sess ${age}m ago" >&2
+        continue
+      fi
+      printf '#%s\t%s\t%s\n  %s\n' "$n" "$pri" "$title" "$url"
+    done
+}
+
+cmd_claim() {
+  local n="$1" role="$2" sess at now
+  now="$(date +%s)"
+  read -r sess at < <(latest_claim "$n" "$role" || true) || true
+  if [ -n "${at:-}" ] && [ $((now - at)) -lt "$CLAIM_TTL" ] && [ "$sess" != "$SESSION_ID" ]; then
+    echo "refusing: #$n already claimed by $sess $(( (now - at) / 60 ))m ago" >&2
+    exit 1
+  fi
+  gh api "repos/$REPO/issues/$n/comments" -f body="<!-- claim:$role session=$SESSION_ID at=$now -->
+**[$role]** picked up by \`$SESSION_ID\`" >/dev/null
+  echo "#$n claimed for $role by $SESSION_ID"
 }
 
 cmd_threads() {
@@ -151,6 +188,7 @@ cmd_add() {
 
 case "${1:-}" in
   next) cmd_next "$2" ;;
+  claim) cmd_claim "$2" "$3" ;;
   threads) cmd_threads "$2" ;;
   resolve) cmd_resolve "$2" ;;
   review) cmd_review "$2" "$3" "${4:-}" ;;
@@ -158,5 +196,5 @@ case "${1:-}" in
   move) cmd_move "$2" "$3" "$4" ;;
   add) cmd_add "$2" ;;
   merge) cmd_merge "$2" ;;
-  *) sed -n '2,13p' "$0"; exit 2 ;;
+  *) sed -n '2,14p' "$0"; exit 2 ;;
 esac

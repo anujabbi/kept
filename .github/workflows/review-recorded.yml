@@ -30,14 +30,25 @@ jobs:
             const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: number });
             const head = pr.head.sha;
             const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: number, per_page: 100 });
-            const markers = comments
-              .map(c => ({ c, m: /<!--\s*review:(approved|changes)\s+head=([0-9a-f]+)\s*-->/.exec(c.body || "") }))
-              .filter(x => x.m)
-              .map(x => ({ verdict: x.m[1], head: x.m[2], at: x.c.created_at, url: x.c.html_url }));
+            // When the head commit was pushed. A bare "/approve" or "/changes" comment posted
+            // after that applies to this head; the agents' full marker names the head explicitly.
+            const { data: headCommit } = await github.rest.repos.getCommit({ owner, repo, ref: head });
+            const headAt = new Date(headCommit.commit.committer.date);
+            const markers = comments.flatMap(c => {
+              const body = c.body || "";
+              const full = /<!--\s*review:(approved|changes)\s+head=([0-9a-f]+)\s*-->/.exec(body);
+              if (full) return [{ verdict: full[1], head: full[2], at: c.created_at, url: c.html_url }];
+              const short = /^\s*\/(approve|lgtm|changes|request-changes)\b/i.exec(body);
+              if (short && new Date(c.created_at) > headAt) {
+                const verdict = /^(approve|lgtm)$/i.test(short[1]) ? "approved" : "changes";
+                return [{ verdict, head, at: c.created_at, url: c.html_url }];
+              }
+              return [];
+            }).sort((a, b) => a.at.localeCompare(b.at));
             const latest = markers[markers.length - 1];
             let state, description, target_url;
             if (!latest) {
-              state = "failure"; description = "No review recorded. Reviewer posts scripts/board.sh review <pr> approved|changes.";
+              state = "failure"; description = "No review recorded. Reviewer runs scripts/board.sh review; a human comments /approve.";
             } else if (latest.head !== head) {
               state = "failure"; description = `Last review (${latest.verdict}) was for ${latest.head.slice(0,7)}, head is ${head.slice(0,7)}.`; target_url = latest.url;
             } else if (latest.verdict === "changes") {
