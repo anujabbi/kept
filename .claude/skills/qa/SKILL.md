@@ -18,7 +18,8 @@ output is a checklist comment with evidence. A box you did not personally observ
 3. `git fetch origin <pr-branch>` then `git worktree add ../kept-qa-<N> origin/<pr-branch>`.
 4. `./gradlew testDebugUnitTest` and `./gradlew assembleDebug`. A red build is an immediate
    fail; skip to step 7.
-5. Install on the emulator and set it up the way the issue's Steps or Acceptance assume.
+5. `scripts/emulator.sh ensure`, then install and set it up the way the issue's Steps or
+   Acceptance assume.
    `scripts/verify.sh` shows the permission grants and seeding. Start from a fresh
    `adb shell pm clear com.zenai.kept` unless the issue says otherwise.
 6. Walk every acceptance item exactly as written. Screenshot each one with

@@ -141,6 +141,10 @@ to name a session (default is host and pid). A crashed session's claim expires o
 each card gets its own worktree at `../kept-issue-<N>`. Only one emulator is assumed, so run
 one `/qa` at a time.
 
+**Emulator.** `scripts/emulator.sh ensure` starts the `kept_api35` AVD headless when no device
+is attached and waits for boot; dev and qa call it before installing. It stays up between
+passes. `scripts/emulator.sh stop` shuts it down.
+
 **Dev owns correctness.** Reviewer and QA are the safety net, not the first test. Dev writes
 the tests, runs the build, walks the acceptance list on the emulator itself, and self-reviews
 the diff before opening the PR. A card coming back from review or QA is a dev process failure

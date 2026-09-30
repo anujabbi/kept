@@ -28,8 +28,9 @@ first bug. Treat a review ask or a QA failure on your card as a defect in your o
 8. Self-verify, all of it, before anything else:
    - `./gradlew testDebugUnitTest` green.
    - `./gradlew assembleDebug` green.
-   - For anything a user can see or touch: install on the running emulator
-     (`adb install -r app/build/outputs/apk/debug/app-debug.apk`) and walk every acceptance
+   - For anything a user can see or touch: `scripts/emulator.sh ensure` (starts the AVD
+     headless if none is running), install with
+     `adb install -r app/build/outputs/apk/debug/app-debug.apk`, and walk every acceptance
      item yourself. Screenshot each one with `adb exec-out screencap -p > ../kept-issue-<N>-<item>.png`.
      `scripts/verify.sh` shows how to grant permissions and seed data.
    - Re-read the whole diff as if you were the reviewer: naming, dead code, missing edge
