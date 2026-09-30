@@ -42,13 +42,18 @@ import com.example.kept.core.ui.sprig.SprigSpec
 import com.example.kept.core.ui.sprig.SprigView
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
-data class RecapUi(val record: DayRecordEntity? = null, val date: LocalDate = LocalDate.now())
+data class RecapUi(
+    val record: DayRecordEntity? = null,
+    val date: LocalDate = LocalDate.now(),
+    /** Derived from this day and the one before it, see [RecapRules.streakReset] (issue #16). */
+    val streakReset: Boolean = false,
+)
 
 @HiltViewModel
 class RecapViewModel @Inject constructor(
@@ -56,8 +61,9 @@ class RecapViewModel @Inject constructor(
     saved: SavedStateHandle,
 ) : ViewModel() {
     private val date: LocalDate = LocalDate.parse(saved.get<String>("date")!!)
-    val state = dayRepo.observe(date).map { r -> RecapUi(r, date) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RecapUi(date = date))
+    val state = combine(dayRepo.observe(date), dayRepo.observe(date.minusDays(1))) { r, previous ->
+        RecapUi(r, date, RecapRules.streakReset(r, previous))
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RecapUi(date = date))
 }
 
 @Composable
@@ -106,7 +112,9 @@ fun RecapScreen(date: String, onClose: () -> Unit, vm: RecapViewModel = hiltView
                     hollow -> "That one is on us. The day doesn't count, but your ${r.streakEnd}-day streak is safe."
                     r.shieldConsumed -> "Your weekly shield kept the ${r.streakEnd}-day streak alive."
                     tooLate -> "Everything got ticked, but after the give-up time. Late doesn't count."
-                    else -> "Streak reset. Sprig is back to Sprig. Today is a fresh start."
+                    // Only claim a reset when this day actually took the streak to 0 (issue #16).
+                    s.streakReset -> "Streak reset. Sprig is back to Sprig. Today is a fresh start."
+                    else -> "Today is a fresh start."
                 }
                 Text(detail, style = MaterialTheme.typography.bodySmall, color = sub, textAlign = TextAlign.Center)
             }

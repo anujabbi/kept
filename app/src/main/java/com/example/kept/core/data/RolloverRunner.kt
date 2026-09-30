@@ -60,9 +60,10 @@ class RolloverRunner @Inject constructor(
         // Make sure today has a live record so the service can accumulate into it.
         dayDao.insertIfAbsent(DayRecordEntity(date = time.todayKey(), habitsTotal = habitDao.active().size))
         if (notify && outputs.isNotEmpty()) {
-            val last = outputs.last()
-            recap.showRecap(last.summary, outputs.flatMap { it.unlocks })
-            prefs.updateSettings { it.copy(pendingRecapDate = last.summary.date.toString()) }
+            // After a gap, surface the day the streak was lost or shielded, not the last one (issue #16).
+            val shown = RolloverEngine.recapDayFor(outputs)
+            recap.showRecap(shown.summary, outputs.flatMap { it.unlocks })
+            prefs.updateSettings { it.copy(pendingRecapDate = shown.summary.date.toString()) }
         }
         outputs
     }

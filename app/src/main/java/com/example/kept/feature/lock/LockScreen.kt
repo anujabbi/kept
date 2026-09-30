@@ -31,8 +31,6 @@ import com.example.kept.core.ui.PrimaryButton
 import com.example.kept.core.ui.QuietButton
 import com.example.kept.core.ui.sprig.SprigView
 import com.example.kept.feature.home.HabitRow
-import java.time.LocalTime
-import java.time.format.DateTimeFormatter
 
 @Composable
 fun LockScreen(
@@ -51,7 +49,7 @@ fun LockScreen(
     ) {
         Spacer(Modifier.height(10.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(LocalTime.now().format(DateTimeFormatter.ofPattern("H:mm")), style = MaterialTheme.typography.bodySmall, color = c.textMuted)
+            Text(state.clockLabel, style = MaterialTheme.typography.bodySmall, color = c.textMuted, modifier = Modifier.testTag("lock_clock"))
             Text(if (blockedLabel.isBlank()) "Locked" else "$blockedLabel is locked", style = MaterialTheme.typography.bodySmall, color = c.textSecondary)
         }
         Spacer(Modifier.height(14.dp))
@@ -77,7 +75,7 @@ fun LockScreen(
         Spacer(Modifier.height(6.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
             QuietButton("Break lock", onClick = onBreak, modifier = Modifier.testTag("break_lock"))
-            QuietButton("Emergency call", onClick = onEmergency, modifier = Modifier.testTag("emergency_call"))
+            QuietButton("Phone", onClick = onEmergency, modifier = Modifier.testTag("emergency_call"))
         }
         Spacer(Modifier.height(16.dp))
     }

@@ -17,12 +17,14 @@ import com.example.kept.core.domain.minuteOfDayLabel
 import com.example.kept.core.di.ApplicationScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
 data class LockUi(
@@ -37,6 +39,11 @@ data class LockUi(
      */
     val blockedStillLocked: Boolean = true,
     val breaking: Boolean = false,
+    /**
+     * The wall clock shown in the top row, "H:mm". Recomputed on the ViewModel's one-second
+     * ticker from the injected [TimeSource] so it actually advances (issue #15).
+     */
+    val clockLabel: String = "",
 ) {
     /** True once the lock screen has nothing left to cover and should get out of the way. */
     val shouldDismiss: Boolean get() = loaded && (!lockActive || !blockedStillLocked)
@@ -70,17 +77,9 @@ class LockViewModel @Inject constructor(
     /** The package this lock screen is covering, so the screen can answer to it (issue #4). */
     fun setBlockedPackage(pkg: String?) { blockedPackage.value = pkg }
 
-    val state: StateFlow<LockUi> = combine(
-        lockRepo.observeState(), sprigRepo.state, time.ticker(1_000), blockedPackage,
-    ) { lock, sprig, _, blocked ->
-        val snapshot = lock.snapshot(emptySet(), null)
-        val active = LockPolicy.isLockActive(time.now(), time.localTime(), snapshot)
-        LockUi(
-            loaded = true, lock = lock, sprig = sprig, variant = Variants.forDate(time.today()),
-            lockActive = active,
-            blockedStillLocked = LockPolicy.lockScreenShouldStay(blocked, time.now(), time.localTime(), snapshot),
-        )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LockUi())
+    val state: StateFlow<LockUi> =
+        lockUiFlow(lockRepo.observeState(), sprigRepo.state, time.ticker(1_000), blockedPackage, time)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LockUi())
 
     /**
      * Ticked on the application scope, not `viewModelScope` (issue #9). Completing the last habit
@@ -109,4 +108,29 @@ class LockViewModel @Inject constructor(
         analytics.capture("lock_broken", mapOf("seconds_waited" to secondsWaited))
         then()
     }
+}
+
+private val CLOCK_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("H:mm")
+
+/**
+ * The `combine` behind [LockViewModel.state], kept as a plain function of flows so a JVM test can
+ * drive it with a pinned clock: the repositories it would otherwise need bottom out in Room and a
+ * DataStore-backed `KeptPreferences(Context)`. [ticker] is what makes the result live — every
+ * emission re-reads [time] for the lock policy and for [LockUi.clockLabel] (issue #15).
+ */
+internal fun lockUiFlow(
+    lockState: Flow<LockState>,
+    sprig: Flow<SprigState>,
+    ticker: Flow<Long>,
+    blockedPackage: Flow<String?>,
+    time: TimeSource,
+): Flow<LockUi> = combine(lockState, sprig, ticker, blockedPackage) { lock, sprigState, _, blocked ->
+    val snapshot = lock.snapshot(emptySet(), null)
+    val active = LockPolicy.isLockActive(time.now(), time.localTime(), snapshot)
+    LockUi(
+        loaded = true, lock = lock, sprig = sprigState, variant = Variants.forDate(time.today()),
+        lockActive = active,
+        blockedStillLocked = LockPolicy.lockScreenShouldStay(blocked, time.now(), time.localTime(), snapshot),
+        clockLabel = time.localTime().format(CLOCK_FORMAT),
+    )
 }

@@ -561,3 +561,36 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
   - Tests: `HomeAndBuddyTest` is now `HomeTest` with the pairing case deleted (the home cases are
     unchanged), and `RolloverEngineTest` loses its pair-streak cases — the hollow-day case keeps
     the half that is about healing a wilt.
+- **The lock screen's clock now rides `LockViewModel`'s existing one-second ticker (issue #15).**
+  `LockScreen` formatted `LocalTime.now()` inline in composition, so the label was whatever minute
+  the screen first composed at and never moved. It is now `LockUi.clockLabel`, computed in the
+  same `combine` that already re-runs on `TimeSource.ticker(1_000)` for the lock policy, from the
+  injected `TimeSource` rather than the system clock; the composable only displays it (tagged
+  `lock_clock`). Removing the clock instead was rejected: it duplicates the status bar on purpose,
+  as framing for a screen that is telling you the time matters right now. The `combine` is
+  hoisted into `lockUiFlow(...)` so `LockViewModelClockTest` can drive it with a pinned, wound
+  clock on the JVM — the repositories the ViewModel takes bottom out in Room and a
+  DataStore-backed `KeptPreferences(Context)`, and there is no mocking library in the build.
+- **The lock screen's dialer button is labelled "Phone", not "Emergency call" (issue #17).** It
+  opens the dialer with an empty number (`ACTION_DIAL`, `tel:`), which is the right behaviour: the
+  dialer is in the hard allowlist, so any call, emergency or otherwise, always works from the lock
+  screen. But "Emergency call" promised a one-tap call to emergency services and delivered a
+  keypad. Dialling a real emergency number was rejected: the device's local numbers are only
+  exposed from API 29 (minSdk is 26), a hardcoded number is wrong somewhere, and a misdial from a
+  teen who wanted to ring a parent is worse than a keypad. Nothing else moved: same intent, same
+  `emergency_call` test tag.
+- **After a multi-day gap the recap shows the day the streak was lost or shielded, not the last
+  day closed, and a slipped day only says "Streak reset" when it actually reset one (issue #16).**
+  `RolloverRunner.runPending` closed every missed day in order and then surfaced `outputs.last()`
+  as the recap and `pendingRecapDate`, so a teen back after three days was shown day 3, a day
+  that slipped at a streak of 0, while day 1 was where the shield went or the streak reset. The
+  choice is now `RolloverEngine.recapDayFor`: the first output whose summary has `streakReset` or
+  `shieldConsumed`, falling back to the last day when nothing happened to the streak. Unlocks
+  from every closed day are still passed together. Separately, the recap's slipped-day copy
+  claimed a reset for every such day. `day_records` does not store the engine's `streakReset`,
+  and a Room migration for one line of copy was rejected, so `RecapRules.streakReset` derives it
+  from the day and the one before it: not counted, no shield spent, ended at 0, and the previous
+  day ended above 0. `RecapViewModel` now observes both records and exposes
+  `RecapUi.streakReset`; the screen says "Streak reset. Sprig is back to Sprig. Today is a fresh
+  start." only when it is true and plain "Today is a fresh start." otherwise. Every other
+  headline and detail is unchanged. Covered by `RecapDaySelectionTest` and `RecapRulesTest`.
