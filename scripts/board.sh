@@ -129,8 +129,7 @@ cmd_move() {
 
 cmd_merge() {
   local pr="$1" labels head state
-  labels="$(gh pr view "$pr" --repo "$REPO" --json labels -q '.labels[].name' | tr '
-' ' ')"
+  labels="$(gh pr view "$pr" --repo "$REPO" --json labels -q '.labels[].name' | tr '\n' ' ')"
   if [[ " $labels " == *" needs-human "* ]]; then
     echo "refusing: #$pr is labelled needs-human. Hand it to the owner: board.sh move <issue> ship owner" >&2
     exit 1
