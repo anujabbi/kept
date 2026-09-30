@@ -17,6 +17,20 @@ GitHub issue types are organization-only, so this repo uses labels plus sub-issu
 | Feature | `type:feature` | Feature    | owner          | none              |
 | Story   | `type:story`   | User story or Bug | owner, or planner as a sub-issue of a feature | feature, or none for a standalone story |
 | Task    | `type:task`    | (planner writes it) | planner, as a sub-issue of a story | story |
+| Experiment | `type:experiment` | Experiment | owner | none, or a feature |
+
+An experiment moves through the pipeline like a story, but the form adds `needs-human` (below),
+so a human makes the ship-or-discard call. The decision rule on the issue says what evidence
+that call needs; QA gathers it and posts it on the issue.
+
+## needs-human: human in the loop
+
+Any issue can carry the `needs-human` label. It means: agents build, review and test it, but no
+agent merges it. The `pr-links-issue` workflow copies the label from the closing issue onto the
+PR. When such a card reaches Ship, **release** runs `scripts/board.sh move N ship owner` and
+comments what the owner needs to decide. `scripts/board.sh merge` refuses a `needs-human` PR
+outright. The owner's queue is `scripts/board.sh next owner`; the owner merges by hand, or
+comments a decision and moves the card back.
 
 A story is the unit that moves through the pipeline. A feature card only tracks its stories
 (the board's "Sub-issues progress" field) and is Done when they all are. Tasks exist only when a
@@ -31,7 +45,8 @@ story needs more than one PR; each task is one PR.
 | In progress | dev      | Status=In progress, Agent=dev         | A branch, tests, a PR with `Closes #N`            | In review, Agent=reviewer             |
 | In review   | reviewer | Status=In review                      | A PR review: approve, or request changes          | QA, Agent=qa (or back to In progress) |
 | QA          | qa       | Status=QA                             | Acceptance checks run on a build, a QA comment    | Ship, Agent=release (or back)         |
-| Ship        | release  | Status=Ship                           | Merge, release notes, version bump if user-facing | Done (automatic on merge)             |
+| Ship        | release  | Status=Ship, Agent=release            | Merge via `board.sh merge`, version bump if user-facing | Done (automatic on merge), or Agent=owner if `needs-human` |
+| Ship        | owner    | Status=Ship, Agent=owner              | The human decision on a `needs-human` card         | Merge by hand, or a comment and Status=Backlog |
 | Done        | -        | Set by the "PR merged" automation     |                                                   |                                       |
 
 Sending a card backwards is always to **In progress** with `Agent=dev` and a comment saying what
@@ -70,7 +85,9 @@ rewrite the PR. Approving moves the card to QA.
 issue's Acceptance list on an emulator. Post the results as a checklist comment on the issue,
 with screenshots where the check is visual. Any unchecked box sends the card back.
 
-**release.** Merge with squash, keep the PR title as the commit subject. If the change is
+**release.** Merge only with `scripts/board.sh merge <pr>`, which refuses a `needs-human` PR and a
+red `review-recorded` status. `review-recorded` is a required check on `main`, so a PR without a
+recorded review cannot merge for anyone. Squash, keep the PR title as the commit subject. If the change is
 user-visible, bump `versionName`/`versionCode` in `app/build.gradle.kts` in the same PR or a
 follow-up card. Follow `docs/PLAY-RELEASE-CHECKLIST.md` for Play uploads.
 
@@ -97,9 +114,8 @@ marker comment, and the card's Status/Agent pair.
    and runs `move N backlog planner` so the owner sees it. Nothing merges from Backlog.
 
 The `review-recorded` workflow turns the marker into a commit status on the PR head: green when
-the newest marker is `approved` for the current head, red otherwise. It is warn-only until the
-owner makes it a required check on `main`; agents treat red as blocking either way. **release**
-merges nothing whose `review-recorded` status is not green.
+the newest marker is `approved` for the current head, red otherwise, and
+it is a required check on `main`, so red blocks the merge for agents and humans alike.
 
 Comment prefixes, so a reader can tell agents apart in a thread: `**[planner]**`, `**[dev]**`,
 `**[reviewer]**`, `**[qa]**`, `**[release]**`. Commits carry a trailer `Agent: <role>`.
@@ -130,7 +146,7 @@ Board: https://github.com/users/anujabbi/projects/2
 - Status field: `PVTSSF_lAHOAHEsTM4BlQbszhj9_Tc` with options Backlog `433fb900`, Ready `8b0b785e`,
   In progress `47fc9ee4`, In review `75ad4a94`, QA `12051a14`, Ship `ba2f5cb2`, Done `98236657`
 - Agent field: `PVTSSF_lAHOAHEsTM4BlQbszhj9_Zk` with options planner `0bd9f955`, dev `7e85139a`,
-  reviewer `80209de4`, qa `5d88e771`, release `4201c515`
+  reviewer `80209de4`, qa `5d88e771`, release `4201c515`, owner `1a2cc759`
 - Priority field: `PVTSSF_lAHOAHEsTM4BlQbszhj9_Yk` with options P0 now `b99d8616`, P1 next `78fd91da`,
   P2 later `c8d7659c`
 - Size field: `PVTSSF_lAHOAHEsTM4BlQbszhj9_Zg`
