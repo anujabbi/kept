@@ -6,10 +6,10 @@ discovered the week of launch.
 
 - **Package name:** `com.zenai.kept` (set as `applicationId`; the Kotlin source package is still
   `com.example.kept`, which Play never sees). It cannot be changed after the first upload.
-- **Privacy policy URL:** `https://anujabbi.github.io/kept-site/privacy-policy.html` — publish
-  `docs/privacy-policy.html` via GitHub Pages (Settings → Pages → source `main` / `/docs`) and put
-  the resulting URL in Play Console → Policy → App content → Privacy policy, and in the store
-  listing. **The URL must be live before the first review submission.**
+- **Privacy policy URL:** `https://anujabbi.github.io/kept-site/privacy-policy.html` (marketing
+  site Pages). Keep that page in sync with `docs/privacy-policy.html` in this repo. Put the live
+  URL in Play Console → Policy → App content → Privacy policy, and in the store listing.
+  **The URL must be live before the first review submission.**
 
 ## 1. Signing
 
