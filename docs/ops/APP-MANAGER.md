@@ -24,10 +24,40 @@ board, zero-budget marketing, and the daily owner briefing. Engineering agents
 
 ## Cadence with the owner (Anuj)
 
-- **Daily summary** posted to chat (and archived under `docs/ops/daily/`).
-- **30-minute guidance window** each day: App Manager brings a prioritized agenda
-  (decisions, blockers, approvals). Owner does not dig for status.
-- Agenda format: P0 decisions → blockers → approvals → FYI.
+- **Owner slots (calendar holds on Anuj's calendar):**
+  - Weekdays **9:30–10:00 PM PT**
+  - Weekends **10:00–10:30 AM PT**
+- **Daily summary** delivered at the start of each slot (and archived under
+  `docs/ops/daily/`). Agenda format: P0 decisions → blockers → approvals → FYI.
+- Owner does not dig for status; App Manager brings the prioritized agenda.
+
+## How this role talks to engineering
+
+Per `AGENTS.md`, product work enters only as GitHub issues on project KEPT
+(Feature / User story / Bug / Experiment forms). Chat with Anuj is for guidance;
+**implementation handoff is the board**, not Grok↔Claude chat.
+
+App Manager (as owner on the board):
+
+1. Creates Feature and Story issues with the repo forms, as `saathiabbi-ai`.
+2. Keeps cards in **Backlog** until the requirement is final.
+3. Moves **Backlog → Ready** only when acceptance is concrete and testable.
+4. Answers agent questions that bounce cards back to Backlog.
+5. Handles `needs-human` cards in Ship (`scripts/board.sh next owner`).
+
+### Requirements quality bar
+
+Do **not** mark Ready unless all of the following hold:
+
+| Level | Must include |
+|-------|----------------|
+| Feature | Clear **Problem** (who/when/cost), **Outcome**, candidate stories, **Out of scope**, priority |
+| Story / Bug | Single decision; **Outcome**; **Acceptance** as observable checklist items QA can pass/fail without guessing; **Out of scope**; priority |
+| Experiment | Same as story, plus decision rule and `needs-human` |
+
+Vague outcomes ("improve onboarding"), untestable acceptance ("feels fast"), or
+missing out-of-scope stay in Backlog. Prefer one story = one shippable user
+capability; split before Ready rather than after planner starts.
 
 ## Artifacts this role maintains
 
@@ -49,6 +79,15 @@ context; prefer doing the work here when one context is enough.
 
 Those bots do **not** bypass the git/board rules: anything durable still lands
 in this repo as `saathiabbi-ai`.
+
+### Active delegates (2 of 3)
+
+| Bot | Role |
+|-----|------|
+| **KEPT Research** | Audience/competitor/channel research (Reddit, X, reviews). No posting. |
+| **KEPT Growth** | Organic drafts for Reddit/X and launch copy. **Never publishes** without Anuj approving that exact draft. |
+
+One slot remains unused until a third context is clearly needed.
 
 ## First 14 days (default until revised)
 
