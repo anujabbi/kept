@@ -4,14 +4,14 @@ Last updated: 2026-10-01 (morning)
 
 ## P0 — decisions needed
 
-1. **Play Console:** wait for Google identity verification on the personal (“Yourself”) account (`anuj.abbi@gmail.com`). Ping App Manager when Console says verified.
-2. **Privacy policy URL:** live at https://anujabbi.github.io/kept-site/privacy-policy.html (sync from `docs/privacy-policy.html` when policy changes).
+1. **Play Console:** create the KEPT app listing (`com.zenai.kept`) and paste privacy URL https://anujabbi.github.io/kept-site/privacy-policy.html. Confirm identity shows verified if Console still pending.
+2. **Privacy policy URL:** ✅ live — https://anujabbi.github.io/kept-site/privacy-policy.html (sync from `docs/privacy-policy.html` when policy changes).
 3. **Reddit / X identity:** personal vs KEPT handle before any Growth post (drafts parked until you approve exact text).
 4. **Issue [#4](https://github.com/anujabbi/kept/issues/4)** (exceptions bug): add to Project board + Ready for eng now, or leave parking?
 
 ## Blockers
 
-- Play identity verification in progress; live privacy URL still needed before store submission.
+- Play developer account ready; privacy URL live at https://anujabbi.github.io/kept-site/privacy-policy.html. Remaining store blockers: create app listing + identity/verification status if Console still shows pending.
 - Project board unread (`read:project` missing on App Manager GitHub token) — cannot confirm Backlog vs Ready / `needs-human` owner queue via API.
 - Cursor Cloud Agents still cannot see `anujabbi/kept` (local clone + `gh` as `saathiabbi-ai` is the workaround).
 
