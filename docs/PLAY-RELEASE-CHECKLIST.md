@@ -6,7 +6,7 @@ discovered the week of launch.
 
 - **Package name:** `com.zenai.kept` (set as `applicationId`; the Kotlin source package is still
   `com.example.kept`, which Play never sees). It cannot be changed after the first upload.
-- **Privacy policy URL:** `https://<TODO-owner>.github.io/kept/privacy-policy.html` — publish
+- **Privacy policy URL:** `https://anujabbi.github.io/kept-site/privacy-policy.html` — publish
   `docs/privacy-policy.html` via GitHub Pages (Settings → Pages → source `main` / `/docs`) and put
   the resulting URL in Play Console → Policy → App content → Privacy policy, and in the store
   listing. **The URL must be live before the first review submission.**
@@ -74,7 +74,7 @@ it.
 
 ## 5. Store listing and content
 
-- Target audience: teens. Answer the **Families / target audience** questionnaire honestly; if
+- Target audience: high school through ~30s (phone addiction / habit follow-through; not parental control). Answer the **Families / target audience** questionnaire honestly; if
   under-13 users are in scope, the Families policy and its extra requirements apply, so the
   intended answer is 13+.
 - Content rating questionnaire (no violence, no user-generated content: nothing a user creates in
