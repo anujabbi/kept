@@ -4,21 +4,25 @@ Last updated: 2026-09-30
 
 ## P0 — decisions needed
 
-1. **Approve push** of reviewed ops docs (`APP-MANAGER.md`, `OWNER-AGENDA.md`,
-   `ZERO-BUDGET-LAUNCH.md`, daily note).
-2. **Play Console:** create developer account / app listing when ready (not
-   created yet).
-3. **Daily 30-min slot:** confirm time (briefing currently 8:46 AM PT weekdays).
+1. **Play Console:** which Google account owns the developer registration
+   (recommend Anuj's personal Google for long-term control), and approve the
+   one-time $25 fee + identity verification when prompted.
+2. **Privacy policy URL:** enable GitHub Pages for `docs/privacy-policy.html`
+   (or confirm preferred host) so Play has a live policy URL.
 
 ## Blockers
 
-- None on GitHub: `saathiabbi-ai` has push on `anujabbi/kept`.
+- Play developer account / app listing not created yet.
+- Cursor Cloud Agents still cannot see `anujabbi/kept` (local clone + `gh` as
+  `saathiabbi-ai` is the workaround).
 
 ## Approvals
 
-- App Manager charter (incl. up to 3 delegate Grok bots) — reviewed.
-- Zero-budget launch plan (broad ICP HS–30s) — reviewed; awaiting push go-ahead.
+- Ops docs merged (PR #30).
+- Owner slots: weekdays 9:30–10:00 PM PT, weekends 10:00–10:30 AM PT.
+- Engineering handoff is GitHub issues / board only (`AGENTS.md`).
 
 ## FYI
 
-- Engineering pipeline in `AGENTS.md` unchanged; App Manager feeds Ready cards.
+- App Manager will raise Feature/Story issues to Backlog, then Ready only when
+  acceptance criteria meet the quality bar in `docs/ops/APP-MANAGER.md`.
