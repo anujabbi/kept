@@ -1,28 +1,29 @@
 # Owner agenda (next 30 min)
 
-Last updated: 2026-09-30
+Last updated: 2026-10-01 (morning)
 
 ## P0 — decisions needed
 
-1. **Play Console:** which Google account owns the developer registration
-   (recommend Anuj's personal Google for long-term control), and approve the
-   one-time $25 fee + identity verification when prompted.
-2. **Privacy policy URL:** enable GitHub Pages for `docs/privacy-policy.html`
-   (or confirm preferred host) so Play has a live policy URL.
+1. **Play Console:** wait for Google identity verification on the personal (“Yourself”) account (`anuj.abbi@gmail.com`). Ping App Manager when Console says verified.
+2. **Privacy policy URL:** enable GitHub Pages for `docs/privacy-policy.html` (or confirm preferred host) so Play has a live policy URL.
+3. **Reddit / X identity:** personal vs KEPT handle before any Growth post (drafts parked until you approve exact text).
+4. **Issue [#4](https://github.com/anujabbi/kept/issues/4)** (exceptions bug): add to Project board + Ready for eng now, or leave parking?
 
 ## Blockers
 
-- Play developer account / app listing not created yet.
-- Cursor Cloud Agents still cannot see `anujabbi/kept` (local clone + `gh` as
-  `saathiabbi-ai` is the workaround).
+- Play identity verification in progress; live privacy URL still needed before store submission.
+- Project board unread (`read:project` missing on App Manager GitHub token) — cannot confirm Backlog vs Ready / `needs-human` owner queue via API.
+- Cursor Cloud Agents still cannot see `anujabbi/kept` (local clone + `gh` as `saathiabbi-ai` is the workaround).
 
 ## Approvals
 
-- Ops docs merged (PR #30).
+- Ops / cadence / bots / research docs merged (#30–#33). Evening briefing merge in flight (#34).
 - Owner slots: weekdays 9:30–10:00 PM PT, weekends 10:00–10:30 AM PT.
 - Engineering handoff is GitHub issues / board only (`AGENTS.md`).
+- Docs-folder PRs: App Manager may merge anytime (standing auth 2026-10-01); post `/approve` then squash-merge to satisfy `review-recorded`.
 
-## FYI
+## FYI / App Manager will do without you
 
-- App Manager will raise Feature/Story issues to Backlog, then Ready only when
-  acceptance criteria meet the quality bar in `docs/ops/APP-MANAGER.md`.
+- No Growth posts until you pick Reddit/X identity and approve the exact draft.
+- Raise Feature/Story issues to Backlog, then Ready only when acceptance criteria meet the quality bar in `docs/ops/APP-MANAGER.md`.
+- No paid growth.
