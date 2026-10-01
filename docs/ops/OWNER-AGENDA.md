@@ -5,7 +5,7 @@ Last updated: 2026-10-01 (morning)
 ## P0 — decisions needed
 
 1. **Play Console:** wait for Google identity verification on the personal (“Yourself”) account (`anuj.abbi@gmail.com`). Ping App Manager when Console says verified.
-2. **Privacy policy URL:** enable GitHub Pages for `docs/privacy-policy.html` (or confirm preferred host) so Play has a live policy URL.
+2. **Privacy policy URL:** live at https://anujabbi.github.io/kept-site/privacy-policy.html (sync from `docs/privacy-policy.html` when policy changes).
 3. **Reddit / X identity:** personal vs KEPT handle before any Growth post (drafts parked until you approve exact text).
 4. **Issue [#4](https://github.com/anujabbi/kept/issues/4)** (exceptions bug): add to Project board + Ready for eng now, or leave parking?
 
