@@ -80,6 +80,15 @@ context; prefer doing the work here when one context is enough.
 Those bots do **not** bypass the git/board rules: anything durable still lands
 in this repo as `saathiabbi-ai`.
 
+### Active delegates (2 of 3)
+
+| Bot | Role |
+|-----|------|
+| **KEPT Research** | Audience/competitor/channel research (Reddit, X, reviews). No posting. |
+| **KEPT Growth** | Organic drafts for Reddit/X and launch copy. **Never publishes** without Anuj approving that exact draft. |
+
+One slot remains unused until a third context is clearly needed.
+
 ## First 14 days (default until revised)
 
 1. Finish Play-ready checklist items that are still open (`docs/PLAY-RELEASE-CHECKLIST.md`).
