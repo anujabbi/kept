@@ -56,7 +56,7 @@ fun ExceptionsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel()
 
     val list = apps ?: emptyList()
     val allowedCount = list.count { it.allowed }
-    val filtered = list.filter { query.isBlank() || it.app.label.contains(query, ignoreCase = true) }.sortedWith(compareByDescending<PickableApp> { it.allowed }.thenBy { it.app.label.lowercase() })
+    val filtered = orderForPicker(list, query)
 
     LazyColumn(Modifier.fillMaxSize().then(if (embedded) Modifier else Modifier.statusBarsPadding()), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 8.dp)) {
         item {
