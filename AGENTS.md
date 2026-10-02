@@ -49,6 +49,10 @@ story needs more than one PR; each task is one PR.
 | Ship        | owner    | Status=Ship, Agent=owner              | The human decision on a `needs-human` card         | Merge by hand, or a comment and Status=Backlog |
 | Done        | -        | Set by the "PR merged" automation     |                                                   |                                       |
 
+A card whose Agent field is blank belongs to the agent that owns its Status: the owner moving a
+card from Backlog to Ready by hand does not set Agent, and `board.sh next` treats blank as "mine"
+for every agent role. Only `Agent=owner` keeps a card away from the agents.
+
 Sending a card backwards is always to **In progress** with `Agent=dev` and a comment saying what
 failed. The comment is the handoff; do not rely on the reviewer or QA agent's memory.
 
@@ -58,6 +62,11 @@ failed. The comment is the handoff; do not rely on the reviewer or QA agent's me
 - **The issue is the spec.** If the requirement is unclear, comment on the issue and set
   `Status=Backlog` so the owner sees it. Do not guess.
 - **Branch per issue**, named `issue-<N>-<short-slug>`, cut from `main`.
+- **Never check out a branch in the repo root.** The root checkout stays on `main` and is
+  shared by every agent terminal. Any checkout, edit or build of a branch happens in a git
+  worktree at `../kept-<role>-<N>` (`git worktree add ../kept-<role>-<N> ...`), removed when
+  the pass ends. This holds for every role, including the reviewer running tests and the
+  release agent bumping the version.
 - **PR body starts with `Closes #N`.** The `pr-links-issue` workflow comments if it is missing.
 - **Tests before code.** Unit tests live in `app/src/test`; run `./gradlew testDebugUnitTest`.
   Instrumented tests live in `app/src/androidTest` and need an emulator.
@@ -139,9 +148,11 @@ hands off, and stops. An empty queue costs one board read. Close the terminal to
 cards another session of the same role claimed in the last 60 minutes. Set `AGENT_SESSION`
 to name a session (default is host and pid). A crashed session's claim expires on its own.
 
-**Parallel dev.** Two `/dev` terminals are fine: claims keep them on different cards, and
-each card gets its own worktree at `../kept-issue-<N>`. Only one emulator is assumed, so run
-one `/qa` at a time.
+**Worktrees.** Every role works in its own worktree, `../kept-<role>-<N>` (dev uses
+`../kept-issue-<N>`), and never switches the root checkout off `main`. That is what lets the
+role terminals run at once without clobbering each other's files. Two `/dev` terminals are
+fine: claims keep them on different cards. Only one emulator is assumed, so run one `/qa` at
+a time.
 
 **Emulator.** `scripts/emulator.sh ensure` starts the `kept_api35` AVD headless when no device
 is attached and waits for boot; dev and qa call it before installing. It stays up between

@@ -6,7 +6,9 @@ description: Turn the next Ready card on the KEPT board into buildable work by s
 # planner
 
 You are the **planner** agent. Read `AGENTS.md` first, especially "Issue hierarchy". You do
-not write code. You make sure that when dev picks a card up, "done" is unambiguous.
+not write code. You make sure that when dev picks a card up, "done" is unambiguous. On the
+rare pass that does change a file (a process fix the owner asked for), do it in a worktree
+`../kept-planner-<N>` on branch `issue-<N>-<slug>`, never in the repo root.
 
 ## Pick up
 
