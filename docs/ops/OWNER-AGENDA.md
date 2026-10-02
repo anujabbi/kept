@@ -1,29 +1,28 @@
 # Owner agenda (next 30 min)
 
-Last updated: 2026-10-01 (morning)
+Last updated: 2026-10-01 (evening, 9:30 PM PT slot)
 
 ## P0 — decisions needed
 
-1. **Play Console:** create the KEPT app listing (`com.zenai.kept`) and paste privacy URL https://anujabbi.github.io/kept-site/privacy-policy.html. Confirm identity shows verified if Console still pending.
-2. **Privacy policy URL:** ✅ live — https://anujabbi.github.io/kept-site/privacy-policy.html (sync from `docs/privacy-policy.html` when policy changes).
-3. **Reddit / X identity:** personal vs KEPT handle before any Growth post (drafts parked until you approve exact text).
-4. **Issue [#4](https://github.com/anujabbi/kept/issues/4)** (exceptions bug): add to Project board + Ready for eng now, or leave parking?
+1. **Play Console:** create the KEPT app listing (`com.zenai.kept`) and paste privacy URL https://anujabbi.github.io/kept-site/privacy-policy.html. Confirm identity shows **verified** if Console still pending.
+2. **Reddit / X identity:** personal vs KEPT handle before any Growth post (drafts parked until you approve exact text).
+3. **Issue [#4](https://github.com/anujabbi/kept/issues/4):** planner says fixes are on `main`. On a **physical device**, either close it (no longer reproduces) or re-Ready with device / Android / excepted app / lock-up-at-time details.
+4. **Onboarding stories priority:** set Ready order for [#37](https://github.com/anujabbi/kept/issues/37) (dev claimed), [#38](https://github.com/anujabbi/kept/issues/38), [#39](https://github.com/anujabbi/kept/issues/39), then [#40](https://github.com/anujabbi/kept/issues/40) / [#41](https://github.com/anujabbi/kept/issues/41) — or confirm current claim order is fine.
 
 ## Blockers
 
-- Play developer account ready; privacy URL live at https://anujabbi.github.io/kept-site/privacy-policy.html. Remaining store blockers: create app listing + identity/verification status if Console still shows pending.
-- Project board unread (`read:project` missing on App Manager GitHub token) — cannot confirm Backlog vs Ready / `needs-human` owner queue via API.
+- Play developer signup done; privacy URL live. Remaining store blocker: **create app listing** (+ identity status if still pending).
+- Project board unread (`read:project` missing on App Manager GitHub token) — cannot confirm Backlog vs Ready / owner Ship queue via API.
 - Cursor Cloud Agents still cannot see `anujabbi/kept` (local clone + `gh` as `saathiabbi-ai` is the workaround).
 
 ## Approvals
 
-- Ops / cadence / bots / research docs merged (#30–#33). Evening briefing merge in flight (#34).
-- Owner slots: weekdays 9:30–10:00 PM PT, weekends 10:00–10:30 AM PT.
-- Engineering handoff is GitHub issues / board only (`AGENTS.md`).
+- None pending — #31–#36 and #43 already on `main`.
 - Docs-folder PRs: App Manager may merge anytime (standing auth 2026-10-01); post `/approve` then squash-merge to satisfy `review-recorded`.
 
 ## FYI / App Manager will do without you
 
 - No Growth posts until you pick Reddit/X identity and approve the exact draft.
-- Raise Feature/Story issues to Backlog, then Ready only when acceptance criteria meet the quality bar in `docs/ops/APP-MANAGER.md`.
+- Archive this briefing under `docs/ops/daily/2026-10-01.md`.
+- Leave eng to run claimed cards; only raise new Ready cards when acceptance meets `docs/ops/APP-MANAGER.md` quality bar.
 - No paid growth.
