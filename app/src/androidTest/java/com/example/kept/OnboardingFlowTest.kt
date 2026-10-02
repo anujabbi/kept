@@ -43,9 +43,8 @@ class OnboardingFlowTest {
             listOf("Practice", "Study", "Tidy room", "Sleep by 11").forEach { compose.onNodeWithText(it).performScrollTo().performClick() }
             compose.onNodeWithText("Custom").performScrollTo().assertIsDisplayed()
             compose.onNodeWithTag("onboarding_habit_limit").assertDoesNotExist()
-            compose.onNodeWithTag("onboarding_next").performClick()          // habits -> rule
-            compose.waitUntil(5_000) { compose.onAllNodes(androidx.compose.ui.test.hasTestTag("onboarding_rule")).fetchSemanticsNodes().isNotEmpty() }
-            compose.onNodeWithTag("onboarding_next").performClick()          // rule -> exceptions
+            compose.onNodeWithText("1 of 4").assertIsDisplayed()
+            compose.onNodeWithTag("onboarding_next").performClick()          // habits -> exceptions
             compose.waitUntil(5_000) { compose.onAllNodes(androidx.compose.ui.test.hasTestTag("onboarding_exceptions")).fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithTag("onboarding_next").performClick()          // exceptions -> permissions
             compose.waitUntil(5_000) { compose.onAllNodes(androidx.compose.ui.test.hasTestTag("onboarding_permissions")).fetchSemanticsNodes().isNotEmpty() }
@@ -53,11 +52,16 @@ class OnboardingFlowTest {
             // button below the fold on a short screen; scroll to it rather than clicking blind.
             compose.onNodeWithTag("onboarding_next").performScrollTo().performClick() // permissions -> meet sprig
             compose.waitUntil(5_000) { compose.onAllNodes(androidx.compose.ui.test.hasTestTag("onboarding_sprig")).fetchSemanticsNodes().isNotEmpty() }
-            compose.onNodeWithTag("onboarding_finish").performClick()
+            compose.onNodeWithText("4 of 4").assertIsDisplayed()
+            compose.onNodeWithTag("onboarding_finish").performScrollTo().performClick()
             compose.waitUntil(10_000) { compose.onAllNodesWithText("Today").fetchSemanticsNodes().isNotEmpty() }
 
             val settings = runBlocking { prefs.currentSettings() }
             assertTrue(settings.onboardingDone)
+            // No rule step any more (issue #37): the lock window and break length are the defaults.
+            assertEquals(7 * 60, settings.lockFromMinute)
+            assertEquals(21 * 60, settings.dueMinute)
+            assertEquals(30, settings.breakDurationMin)
             val today = runBlocking { habits.today() }
             assertEquals(6, today.total)
         }
