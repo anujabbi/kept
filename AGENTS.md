@@ -49,6 +49,10 @@ story needs more than one PR; each task is one PR.
 | Ship        | owner    | Status=Ship, Agent=owner              | The human decision on a `needs-human` card         | Merge by hand, or a comment and Status=Backlog |
 | Done        | -        | Set by the "PR merged" automation     |                                                   |                                       |
 
+A card whose Agent field is blank belongs to the agent that owns its Status: the owner moving a
+card from Backlog to Ready by hand does not set Agent, and `board.sh next` treats blank as "mine"
+for every agent role. Only `Agent=owner` keeps a card away from the agents.
+
 Sending a card backwards is always to **In progress** with `Agent=dev` and a comment saying what
 failed. The comment is the handoff; do not rely on the reviewer or QA agent's memory.
 

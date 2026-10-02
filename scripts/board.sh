@@ -81,9 +81,13 @@ cmd_next() {
   local role="$1" st now n sess at age
   st="$(role_status "$role")"
   now="$(date +%s)"
+  # A card at this stage's Status with no Agent set belongs to this stage's agent. A card the
+  # owner moved by hand arrives that way. Agent=owner is never picked up by an agent role.
   items | jq -r --arg st "$st" --arg ag "$role" '
     .items
-    | map(select(.status == $st and .agent == $ag))
+    | map(select(.status == $st
+        and (if $ag == "owner" then .agent == "owner"
+             else (.agent == $ag or .agent == null or .agent == "") end)))
     | sort_by(.priority // "P9")
     | .[]
     | "\(.content.number)\t\(.priority // "-")\t\(.title)\t\(.content.url)"' \
