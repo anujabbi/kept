@@ -8,6 +8,19 @@ import java.time.LocalTime
 import java.time.ZoneId
 import java.time.temporal.IsoFields
 
+/**
+ * How many daily habits a person can commit to. Was four, hard-coded in onboarding and in
+ * Settings → Habits; the owner raised it to ten on 1 Oct 2026 (issue #38). Both screens read it
+ * from here so the cap and its "limit reached" message cannot drift apart.
+ */
+object HabitLimits {
+    const val MIN_HABITS = 1
+    const val MAX_HABITS = 10
+    fun canAdd(count: Int): Boolean = count < MAX_HABITS
+    fun canRemove(count: Int): Boolean = count > MIN_HABITS
+    const val LIMIT_REACHED = "That's the limit: $MAX_HABITS habits. Remove one to add another."
+}
+
 object LevelRules {
     const val FLOOR = 1
     fun up(level: Int): Int = level + 1

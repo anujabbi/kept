@@ -594,3 +594,9 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
   `RecapUi.streakReset`; the screen says "Streak reset. Sprig is back to Sprig. Today is a fresh
   start." only when it is true and plain "Today is a fresh start." otherwise. Every other
   headline and detail is unchanged. Covered by `RecapDaySelectionTest` and `RecapRulesTest`.
+- **Up to ten daily habits, not four (issue #38).** The owner raised the cap on the onboarding
+  review deck, 1 Oct 2026. It was `< 4` in three places (onboarding toggle, onboarding custom-add,
+  Settings → Habits add button) and a fifth tap was swallowed silently. The cap and the one-habit
+  floor now live in `HabitLimits` in `core/domain`, both screens read them, and at the cap the add
+  control is replaced by a muted "limit reached" line. The step-1 advice "Two or three is plenty"
+  stays. Nothing downstream (lock, rollover, recap, reminders) had a cap of its own.

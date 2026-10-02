@@ -1,5 +1,6 @@
 package com.example.kept
 
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -38,6 +39,11 @@ class OnboardingFlowTest {
         ActivityScenario.launch(MainActivity::class.java).use {
             compose.waitUntil(10_000) { compose.onAllNodes(androidx.compose.ui.test.hasTestTag("onboarding_habits")).fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText("Exercise").assertIsDisplayed()
+            // Past the old cap of four (issue #38): tick every template, six in all, and the
+            // Custom row must still be offered because the cap is now ten.
+            listOf("Practice", "Study", "Tidy room", "Sleep by 11").forEach { compose.onNodeWithText(it).performScrollTo().performClick() }
+            compose.onNodeWithText("Custom").performScrollTo().assertIsDisplayed()
+            compose.onNodeWithTag("onboarding_habit_limit").assertDoesNotExist()
             compose.onNodeWithTag("onboarding_next").performClick()          // habits -> rule
             compose.waitUntil(5_000) { compose.onAllNodes(androidx.compose.ui.test.hasTestTag("onboarding_rule")).fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithTag("onboarding_next").performClick()          // rule -> exceptions
@@ -54,7 +60,7 @@ class OnboardingFlowTest {
             val settings = runBlocking { prefs.currentSettings() }
             assertTrue(settings.onboardingDone)
             val today = runBlocking { habits.today() }
-            assertEquals(2, today.total)
+            assertEquals(6, today.total)
         }
     }
 }

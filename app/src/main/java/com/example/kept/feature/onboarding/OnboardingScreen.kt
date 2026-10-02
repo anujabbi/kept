@@ -52,6 +52,7 @@ import com.example.kept.core.data.HabitRepository
 import com.example.kept.core.data.TimeSource
 import com.example.kept.core.data.db.HabitEntity
 import com.example.kept.core.data.prefs.KeptPreferences
+import com.example.kept.core.domain.HabitLimits
 import com.example.kept.core.domain.ProofType
 import com.example.kept.core.domain.SprigForm
 import com.example.kept.core.domain.SprigPose
@@ -111,10 +112,10 @@ class OnboardingViewModel @Inject constructor(
     val state: StateFlow<OnboardingState> = _state
 
     fun toggle(t: HabitTemplate) = _state.update { s ->
-        val list = if (s.chosen.any { it.title == t.title }) s.chosen.filter { it.title != t.title } else if (s.chosen.size < 4) s.chosen + t else s.chosen
+        val list = if (s.chosen.any { it.title == t.title }) s.chosen.filter { it.title != t.title } else if (HabitLimits.canAdd(s.chosen.size)) s.chosen + t else s.chosen
         s.copy(chosen = list)
     }
-    fun addCustom(t: HabitTemplate) = _state.update { s -> if (s.chosen.size < 4) s.copy(chosen = s.chosen + t) else s }
+    fun addCustom(t: HabitTemplate) = _state.update { s -> if (HabitLimits.canAdd(s.chosen.size)) s.copy(chosen = s.chosen + t) else s }
     fun setWindow(from: Int, due: Int) = _state.update { it.copy(lockFrom = from, due = due) }
     fun setBreak(min: Int) = _state.update { it.copy(breakMin = min) }
     fun next() = _state.update { it.copy(step = it.step + 1) }
@@ -225,13 +226,14 @@ private fun StepHabits(s: OnboardingState, vm: OnboardingViewModel) {
                     Icon(Icons.Outlined.Check, null, tint = c.blue400, modifier = Modifier.size(20.dp))
                 }
             }
-            if (!custom && s.chosen.size < 4) {
+            if (!custom && HabitLimits.canAdd(s.chosen.size)) {
                 Selectable(false, onClick = { custom = true }) {
                     Icon(Icons.Outlined.Add, null, tint = c.textSecondary, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(12.dp))
                     Text("Custom", style = MaterialTheme.typography.titleSmall, color = c.textPrimary)
                 }
             }
+            if (!HabitLimits.canAdd(s.chosen.size)) MutedText(HabitLimits.LIMIT_REACHED, Modifier.fillMaxWidth().testTag("onboarding_habit_limit"))
             if (custom) HabitEditor(onCancel = { custom = false }) { title, icon, proof, target, unit ->
                 vm.addCustom(HabitTemplate(title, icon, proof, target, unit)); custom = false
             }

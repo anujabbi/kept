@@ -5,7 +5,7 @@ Date: 2026-09-05. Supersedes `handoff/kept-handoff/PROMPT.md` where they differ.
 ## 1. Product summary
 
 KEPT ("Keep Every Promise Today") is an Android app for teens. The user commits to
-1–4 daily habits. During the daily lock window, **every app is locked** except a
+1–10 daily habits (raised from 1–4, issue #38). During the daily lock window, **every app is locked** except a
 hard, non-editable allowlist and a short user-chosen exceptions list, until the
 day's habits are done. A creature, **Sprig**, evolves through collectible forms as
 the streak grows; forms are kept forever in a gallery and can be shared as image
