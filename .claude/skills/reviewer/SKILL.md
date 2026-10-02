@@ -25,7 +25,10 @@ that `scripts/board.sh review` posts.
 6. Check, in this order: does it meet every acceptance item; does it break anything the tests
    do not cover; does it follow the layout in `README.md` and the rules in `DECISIONS.md`;
    is every claim in the Verified section backed by a test or a screenshot.
-7. Check out the branch and run `./gradlew testDebugUnitTest` yourself. Do not trust the PR body.
+7. Run the tests yourself in a worktree, never in the repo root:
+   `git fetch origin <pr-branch>`, `git worktree add ../kept-reviewer-<N> origin/<pr-branch>`,
+   then `./gradlew testDebugUnitTest` there. Do not trust the PR body. Remove the worktree
+   (`git worktree remove ../kept-reviewer-<N>`) before you stop.
 8. One inline thread per ask, submitted as a comment-type review:
    `gh api repos/anujabbi/kept/pulls/<PR>/reviews --input review.json` where the JSON has
    `event: "COMMENT"` and `comments: [{path, line, body}]`. Each ask says what is wrong and

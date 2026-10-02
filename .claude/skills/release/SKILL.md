@@ -25,7 +25,10 @@ You are the **release** agent. Read `AGENTS.md` first. You merge only through
 ## Ship
 
 5. If the change is user-visible, bump `versionCode` by one and `versionName` in
-   `app/build.gradle.kts` on the PR branch and push. Follow `docs/PLAY-RELEASE-CHECKLIST.md`
+   `app/build.gradle.kts` on the PR branch and push. Do it in a worktree, never in the repo
+   root: `git fetch origin <pr-branch>`, `git worktree add ../kept-release-<N> origin/<pr-branch>`,
+   commit and push from there, then `git worktree remove ../kept-release-<N>`. Follow
+   `docs/PLAY-RELEASE-CHECKLIST.md`
    only when the owner has asked for a Play release; otherwise merging to main is the release.
 6. `scripts/board.sh merge <PR>`. The board moves the card to Done on merge.
 7. Comment `**[release]** merged as <sha>` on the issue. Stop. One card per pass.
