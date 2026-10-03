@@ -60,7 +60,8 @@ Read `AGENTS.md` first. One pass produces one report and at most one PR.
     - Branch `issue-<N>-em-<date>` in its own worktree
       (`git worktree add ../kept-em-<N> -b issue-<N>-em-<date> origin/main`), never in the repo
       root. Commit with `Agent: em`, PR body starting `Closes #<N>` and linking the report.
-      Remove the worktree when the PR is open. `scripts/board.sh add` both, `scripts/board.sh move <N> review reviewer`.
+      Remove the worktree when the PR is open. `scripts/board.sh add <N>` for the issue only
+      (never the PR), then `scripts/board.sh move <N> review reviewer`.
     - The `needs-human` label copies to the PR, the reviewer agent reviews it like any PR, and
       the owner merges. You never merge and never edit skills on `main` directly.
 11. Stop. If the window had no incidents, still write the report, say so, and open no PR.

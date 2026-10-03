@@ -50,7 +50,8 @@ first bug. Treat a review ask or a QA failure on your card as a defect in your o
     screenshot per visible acceptance item embedded as `![<item>](../kept-issue-<N>-<item>.png)`
     with one `--attach ../kept-issue-<N>-<item>.png` per file, so the reviewer sees the
     images inline rather than a filename. Needs `gh` 2.99 or newer.
-11. `scripts/board.sh add <PR>` and `scripts/board.sh move <N> review reviewer`.
+11. `scripts/board.sh move <N> review reviewer`. Do not add the PR to the board; the issue
+    card is the only card, and a PR card lands in Backlog where it looks like owner work.
 12. `git worktree remove ../kept-issue-<N>` and stop. One card per pass.
 
 ## Review round
