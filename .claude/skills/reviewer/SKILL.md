@@ -24,10 +24,14 @@ that `scripts/board.sh review` posts.
    threads still open (`scripts/board.sh threads <PR>`).
 6. Check, in this order: does it meet every acceptance item; does it break anything the tests
    do not cover; does it follow the layout in `README.md` and the rules in `DECISIONS.md`;
-   is every claim in the Verified section backed by a test or a screenshot.
+   is every claim in the Verified section backed by a test or a screenshot that is actually
+   embedded in the PR body (a filename alone is not evidence).
 7. Run the tests yourself in a worktree, never in the repo root:
    `git fetch origin <pr-branch>`, `git worktree add ../kept-reviewer-<N> origin/<pr-branch>`,
-   then `./gradlew testDebugUnitTest` there. Do not trust the PR body. Remove the worktree
+   then `./gradlew testDebugUnitTest` there, and `./gradlew compileDebugAndroidTestKotlin`
+   as well whenever the diff touches `app/src/androidTest` (unit tests and `assembleDebug`
+   do not compile it; the reviewer approved PR #46 with a broken instrumented test and QA
+   sent it back). Do not trust the PR body. Remove the worktree
    (`git worktree remove ../kept-reviewer-<N>`) before you stop.
 8. One inline thread per ask, submitted as a comment-type review:
    `gh api repos/anujabbi/kept/pulls/<PR>/reviews --input review.json` where the JSON has
