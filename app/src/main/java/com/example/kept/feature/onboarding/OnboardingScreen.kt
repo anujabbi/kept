@@ -60,6 +60,7 @@ import com.example.kept.core.domain.Variants
 import com.example.kept.core.lock.ForegroundWatcherService
 import com.example.kept.core.lock.PermissionKind
 import com.example.kept.core.lock.Permissions
+import com.example.kept.core.lock.RequiredPermissions
 import com.example.kept.core.ui.HabitIcons
 import com.example.kept.core.ui.HabitTemplate
 import com.example.kept.core.ui.HabitTemplates
@@ -301,17 +302,19 @@ private fun StepPermissions(s: OnboardingState, vm: OnboardingViewModel) {
         add(PermissionKind.USAGE_ACCESS); add(PermissionKind.OVERLAY); add(PermissionKind.NOTIFICATIONS); add(PermissionKind.BATTERY)
         if (s.hasPhotoHabit && ctx.hasCamera()) add(PermissionKind.CAMERA)
     }
-    val requiredOk = (states[PermissionKind.USAGE_ACCESS] ?: vm.permissions.usageAccessGranted()) && (states[PermissionKind.OVERLAY] ?: vm.permissions.overlayGranted())
+    // Every card reports back through `states`, the runtime launcher for notifications included,
+    // so a system-dialog Allow flips the button without leaving the step (issue #40).
+    val missing = RequiredPermissions.missing(RequiredPermissions.onboardingGate) { states[it] ?: vm.permissions.granted(it) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).testTag("onboarding_permissions")) {
         Spacer(Modifier.height(8.dp))
         ScreenTitle("Let KEPT do its job", "The lock needs to see which app is in front, and to step in front of it. It never reads what is inside them. KEPT sends anonymous usage stats — turn them off in Settings.")
         Spacer(Modifier.height(18.dp))
         PermissionCards(vm.permissions, kinds, vm::reportPermissionAnswer) { states = it }
         Spacer(Modifier.height(20.dp))
-        PrimaryButton(if (requiredOk) "Continue" else "Continue without the lock", onClick = vm::next, modifier = Modifier.testTag("onboarding_next"))
-        if (!requiredOk) {
+        PrimaryButton(RequiredPermissions.continueLabel(missing), onClick = vm::next, modifier = Modifier.testTag("onboarding_next"))
+        RequiredPermissions.onboardingWarning(missing)?.let {
             Spacer(Modifier.height(8.dp))
-            MutedText("Without usage access and display over other apps nothing locks and days won't count. You can grant them later in Settings.", Modifier.fillMaxWidth(), TextAlign.Center)
+            MutedText(it, Modifier.fillMaxWidth().testTag("onboarding_permissions_warning"), TextAlign.Center)
         }
         Spacer(Modifier.height(20.dp))
     }

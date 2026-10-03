@@ -59,6 +59,7 @@ import com.example.kept.core.data.HabitToday
 import com.example.kept.core.domain.ProofType
 import com.example.kept.core.domain.SprigPose
 import com.example.kept.core.domain.minuteOfDayLabel
+import com.example.kept.core.lock.RequiredPermissions
 import com.example.kept.core.ui.DayDot
 import com.example.kept.core.ui.HabitIcons
 import com.example.kept.core.ui.InfoBox
@@ -109,14 +110,14 @@ fun HomeScreen(
         }
         Spacer(Modifier.height(14.dp))
 
-        if (s.usageAccessMissing) {
+        if (s.missingLockPermissions.isNotEmpty()) {
             KeptCard(background = c.dangerSoft, border = null, onClick = onOpenPermissions, padding = androidx.compose.foundation.layout.PaddingValues(14.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Outlined.Warning, null, tint = c.danger, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
                         Text("Lock is off", style = MaterialTheme.typography.titleSmall, color = c.danger)
-                        Text("A required permission is missing. Today won't count until it's back on.", style = MaterialTheme.typography.bodySmall, color = c.textSecondary)
+                        Text(RequiredPermissions.lockOffBody(s.missingLockPermissions), style = MaterialTheme.typography.bodySmall, color = c.textSecondary)
                     }
                     Text("Fix", style = MaterialTheme.typography.labelLarge, color = c.danger)
                 }

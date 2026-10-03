@@ -40,8 +40,11 @@ class Permissions @Inject constructor(@ApplicationContext private val ctx: Conte
 
     fun overlayGranted(): Boolean = Settings.canDrawOverlays(ctx)
 
-    /** Both permissions the lock cannot work without. */
-    fun lockPermissionsGranted(): Boolean = usageAccessGranted() && overlayGranted()
+    /** Both permissions the lock cannot work without; [RequiredPermissions.lockGate]. */
+    fun lockPermissionsGranted(): Boolean = missing(RequiredPermissions.lockGate).isEmpty()
+
+    /** The subset of [kinds] not granted right now, in the order given. */
+    fun missing(kinds: List<PermissionKind>): List<PermissionKind> = RequiredPermissions.missing(kinds, ::granted)
 
     fun notificationsGranted(): Boolean =
         Build.VERSION.SDK_INT < 33 || ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED

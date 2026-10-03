@@ -600,3 +600,18 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
   floor now live in `HabitLimits` in `core/domain`, both screens read them, and at the cap the add
   control is replaced by a muted "limit reached" line. The step-1 advice "Two or three is plenty"
   stays. Nothing downstream (lock, rollover, recap, reminders) had a cap of its own.
+- **Onboarding Continue waits for notifications too; the lock gate does not (issue #40).** The
+  owner decided on the onboarding review deck, 1 Oct 2026, that the Notifications card's Required
+  pill should mean what it says, so the permissions step reads "Continue without the lock" until
+  usage access, display over other apps and notifications are all granted. The two gates now live
+  in `RequiredPermissions` (`core/lock`, pure Kotlin): `onboardingGate` is all three, `lockGate`
+  stays usage access and overlay. Notifications was deliberately kept out of `lockGate`: on API
+  33+ the foreground service still enforces the lock without its visible notification, so a day
+  with notifications denied still counts and is not a protection gap. Home's "Lock is off" card and
+  the watcher both read `lockGate`, so they agree; with only notifications denied Home shows no
+  card and the user learns it is off from the Settings → Permissions card's Required pill, the
+  same card onboarding showed. The warning line under the button is honest per case: when a lock
+  permission is missing it names everything missing and says nothing locks; when only
+  notifications is missing it says reminders, the recap and the "Lock is off" warning will not
+  arrive, since claiming nothing locks there would be false. Home's card now names the missing
+  permission(s) instead of "A required permission". Covered by `RequiredPermissionsTest`.

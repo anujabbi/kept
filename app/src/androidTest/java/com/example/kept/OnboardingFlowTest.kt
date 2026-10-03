@@ -1,6 +1,8 @@
 package com.example.kept
 
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -49,6 +51,12 @@ class OnboardingFlowTest {
             compose.waitUntil(5_000) { compose.onAllNodes(androidx.compose.ui.test.hasTestTag("onboarding_exceptions")).fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithTag("onboarding_next").performClick()          // exceptions -> permissions
             compose.waitUntil(5_000) { compose.onAllNodes(androidx.compose.ui.test.hasTestTag("onboarding_permissions")).fetchSemanticsNodes().isNotEmpty() }
+            // A fresh emulator denies usage access, overlay and POST_NOTIFICATIONS alike, so the
+            // three-permission gate (issue #40) holds the button back and the line names all three.
+            compose.onNodeWithTag("onboarding_next").performScrollTo().assertTextEquals("Continue without the lock")
+            compose.onNodeWithTag("onboarding_permissions_warning").performScrollTo()
+                .assert(androidx.compose.ui.test.hasText("notifications", substring = true))
+                .assert(androidx.compose.ui.test.hasText("usage access", substring = true))
             // The permissions step is a scrolling column and its copy is long enough to push the
             // button below the fold on a short screen; scroll to it rather than clicking blind.
             compose.onNodeWithTag("onboarding_next").performScrollTo().performClick() // permissions -> meet sprig
