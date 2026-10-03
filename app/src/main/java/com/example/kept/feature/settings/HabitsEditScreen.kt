@@ -38,11 +38,13 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.kept.core.data.db.HabitEntity
+import com.example.kept.core.domain.HabitLimits
 import com.example.kept.core.domain.ProofType
 import com.example.kept.core.ui.HabitIcons
 import com.example.kept.core.ui.InfoBox
 import com.example.kept.core.ui.KeptCard
 import com.example.kept.core.ui.KeptTheme
+import com.example.kept.core.ui.MutedText
 import com.example.kept.core.ui.PrimaryButton
 import com.example.kept.core.ui.SecondaryButton
 import com.example.kept.core.ui.SectionLabel
@@ -75,15 +77,16 @@ fun HabitsEditScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel()
                             style = MaterialTheme.typography.bodySmall, color = c.textSecondary,
                         )
                     }
-                    IconButton(onClick = { vm.requestRemoveHabit(h.id) }, enabled = s.habits.size > 1) { Icon(Icons.Outlined.Delete, "Remove", tint = if (s.habits.size > 1) c.textMuted else c.border) }
+                    IconButton(onClick = { vm.requestRemoveHabit(h.id) }, enabled = HabitLimits.canRemove(s.habits.size)) { Icon(Icons.Outlined.Delete, "Remove", tint = if (HabitLimits.canRemove(s.habits.size)) c.textMuted else c.border) }
                 }
             }
             Spacer(Modifier.height(8.dp))
         }
-        if (s.habits.size == 1) InfoBox("Keep at least one habit. Remove this one after adding another.")
+        if (!HabitLimits.canRemove(s.habits.size)) InfoBox("Keep at least one habit. Remove this one after adding another.")
         Spacer(Modifier.height(8.dp))
 
-        if (!adding && s.habits.size < 4) SecondaryButton("Add a habit", onClick = { adding = true })
+        if (!adding && HabitLimits.canAdd(s.habits.size)) SecondaryButton("Add a habit", onClick = { adding = true })
+        if (!HabitLimits.canAdd(s.habits.size)) MutedText(HabitLimits.LIMIT_REACHED, Modifier.fillMaxWidth())
         if (adding) {
             HabitEditor(onCancel = { adding = false }) { title, icon, proof, target, unit ->
                 vm.addHabit(title, icon, proof, target, unit); adding = false

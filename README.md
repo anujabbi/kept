@@ -1,6 +1,6 @@
 # KEPT
 
-Keep Every Promise Today. An Android app for teens: commit to one to four daily habits, and until
+Keep Every Promise Today. An Android app for teens: commit to one to ten daily habits, and until
 they are done every app on the phone is locked except the essentials (phone, messages, maps,
 camera, settings) and a short list of exceptions you choose. A creature called Sprig evolves as
 your streak grows.
