@@ -57,6 +57,16 @@ data class PickableApp(val app: InstalledApp, val allowed: Boolean)
 fun pickableApps(installed: List<InstalledApp>, hard: Set<String>, allowed: Set<String>): List<PickableApp> =
     Allowlist.pickable(installed, { it.packageName }, hard).map { PickableApp(it, it.packageName in allowed) }
 
+/**
+ * The order the exceptions picker shows its rows in (issue #39): the rows that are switched on
+ * first, then everything else, each group alphabetical by label ignoring case. [query] narrows
+ * the rows by label first, so an on row stays pinned above the locked rows it is filtered with.
+ * A blank query is no filter. Pure, so the rule is tested rather than incidental to the screen.
+ */
+fun orderForPicker(apps: List<PickableApp>, query: String): List<PickableApp> =
+    apps.filter { query.isBlank() || it.app.label.contains(query.trim(), ignoreCase = true) }
+        .sortedWith(compareByDescending<PickableApp> { it.allowed }.thenBy { it.app.label.lowercase() })
+
 /** A lock-affecting settings change (issue #1), snake_case matching the PostHog `setting` property. */
 enum class LockAffectingSetting(val eventValue: String) {
     LOCK_WINDOW("lock_window"),

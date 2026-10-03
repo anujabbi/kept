@@ -19,6 +19,7 @@ import com.example.kept.core.notify.ReminderPoster
 import com.example.kept.core.work.WorkScheduler
 import com.example.kept.feature.settings.PickableApp
 import com.example.kept.feature.settings.SettingsViewModel
+import com.example.kept.feature.settings.orderForPicker
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
@@ -139,5 +140,47 @@ class ExceptionPickerSourceTest {
 
         lockRepo.addException(target!!.packageName, target.label)
         vm.awaitPicker { list -> list.single { it.app.packageName == target.packageName }.allowed }
+    }
+
+    /**
+     * Switched-on rows stay pinned at the top (issue #39): what the screen shows is
+     * [orderForPicker] over the picker the view model emits, so after a toggle through the
+     * view model the toggled rows come first, alphabetical among themselves, and a search query
+     * keeps them first within its matches.
+     */
+    @Test fun toggled_on_rows_come_first_in_picker_order_and_stay_there_under_a_query(): Unit = runBlocking {
+        val pickable = Allowlist.pickable(appsSource.listLaunchable(), { it.packageName }, allowlist.hardAllowlist())
+            .sortedBy { it.label.lowercase() }
+        assumeTrue("need at least three exemptable apps on this device", pickable.size >= 3)
+        // The last two alphabetically, so pinning them is visible: unsorted they would be at the bottom.
+        val (a, b) = pickable.takeLast(2)
+
+        val vm = viewModel()
+        vm.loadApps().join()
+        vm.awaitPicker { list -> list.any { it.app.packageName == a.packageName } }
+        org.junit.Assert.assertEquals(
+            "before any toggle the order is alphabetical",
+            pickable.map { it.packageName },
+            orderForPicker(vm.apps.value!!, "").map { it.app.packageName },
+        )
+
+        vm.toggleException(b, true).join()
+        var ordered = orderForPicker(vm.awaitPicker { list -> list.single { it.app.packageName == b.packageName }.allowed }, "")
+        org.junit.Assert.assertEquals("the toggled row is first", b.packageName, ordered.first().app.packageName)
+
+        vm.toggleException(a, true).join()
+        ordered = orderForPicker(vm.awaitPicker { list -> list.single { it.app.packageName == a.packageName }.allowed }, "")
+        org.junit.Assert.assertEquals("both on rows are first, alphabetical among themselves", listOf(a.packageName, b.packageName), ordered.take(2).map { it.app.packageName })
+        org.junit.Assert.assertTrue("the locked rows after them are alphabetical", ordered.drop(2).map { it.app.label.lowercase() }.let { it == it.sorted() })
+
+        // A query that matches the on row and others keeps the on row first within the matches.
+        val q = b.label.first().toString()
+        val filtered = orderForPicker(vm.apps.value!!, q)
+        org.junit.Assert.assertTrue(filtered.all { it.app.label.contains(q, ignoreCase = true) })
+        org.junit.Assert.assertTrue(filtered.takeWhile { it.allowed }.map { it.app.packageName }.containsAll(listOf(a, b).filter { it.label.contains(q, ignoreCase = true) }.map { it.packageName }))
+
+        vm.toggleException(b, false).join()
+        ordered = orderForPicker(vm.awaitPicker { list -> !list.single { it.app.packageName == b.packageName }.allowed }, "")
+        org.junit.Assert.assertEquals("switched off, it is back at its alphabetical place", b.packageName, ordered.last().app.packageName)
     }
 }

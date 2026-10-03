@@ -53,4 +53,51 @@ class ExceptionPickerTest {
         assertTrue(picker.none { it.app.packageName == "com.uninstalled.app" })
         assertTrue(picker.none { it.allowed })
     }
+
+    // --- ordering (issue #39): switched-on rows stay pinned at the top ---
+
+    private fun row(pkg: String, label: String, allowed: Boolean = false) = PickableApp(InstalledApp(pkg, label), allowed)
+    private val zoom = row("us.zoom", "Zoom")
+    private val insta = row("com.instagram.android", "Instagram")
+    private val spotify = row("com.spotify.music", "Spotify")
+    private val amazon = row("com.amazon.shop", "amazon shopping")
+    private val all = listOf(zoom, insta, spotify, amazon)
+
+    private fun labels(list: List<PickableApp>) = list.map { it.app.label }
+
+    @Test fun `with nothing on, rows are alphabetical ignoring case`() {
+        assertEquals(listOf("amazon shopping", "Instagram", "Spotify", "Zoom"), labels(orderForPicker(all, "")))
+    }
+
+    @Test fun `toggling one on moves it to the front`() {
+        val on = all.map { if (it == zoom) it.copy(allowed = true) else it }
+        assertEquals(listOf("Zoom", "amazon shopping", "Instagram", "Spotify"), labels(orderForPicker(on, "")))
+    }
+
+    @Test fun `toggling it off again returns it to its alphabetical place`() {
+        val on = all.map { if (it == zoom) it.copy(allowed = true) else it }
+        val off = on.map { it.copy(allowed = false) }
+        assertEquals(labels(orderForPicker(all, "")), labels(orderForPicker(off, "")))
+    }
+
+    @Test fun `two on rows sit together at the top, alphabetical among themselves`() {
+        val on = all.map { if (it == zoom || it == spotify) it.copy(allowed = true) else it }
+        assertEquals(listOf("Spotify", "Zoom", "amazon shopping", "Instagram"), labels(orderForPicker(on, "")))
+    }
+
+    @Test fun `a search filter keeps on rows first within the matches`() {
+        val on = all.map { if (it == zoom) it.copy(allowed = true) else it }
+        // "o" matches Zoom, amazon shopping and Spotify but not Instagram.
+        assertEquals(listOf("Zoom", "amazon shopping", "Spotify"), labels(orderForPicker(on, "o")))
+        assertEquals(listOf("Zoom", "amazon shopping", "Spotify"), labels(orderForPicker(on, "O")))
+    }
+
+    @Test fun `a filter that excludes the on row simply hides it`() {
+        val on = all.map { if (it == zoom) it.copy(allowed = true) else it }
+        assertEquals(listOf("Instagram"), labels(orderForPicker(on, "inst")))
+    }
+
+    @Test fun `a blank query is no filter`() {
+        assertEquals(4, orderForPicker(all, "   ").size)
+    }
 }
