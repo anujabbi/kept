@@ -1,12 +1,12 @@
 # Owner agenda (next 30 min)
 
-Last updated: 2026-10-02 (evening, 9:30 PM PT slot)
+Last updated: 2026-10-03 (weekend morning, 10:00 AM PT slot)
 
 ## P0 — decisions needed
 
 1. **Play Console:** create the KEPT app listing (`com.zenai.kept`) and paste privacy URL https://anujabbi.github.io/kept-site/privacy-policy.html. Account is verified/ready — listing is the remaining store blocker.
 2. **Reddit / X identity:** personal vs KEPT handle before any Growth post (R1/R2 + X drafts parked until you approve exact text).
-3. **Release stack:** code PRs [#45](https://github.com/anujabbi/kept/pull/45) → [#46](https://github.com/anujabbi/kept/pull/46) → [#47](https://github.com/anujabbi/kept/pull/47) are QA+reviewer green and MERGEABLE (close #37–#39). Confirm release agent should merge in that order; App Manager will **not** merge them.
+3. **Release stack:** code PRs [#45](https://github.com/anujabbi/kept/pull/45) → [#46](https://github.com/anujabbi/kept/pull/46) → [#47](https://github.com/anujabbi/kept/pull/47) are still QA+reviewer green and MERGEABLE (close #37–#39). Overnight: no merge yet. Confirm release agent should merge in that order; App Manager will **not** merge them.
 4. **Issue [#4](https://github.com/anujabbi/kept/issues/4):** planner says fixes are on `main`. On a **physical device**, either close it (no longer reproduces) or re-Ready with device / Android / excepted app / lock-up-at-time details.
 
 ## P1 — if time
@@ -27,7 +27,7 @@ Last updated: 2026-10-02 (evening, 9:30 PM PT slot)
 
 ## FYI / App Manager will do without you
 
-- Archive this briefing under `docs/ops/daily/2026-10-02.md`.
+- Archive this briefing under `docs/ops/daily/2026-10-03.md`.
 - Watch eng release of #45→#46→#47; do not merge those PRs.
 - No Growth posts until you pick Reddit/X identity and approve the exact draft.
 - No paid growth.
