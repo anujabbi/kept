@@ -70,14 +70,12 @@ import com.example.kept.core.ui.MutedText
 import com.example.kept.core.ui.PrimaryButton
 import com.example.kept.core.ui.ScreenTitle
 import com.example.kept.core.ui.SecondaryButton
-import com.example.kept.core.ui.SectionLabel
 import com.example.kept.core.ui.Selectable
 import com.example.kept.core.ui.sprig.SprigView
 import com.example.kept.core.work.WorkScheduler
 import com.example.kept.feature.settings.ExceptionsScreen
 import com.example.kept.feature.settings.HabitEditor
 import com.example.kept.feature.settings.PermissionCards
-import com.example.kept.feature.settings.TimeRow
 import com.example.kept.feature.settings.hasCamera
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -90,9 +88,6 @@ import javax.inject.Inject
 data class OnboardingState(
     val step: Int = 0,
     val chosen: List<HabitTemplate> = listOf(HabitTemplates.list[0], HabitTemplates.list[1]),
-    val lockFrom: Int = 7 * 60,
-    val due: Int = 21 * 60,
-    val breakMin: Int = 30,
     val saving: Boolean = false,
 ) {
     val hasPhotoHabit: Boolean get() = chosen.any { it.proofType == ProofType.PHOTO }
@@ -116,13 +111,11 @@ class OnboardingViewModel @Inject constructor(
         s.copy(chosen = list)
     }
     fun addCustom(t: HabitTemplate) = _state.update { s -> if (HabitLimits.canAdd(s.chosen.size)) s.copy(chosen = s.chosen + t) else s }
-    fun setWindow(from: Int, due: Int) = _state.update { it.copy(lockFrom = from, due = due) }
-    fun setBreak(min: Int) = _state.update { it.copy(breakMin = min) }
     fun next() = _state.update { it.copy(step = it.step + 1) }
     fun back() = _state.update { it.copy(step = (it.step - 1).coerceAtLeast(0)) }
 
     /**
-     * Onboarding is one nav destination but five screens to the person walking it, so the step —
+     * Onboarding is one nav destination but four screens to the person walking it, so the step —
      * not the route — is what a funnel needs (issue #10). Steps are numbered as the header shows
      * them, from 1.
      */
@@ -137,25 +130,27 @@ class OnboardingViewModel @Inject constructor(
         mapOf("permission" to kind.eventValue),
     )
 
-    /** Persists habits and settings when leaving step 1 so the exceptions/permission steps can already use them. */
+    /**
+     * Persists habits and the first-use date when leaving step 1 so the exceptions/permission
+     * steps can already use them. The lock window and break length are not touched: see
+     * [onboardingDraft].
+     */
     fun persistDraft() = viewModelScope.launch {
         val s = _state.value
         habits.replaceAll(s.chosen.map { HabitEntity(title = it.title, iconKey = it.iconKey, proofType = it.proofType, targetValue = it.targetValue, unit = it.unit, createdAt = time.nowMillis()) })
-        prefs.updateSettings { it.copy(lockFromMinute = s.lockFrom, dueMinute = s.due, breakDurationMin = s.breakMin, firstUseDate = it.firstUseDate ?: time.today()) }
+        prefs.updateSettings { it.onboardingDraft(time.today()) }
     }
 
     fun finish(onDone: () -> Unit) = viewModelScope.launch {
         _state.update { it.copy(saving = true) }
         persistDraft().join()
-        prefs.updateSettings { it.copy(onboardingDone = true, onboardingStep = 5) }
+        prefs.updateSettings { it.onboardingFinished(time.today()) }
         ForegroundWatcherService.start(ctx)
         scheduler.scheduleAll()
         analytics.capture("onboarding_completed", mapOf("habit_count" to _state.value.chosen.size))
         onDone()
     }
 }
-
-private const val STEPS = 5
 
 @Composable
 fun OnboardingScreen(onDone: () -> Unit, vm: OnboardingViewModel = hiltViewModel()) {
@@ -168,10 +163,10 @@ fun OnboardingScreen(onDone: () -> Unit, vm: OnboardingViewModel = hiltViewModel
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = vm::back, enabled = s.step > 0) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back", tint = if (s.step > 0) c.textSecondary else c.border) }
             Box(Modifier.weight(1f).height(4.dp).clip(RoundedCornerShape(2.dp)).background(c.surface0)) {
-                Box(Modifier.fillMaxWidth((s.step + 1f) / STEPS).height(4.dp).background(c.purple400))
+                Box(Modifier.fillMaxWidth((s.step + 1f) / ONBOARDING_STEPS).height(4.dp).background(c.purple400))
             }
             Spacer(Modifier.width(12.dp))
-            Text("${s.step + 1} of $STEPS", style = MaterialTheme.typography.bodySmall, color = c.textMuted)
+            Text("${s.step + 1} of $ONBOARDING_STEPS", style = MaterialTheme.typography.bodySmall, color = c.textMuted)
             Spacer(Modifier.width(8.dp))
         }
         AnimatedContent(
@@ -185,9 +180,8 @@ fun OnboardingScreen(onDone: () -> Unit, vm: OnboardingViewModel = hiltViewModel
         ) { step ->
             when (step) {
                 0 -> StepHabits(s, vm)
-                1 -> StepRule(s, vm)
-                2 -> StepExceptions(vm)
-                3 -> StepPermissions(s, vm)
+                1 -> StepExceptions(vm)
+                2 -> StepPermissions(s, vm)
                 else -> StepMeetSprig(s, vm, onDone)
             }
         }
@@ -240,38 +234,6 @@ private fun StepHabits(s: OnboardingState, vm: OnboardingViewModel) {
         }
         Spacer(Modifier.height(20.dp))
         PrimaryButton("Continue", enabled = s.chosen.isNotEmpty(), onClick = { vm.persistDraft(); vm.next() }, modifier = Modifier.testTag("onboarding_next"))
-        Spacer(Modifier.height(20.dp))
-    }
-}
-
-@Composable
-private fun StepRule(s: OnboardingState, vm: OnboardingViewModel) {
-    val c = KeptTheme.colors
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).testTag("onboarding_rule")) {
-        Spacer(Modifier.height(8.dp))
-        ScreenTitle("When does the lock run?", "Between these times, every app locks until your habits are done. Pick something you can't argue with later.")
-        Spacer(Modifier.height(18.dp))
-        KeptCard {
-            TimeRow("Lock apps from", s.lockFrom) { vm.setWindow(it, s.due) }
-            Spacer(Modifier.height(12.dp))
-            TimeRow("Give-up time", s.due) { vm.setWindow(s.lockFrom, it) }
-        }
-        Spacer(Modifier.height(8.dp))
-        MutedText("After the give-up time apps open again. Anything you tick after that still shows as done, but the day counts as missed.")
-        Spacer(Modifier.height(20.dp))
-        SectionLabel("If you break the lock, apps open for")
-        Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(15, 30, 60).forEach { m ->
-                Selectable(s.breakMin == m, onClick = { vm.setBreak(m) }, modifier = Modifier.weight(1f), padding = androidx.compose.foundation.layout.PaddingValues(12.dp)) {
-                    Text("$m min", style = MaterialTheme.typography.labelLarge, color = c.textPrimary, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
-                }
-            }
-        }
-        Spacer(Modifier.height(8.dp))
-        InfoBox("Breaking the lock always works. It takes a 60-second countdown, costs Sprig a level, and you get three a week before a day is written off.")
-        Spacer(Modifier.height(20.dp))
-        PrimaryButton("Continue", onClick = { vm.persistDraft(); vm.next() }, modifier = Modifier.testTag("onboarding_next"))
         Spacer(Modifier.height(20.dp))
     }
 }
@@ -341,6 +303,8 @@ private fun StepMeetSprig(s: OnboardingState, vm: OnboardingViewModel, onDone: (
         Spacer(Modifier.height(8.dp))
         MutedText("Each form you reach stays in your collection, in this week's look only. Share them anywhere.", Modifier.fillMaxWidth(), TextAlign.Center)
         Spacer(Modifier.height(20.dp))
+        InfoBox("Breaking the lock always works. It takes a 60-second countdown, costs Sprig a level, and you get three a week before a day is written off.")
+        Spacer(Modifier.height(8.dp))
         InfoBox("One weekly shield forgives a missed day. Everything else is on you.")
         Spacer(Modifier.height(20.dp))
         PrimaryButton(if (s.saving) "Starting…" else "Start today", enabled = !s.saving, onClick = { vm.finish(onDone) }, modifier = Modifier.testTag("onboarding_finish"))

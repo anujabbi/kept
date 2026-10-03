@@ -42,8 +42,12 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
   and recoloured from one source. The same draw function renders the share bitmap.
 - **Debug seeding is opt-in.** In debug builds the seeder runs only when the app is launched with
   `--ez seed true`, so onboarding can still be tested on a debug install.
-- **Onboarding has five steps, not three.** Habits, rule, exceptions (needed by default-deny),
-  permissions, meet Sprig.
+- **Onboarding has four steps, not three or five.** Habits, exceptions (needed by default-deny),
+  permissions, meet Sprig. The lock-rule step (lock-from, give-up time, break length) was dropped
+  on the owner's call of 1 Oct 2026 (issue #37): it asked for three settings before the user had
+  seen a lock, its defaults were already the `Settings` defaults, and Settings has the same
+  controls. Onboarding now writes only habits, the first-use date and the done flag; the break
+  rule is explained on the meet-Sprig step instead.
 - **Watchdog worker every 15 minutes** re-starts the service, runs pending rollovers, and records
   a protection gap when the heartbeat is older than 2 minutes during a lock window. Rollover is a
   one-time work request re-armed for 00:05 each day, plus catch-up on app open so multi-day gaps
@@ -374,8 +378,8 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
       listener maps *route patterns* to names in `Screens`, so a `$screen` never carries the recap
       date or a gallery row id, and Lock, Break and the celebration — which no NavController
       reaches — report themselves. Onboarding is deliberately not in that map: it reports one
-      screen view per step, carrying `onboarding_step`, so the first-run funnel is five steps
-      rather than one destination.
+      screen view per step, carrying `onboarding_step`, so the first-run funnel is four steps
+      (five before issue #37) rather than one destination.
     - **No `identify`, ever.** The distinct ID stays the SDK's random anonymous one. No name, no
       email, no habit title and no app label the user typed is attached to any event. Super
       properties are `app_version`, `android_sdk`, `manufacturer`, `habit_count` and `streak`; the
