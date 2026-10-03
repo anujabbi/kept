@@ -65,8 +65,8 @@ failed. The comment is the handoff; do not rely on the reviewer or QA agent's me
 - **Never check out a branch in the repo root.** The root checkout stays on `main` and is
   shared by every agent terminal. Any checkout, edit or build of a branch happens in a git
   worktree at `../kept-<role>-<N>` (`git worktree add ../kept-<role>-<N> ...`), removed when
-  the pass ends. This holds for every role, including the reviewer running tests and the
-  release agent bumping the version.
+  the pass ends. This holds for every role that touches a branch, including the release
+  agent bumping the version. The reviewer reads the diff through `gh` and needs no worktree.
 - **PR body starts with `Closes #N`.** The `pr-links-issue` workflow comments if it is missing.
 - **Tests before code.** Unit tests live in `app/src/test`; run `./gradlew testDebugUnitTest`.
   Instrumented tests live in `app/src/androidTest` and need an emulator.
@@ -86,9 +86,11 @@ in Ready with `Agent=dev`. Create sub-issues with
 concern per PR. Include in the PR body how you verified it (test names, or screenshots from
 `scripts/verify.sh` for UI work).
 
-**reviewer.** Review for correctness against the acceptance list, then for the repo's existing
-patterns (see `README.md` for the module layout). Request changes with concrete asks; do not
-rewrite the PR. Approving moves the card to QA.
+**reviewer.** Code review only: it reads the diff, it does not run tests, build or install
+the app. Check scope both ways (every acceptance item has a change behind it, every change
+has an acceptance item or a `DECISIONS.md` line behind it), then correctness by reading, then
+the repo's existing patterns (see `README.md` for the module layout). Request changes with
+concrete asks; do not rewrite the PR. Approving moves the card to QA, which builds it.
 
 **qa.** Check out the PR branch, build `./gradlew assembleDebug`, and walk every item in the
 issue's Acceptance list on an emulator. Post the results as a checklist comment on the issue,
