@@ -19,7 +19,9 @@ import com.example.kept.core.domain.SprigForm
 import com.example.kept.core.domain.SprigState
 import com.example.kept.core.domain.Variants
 import com.example.kept.core.domain.WeekVariant
+import com.example.kept.core.lock.PermissionKind
 import com.example.kept.core.lock.Permissions
+import com.example.kept.core.lock.RequiredPermissions
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -41,7 +43,8 @@ data class HomeUiState(
     val date: LocalDate = LocalDate.now(),
     val pendingRecapDate: String? = null,
     val unseenUnlock: GalleryCard? = null,
-    val usageAccessMissing: Boolean = false,
+    /** Lock permissions not granted right now, [RequiredPermissions.lockGate] order; empty means the lock can run. */
+    val missingLockPermissions: List<PermissionKind> = emptyList(),
     val lastSeven: List<Pair<LocalDate, DayRecordEntity?>> = emptyList(),
     val todayRecord: DayRecordEntity? = null,
 ) {
@@ -77,7 +80,7 @@ class HomeViewModel @Inject constructor(
     ) { s, unseen, seven, todayRec ->
         s.copy(
             unseenUnlock = unseen.firstOrNull(),
-            usageAccessMissing = !permissions.lockPermissionsGranted(),
+            missingLockPermissions = permissions.missing(RequiredPermissions.lockGate),
             lastSeven = seven,
             todayRecord = todayRec,
         )
