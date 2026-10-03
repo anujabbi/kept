@@ -184,7 +184,8 @@ gh project item-list 2 --owner anujabbi --format json \
 gh project item-edit --project-id <PROJECT_ID> --id <ITEM_ID> \
   --field-id <STATUS_FIELD_ID> --single-select-option-id <OPTION_ID>
 
-# Add an issue to the board (auto-add does this for new issues; use for PRs or old issues)
+# Add an issue to the board (auto-add does this for new issues; use for old issues). Never add
+# a PR: the issue card is the only card, and a PR card lands in Backlog as noise.
 gh project item-add 2 --owner anujabbi --url https://github.com/anujabbi/kept/issues/<N>
 ```
 
