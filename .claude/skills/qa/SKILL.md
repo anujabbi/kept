@@ -29,10 +29,19 @@ output is a checklist comment with evidence. A box you did not personally observ
 
 ## Record and hand off
 
-7. Comment on the issue with the prefix `**[qa]**`: the acceptance list as checkboxes, each
-   checked one naming its screenshot, each unchecked one with what you saw instead and the
-   exact steps. The CLI cannot attach images, so keep the screenshots next to the worktree
-   and name them in the comment; the owner can drag them into the thread if needed.
+7. Write the comment to `../kept-qa-<N>.md` with the prefix `**[qa]**`: the acceptance list
+   as checkboxes. Every item a user can see gets its screenshot embedded directly under the
+   checkbox as `![<item>](../kept-qa-<N>-<item>.png)`; an item with no visible surface names
+   the test or log that proves it instead. Each unchecked one says what you saw instead and
+   the exact steps, with a screenshot of the wrong state. Finish with the end state of the
+   whole flow you walked (the screen the user ends on), so the owner sees what shipped
+   without reading the list.
+   Post it with every referenced file attached:
+   `gh issue comment <N> --body-file ../kept-qa-<N>.md --attach ../kept-qa-<N>-<item>.png ...`
+   (one `--attach` per file). `gh` rewrites each local reference to the uploaded URL, so the
+   images render inline. Needs `gh` 2.99 or newer; check `gh --version` and upgrade with
+   `winget upgrade --id GitHub.cli` if older. A comment that names a screenshot it does not
+   attach is not evidence.
 8. All checked: `scripts/board.sh move <N> ship release`.
    Any unchecked: `scripts/board.sh move <N> progress dev`.
 9. `git worktree remove ../kept-qa-<N>` and stop. One card per pass.

@@ -28,6 +28,11 @@ first bug. Treat a review ask or a QA failure on your card as a defect in your o
 8. Self-verify, all of it, before anything else:
    - `./gradlew testDebugUnitTest` green.
    - `./gradlew assembleDebug` green.
+   - If the diff touches `app/src/androidTest`: `./gradlew compileDebugAndroidTestKotlin`
+     green, then run the class you changed on the emulator,
+     `./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=<fqcn>`.
+     `assembleDebug` does not compile instrumented tests; PR #46 shipped a stray import that
+     only QA caught.
    - For anything a user can see or touch: `scripts/emulator.sh ensure` (starts the AVD
      headless if none is running), install with
      `adb install -r app/build/outputs/apk/debug/app-debug.apk`, and walk every acceptance
@@ -42,7 +47,9 @@ first bug. Treat a review ask or a QA failure on your card as a defect in your o
 
 10. `gh pr create --base main` with `Closes #<N>` as the first line of the body, then a
     **Verified** section: the test names you added, the gradle commands you ran, and a
-    screenshot per acceptance item.
+    screenshot per visible acceptance item embedded as `![<item>](../kept-issue-<N>-<item>.png)`
+    with one `--attach ../kept-issue-<N>-<item>.png` per file, so the reviewer sees the
+    images inline rather than a filename. Needs `gh` 2.99 or newer.
 11. `scripts/board.sh add <PR>` and `scripts/board.sh move <N> review reviewer`.
 12. `git worktree remove ../kept-issue-<N>` and stop. One card per pass.
 
