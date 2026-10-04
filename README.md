@@ -12,7 +12,7 @@ your streak grows.
 ## Stack
 
 Kotlin 2.0, Jetpack Compose + Material 3, Hilt, Room, DataStore, WorkManager, KSP.
-minSdk 26, target/compile 35, JDK 17, Gradle 8.9 (wrapper included).
+minSdk 26, target/compile 36, JDK 17, Gradle 8.9 (wrapper included).
 
 ```
 app/src/main/java/com/example/kept/
