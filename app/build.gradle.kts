@@ -39,13 +39,13 @@ if (!hasReleaseSigning && releaseSigningParts.any { it != null }) {
 
 android {
     namespace = "com.example.kept"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.zenai.kept"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 2
+        targetSdk = 36
+        versionCode = 3
         versionName = "1.1"
         testInstrumentationRunner = "com.example.kept.HiltTestRunner"
         buildConfigField("String", "POSTHOG_PROJECT_TOKEN", "\"$posthogProjectToken\"")
