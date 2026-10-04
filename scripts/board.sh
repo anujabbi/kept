@@ -2,6 +2,7 @@
 # One way for every agent to read and move the KEPT board.
 #
 #   board.sh next <role>                      next cards for planner|dev|reviewer|qa|release|owner, unclaimed first
+#                                             (planner: empty while KEPT_WIP_LIMIT cards are in flight, default 1)
 #   board.sh claim <issue> <role>             claim a card for this session (AGENT_SESSION or host-pid), 60 min TTL
 #   board.sh threads <pr>                     unresolved review threads on a PR, with ids
 #   board.sh resolve <thread-id>              mark a review thread resolved
@@ -9,6 +10,7 @@
 #   board.sh rounds <pr>                      how many change-requesting reviews so far
 #   board.sh move <issue-or-pr> <status> <agent>      set Status and Agent on that card
 #   board.sh add <issue-or-pr>                add an issue/PR number to the board
+#   board.sh wip                              issues in flight (what the planner limit counts)
 #   board.sh merge <pr>                       release-agent merge: refuses needs-human or a red review-recorded
 #
 # Needs gh (with the project scope) and jq. Ids come from AGENTS.md.
@@ -57,7 +59,11 @@ role_status() {
   esac
 }
 
-items() { gh project item-list "$PROJECT_NUM" --owner "$OWNER" --limit 200 --format json; }
+# BOARD_ITEMS_JSON=<file> serves a saved item-list instead of the live board (tests).
+items() {
+  if [ -n "${BOARD_ITEMS_JSON:-}" ]; then cat "$BOARD_ITEMS_JSON"; else
+    gh project item-list "$PROJECT_NUM" --owner "$OWNER" --limit 200 --format json; fi
+}
 
 item_id_for() {
   # $1 = issue or PR number
@@ -77,10 +83,34 @@ latest_claim() {
         | last // empty | "\(.s) \(.t)"' | tr -d '\r'
 }
 
+# Issues in flight: In progress, In review, QA, or Ship waiting on release. Ship with
+# Agent=owner is a human decision and does not count, so it cannot stall the pipeline.
+in_flight() {
+  items | jq -r '
+    [ .items[]
+      | select(.content.type == "Issue")
+      | select(.status == "In progress" or .status == "In review" or .status == "QA"
+               or (.status == "Ship" and .agent != "owner")) ]
+    | map("#\(.content.number)") | join(" ")'
+}
+
+WIP_LIMIT="${KEPT_WIP_LIMIT:-1}"
+
 cmd_next() {
-  local role="$1" st now n sess at age
+  local role="$1" st now n sess at age flight count
   st="$(role_status "$role")"
   now="$(date +%s)"
+  # The planner is the only role that starts new work (Ready -> In progress). With
+  # KEPT_WIP_LIMIT cards already in flight it hands out nothing, so one branch exists at a
+  # time and sibling PRs cannot conflict. 0 disables the limit.
+  if [ "$role" = planner ] && [ "$WIP_LIMIT" -gt 0 ]; then
+    flight="$(in_flight)"
+    count=$(wc -w <<<"$flight")
+    if [ "$count" -ge "$WIP_LIMIT" ]; then
+      echo "  (wip) $count in flight ($flight), limit $WIP_LIMIT: Ready cards wait" >&2
+      return 0
+    fi
+  fi
   # A card at this stage's Status with no Agent set belongs to this stage's agent. A card the
   # owner moved by hand arrives that way. Agent=owner is never picked up by an agent role.
   items | jq -r --arg st "$st" --arg ag "$role" '
@@ -199,6 +229,7 @@ case "${1:-}" in
   rounds) cmd_rounds "$2" ;;
   move) cmd_move "$2" "$3" "$4" ;;
   add) cmd_add "$2" ;;
+  wip) in_flight; echo ;;
   merge) cmd_merge "$2" ;;
   *) sed -n '2,14p' "$0"; exit 2 ;;
 esac
