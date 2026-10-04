@@ -14,3 +14,6 @@ captures/
 keystore.properties
 *.jks
 *.keystore
+
+# Python bytecode (prefect flow)
+__pycache__/
