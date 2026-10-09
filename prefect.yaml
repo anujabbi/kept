@@ -1,0 +1,30 @@
+# Prefect deployment for the KEPT agent runner. See docs/AGENTS-RUNNER.md.
+#
+#   prefect work-pool create kept-agents --type process     (once)
+#   prefect deploy --all                                     (from the repo root, after every change here)
+#   prefect worker start --pool kept-agents                  (keep running)
+name: kept
+prefect-version: 3.7.0
+
+pull:
+  - prefect.deployments.steps.set_working_directory:
+      directory: C:\Users\anuja\kept
+
+deployments:
+  - name: kept-agents
+    description: >
+      One pass of the KEPT agents (release, qa, reviewer, dev, planner) from the repo root.
+      Idle passes read the board and start no Claude session. Repeats until a round finds
+      nothing, so a card handed off mid-run is picked up in the same run.
+    entrypoint: prefect/agents_flow.py:kept_agents
+    parameters:
+      dry_run: false
+    work_pool:
+      name: kept-agents
+      work_queue_name: default
+    # One pass at a time. A scheduled run that overlaps a running one waits its turn.
+    concurrency_limit: 1
+    schedules:
+      - interval: 300
+        active: true
+    tags: [kept, agents]

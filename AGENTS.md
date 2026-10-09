@@ -135,8 +135,19 @@ Comment prefixes, so a reader can tell agents apart in a thread: `**[planner]**`
 
 ## Running the agents
 
-Each role is a Claude Code skill in `.claude/skills/<role>/SKILL.md`. One terminal per role,
-from the repo root:
+Each role is a Claude Code skill in `.claude/skills/<role>/SKILL.md`. They run from one
+process, `scripts/agents.sh`, scheduled by Prefect; `docs/AGENTS-RUNNER.md` has the setup,
+the run-now button, and where the logs are. The script runs the roles in reverse pipeline
+order (release, qa, reviewer, dev, planner), starts a `claude -p "/<role>"` session only when
+`board.sh next <role>` lists a card, and repeats until a round finds nothing. An idle pass is
+five board reads and no Claude call; a card handed off mid-run is picked up in the same run.
+
+**One card in flight.** `board.sh next planner` returns nothing while a card is In progress,
+In review, QA, or Ship waiting on release (`KEPT_WIP_LIMIT`, default 1). Ready cards wait in
+Ready, so one branch exists at a time and sibling PRs cannot conflict. A `needs-human` card
+sitting in Ship for the owner does not count.
+
+The terminal-per-role method still works and is the fallback when Prefect is down:
 
 ```
 claude
@@ -144,17 +155,16 @@ claude
 ```
 
 Every pass starts with `scripts/board.sh next <role>`, takes one card, claims it, works it,
-hands off, and stops. An empty queue costs one board read. Close the terminal to stop the role.
+hands off, and stops. Close the terminal to stop the role.
 
 **Claims.** `scripts/board.sh claim <N> <role>` posts a hidden claim comment; `next` hides
 cards another session of the same role claimed in the last 60 minutes. Set `AGENT_SESSION`
 to name a session (default is host and pid). A crashed session's claim expires on its own.
 
 **Worktrees.** Every role works in its own worktree, `../kept-<role>-<N>` (dev uses
-`../kept-issue-<N>`), and never switches the root checkout off `main`. That is what lets the
-role terminals run at once without clobbering each other's files. Two `/dev` terminals are
-fine: claims keep them on different cards. Only one emulator is assumed, so run one `/qa` at
-a time.
+`../kept-issue-<N>`), and never switches the root checkout off `main`. That is what lets
+roles run back to back, or terminals at once, without clobbering each other's files. Only one
+emulator is assumed, so run one `/qa` at a time.
 
 **Emulator.** `scripts/emulator.sh ensure` starts the `kept_api35` AVD headless when no device
 is attached and waits for boot; dev and qa call it before installing. It stays up between
