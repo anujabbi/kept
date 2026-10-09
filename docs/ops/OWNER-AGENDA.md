@@ -1,14 +1,14 @@
 # Owner agenda (next 30 min)
 
-Last updated: 2026-10-07 (weekday evening, 9:30 PM PT slot)
+Last updated: 2026-10-08 (weekday evening, 9:30 PM PT slot)
 
-Repo still idle (third day). Two new items: a paste-ready Play listing draft and stale claims on the public site. If you only have five minutes, do #1 and #2 — a one-word answer on each is enough.
+Repo still idle (fourth day). Same owner-gated blockers as last night — no in-repo answers yet. If you only have five minutes, do #1 and #2 — a one-word answer on each is enough.
 
 ## P0 — decisions needed
 
 1. **Play Console listing:** create the store listing for `com.zenai.kept`. Copy is ready to paste in [`docs/growth/PLAY-LISTING.md`](https://github.com/anujabbi/kept/blob/main/docs/growth/PLAY-LISTING.md) — approve as-is, edit, or reject. Privacy URL is in the draft. Skip if already done and tell App Manager.
-2. **Fix the public site? (yes / no):** https://anujabbi.github.io/kept-site/ still advertises "1–4 habits", timer proof, and a buddy / Duo pair streak. The app has a ten-habit cap, tap-done or photo proof only, and buddy was removed in #13. On yes, App Manager opens a kept-site PR for you to merge.
-3. **PR [#59](https://github.com/anujabbi/kept/pull/59) / issue [#58](https://github.com/anujabbi/kept/issues/58) — EM agent runner (`needs-human`, you merge):** one Prefect-run pass with a WIP limit of one, replacing the five `/loop` terminals. Open since 4 Oct (fourth slot). Approve and merge, ask for changes, or say "hold" so it drops off this list. If you merge, run the three `prefect` commands in the PR body and stop the `/loop` terminals.
+2. **Fix the public site? (yes / no):** https://anujabbi.github.io/kept-site/ still advertises "1–4 habits", timer proof, and a buddy / Duo pair streak. The app has a ten-habit cap, tap-done or photo proof only, and buddy was removed in #13. Still waiting on your yes/no from last night. On yes, App Manager opens a kept-site PR for you to merge.
+3. **PR [#59](https://github.com/anujabbi/kept/pull/59) / issue [#58](https://github.com/anujabbi/kept/issues/58) — EM agent runner (`needs-human`, you merge):** one Prefect-run pass with a WIP limit of one, replacing the five `/loop` terminals. Open since 4 Oct (fifth slot). Approve and merge, ask for changes, or say "hold" so it drops off this list. If you merge, run the three `prefect` commands in the PR body and stop the `/loop` terminals.
 4. **Reddit / X identity:** personal vs KEPT handle before any Growth post (R1/R2 + X drafts parked).
 
 ## P1 — if time
@@ -31,6 +31,6 @@ Repo still idle (third day). Two new items: a paste-ready Play listing draft and
 
 ## FYI / App Manager will do without you
 
-- Archive this briefing under `docs/ops/daily/2026-10-07.md`.
+- Archive this briefing under `docs/ops/daily/2026-10-08.md`.
 - No Growth posts, no paid growth.
 - Ready or hold #41 once you set priority.
