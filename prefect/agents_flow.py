@@ -20,6 +20,20 @@ BASH = os.environ.get("KEPT_BASH", r"C:\Program Files\Git\usr\bin\bash.exe")
 PASS_TIMEOUT_SECONDS = 90 * 60
 
 
+def git_tool_dirs() -> list[str]:
+    """Git for Windows' usr/bin and mingw64/bin, where date, grep, sed, cut, wc and tr live.
+
+    bash.exe launched directly (as a Prefect process worker does) inherits the Windows PATH,
+    which has Git's cmd/ on it but not usr/bin, so a script using coreutils fails with
+    'date: command not found'. A login shell would add them but also changes directory.
+    """
+    bash = pathlib.Path(BASH)
+    if len(bash.parents) < 3:
+        return []
+    git_root = bash.parents[2]  # <Git>/usr/bin/bash.exe -> <Git>
+    return [str(d) for d in (git_root / "usr" / "bin", git_root / "mingw64" / "bin") if d.is_dir()]
+
+
 @task(name="agents.sh", timeout_seconds=PASS_TIMEOUT_SECONDS)
 def run_pass(dry_run: bool = False) -> int:
     """Run scripts/agents.sh from the repo root and stream its output into the run log."""
@@ -30,8 +44,9 @@ def run_pass(dry_run: bool = False) -> int:
     run_id = (flow_run.id or "local")[:8]
     env.setdefault("AGENT_SESSION", f"prefect-{run_id}")
     env.setdefault("PYTHONIOENCODING", "utf-8")
+    env["PATH"] = os.pathsep.join(git_tool_dirs() + [env.get("PATH", "")])
 
-    log.info("repo %s, session %s, dry_run=%s", REPO, env["AGENT_SESSION"], dry_run)
+    log.info("repo %s, session %s, dry_run=%s, bash %s", REPO, env["AGENT_SESSION"], dry_run, BASH)
     proc = subprocess.Popen(
         [BASH, "scripts/agents.sh"],
         cwd=REPO,
