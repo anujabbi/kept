@@ -145,6 +145,7 @@ Agent=owner, plus anything an agent sent back to Backlog with a question.
 | Runs sit in Scheduled or Late, never start | No worker online for `kept-agents`. Start one (setup step 4). The UI's Work Pools page shows worker heartbeats. |
 | `prefect` commands hang | `PREFECT_API_URL` points at the old LAN address. Setup step 1. |
 | Run fails immediately, log says `claude not on PATH` or `gh not on PATH` | The worker was started from a shell without your PATH, or as another user. Restart it from your own terminal. |
+| Every role logs `board read failed` and the log has `date: command not found` | Git's `usr/bin` is missing from the PATH the script sees. The flow prepends it from the bash path; if Git is somewhere other than `C:\Program Files\Git`, set `KEPT_BASH` to its `usr\bin\bash.exe` in the worker's environment. |
 | A role fails with an auth error | `claude` or `gh` login expired. Run `claude` once interactively, or `gh auth login`, in the same user account, then rerun. |
 | QA fails on install or screenshots | Emulator. `scripts/emulator.sh ensure` by hand, check `ANDROID_HOME` in the worker's environment. |
 | A card is claimed but nothing is happening | The run that claimed it died. Claims expire after sixty minutes on their own; a run after that picks the card up again. Or delete the claim comment on the issue to free it now. |
