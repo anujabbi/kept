@@ -1,36 +1,44 @@
 # Owner agenda (next 30 min)
 
-Last updated: 2026-10-11 (weekend morning, 10:00 AM PT slot)
+Last updated: 2026-10-12 (Monday morning prep for 9:30 PM PT slot)
 
-Repo still idle (seventh day). Same owner-gated blockers — no in-repo answers yet. The weekend slot is the best chance to clear #1–#3. If you only have five minutes, do #1 and #2 — a one-word answer on each is enough.
+Dashboard: [`docs/ops/dashboard.html`](dashboard.html) (refreshed via #73). Internal testing is live; closed testing is the launch gate.
 
-## P0 — decisions needed
+If you only have five minutes, do #1 and #2.
 
-1. **Play Console listing:** create the store listing for `com.zenai.kept`. Copy is ready to paste in [`docs/growth/PLAY-LISTING.md`](https://github.com/anujabbi/kept/blob/main/docs/growth/PLAY-LISTING.md) — approve as-is, edit, or reject. Privacy URL is in the draft. Skip if already done and tell App Manager.
-2. **Fix the public site? (yes / no):** https://anujabbi.github.io/kept-site/ still advertises timer proof and a buddy / Duo pair streak. The app has a ten-habit cap, tap-done or photo proof only, and buddy was removed in #13. Waiting on your yes/no since Oct 7. On yes, App Manager opens a kept-site PR for you to merge.
-3. **PR [#59](https://github.com/anujabbi/kept/pull/59) / issue [#58](https://github.com/anujabbi/kept/issues/58) — EM agent runner (`needs-human`, you merge):** one Prefect-run pass with a WIP limit of one, replacing the five `/loop` terminals. Open since 4 Oct (eighth slot). Approve and merge, ask for changes, or say "hold" so it drops off this list. If you merge, run the three `prefect` commands in the PR body and stop the `/loop` terminals.
-4. **Reddit / X identity:** personal vs KEPT handle before any Growth post (R1/R2 + X drafts parked).
+## P0 — decisions / owner actions
+
+1. **Send the two Play Console declaration videos** (including QUERY_ALL_PACKAGES). App Manager fills both declarations once they arrive and will **not** submit closed testing for review until you say so. Tracked in [#69](https://github.com/anujabbi/kept/issues/69).
+2. **Site fix: yes or no?** https://anujabbi.github.io/kept-site/ still says 1–4 habits, timer proof, buddy/Duo. App: 10-habit cap, tap/photo proof, no buddy. Reply `"site fix: yes"` (or no) and App Manager opens a kept-site PR on yes.
+3. **Finish Play Console setup checklist** on [#69](https://github.com/anujabbi/kept/issues/69): privacy URL, app access, ads none, content rating, target audience 13+/18+, data safety, store listing from [`docs/growth/PLAY-LISTING.md`](https://github.com/anujabbi/kept/blob/main/docs/growth/PLAY-LISTING.md), then create a closed test with build 1.1 (3). Personal account path: **12+ testers opted in for 14 consecutive days** before production.
 
 ## P1 — if time
 
-5. **Issue [#4](https://github.com/anujabbi/kept/issues/4):** on a physical device, close it (no longer reproduces) or re-Ready with device / Android version / excepted app / lock time.
-6. **Story [#41](https://github.com/anujabbi/kept/issues/41)** ("you're all set" first Home): Ready now, hold, or rewrite. Only eng story waiting.
+4. **Unblock App Manager token** as saathiabbi-ai: `gh auth refresh -s read:project`
+5. **Story [#41](https://github.com/anujabbi/kept/issues/41)** ("you're all set" first Home): Ready / hold / rewrite.
 
-## Blockers
+## Done since last agenda
 
-- Store: create app listing; site claims must match it.
-- Project board unread (`read:project` missing on App Manager token — `gh auth refresh -s read:project` as `saathiabbi-ai`).
-- Cursor Cloud Agents still cannot see `anujabbi/kept` (local clone + `gh` workaround).
+- PR #59 Prefect runner merged; owner setup tracked in #71 (closed).
+- PR #68 Git PATH fix merged.
+- #70 Play Console invite for saathi.abbi@gmail.com closed; Console audit unblocked.
+- #4 closed. Reddit validation posts live; watcher through Oct 25.
+
+## Blockers for App Manager
+
+- Waiting on declaration videos before filling Play declarations.
+- Site fix needs your yes/no.
+- Project board unread without `read:project` on saathiabbi-ai.
+- Cursor cloud agents still cannot see `anujabbi/kept` (local clone + `gh` workaround).
 
 ## Approvals
 
-- Play listing copy and site fix: need your yes (items 1–2).
-- Growth: no posts until Reddit/X identity + exact draft yes on R1/R2 + X.
 - Docs-folder PRs: App Manager may merge anytime (standing auth 2026-10-01).
-- Code, site, and `needs-human` PRs: **not** App Manager. #59 is yours to decide.
+- Code, site, and `needs-human` PRs: **not** App Manager.
+- Growth: Anuj posts Reddit himself; App Manager supplies approved drafts only. X parked.
 
 ## FYI / App Manager will do without you
 
-- Archive this briefing under `docs/ops/daily/2026-10-11.md`.
+- Continue Play Console audit via saathi access; keep dashboard current.
+- Nightly owner summary at the 9:30 PM PT weekday slot.
 - No Growth posts, no paid growth.
-- Ready or hold #41 once you set priority.
