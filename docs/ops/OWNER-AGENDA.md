@@ -1,6 +1,6 @@
 # Owner agenda (next 30 min)
 
-Last updated: 2026-10-12 9:35 PM PT (weekday evening slot)
+Last updated: 2026-10-13 7:40 AM PT (morning proactive)
 
 Dashboard: [`docs/ops/dashboard.html`](dashboard.html). Closed test is **in review at Google**; the launch gate is now testers.
 
@@ -8,7 +8,7 @@ If you only have five minutes, do #1 and #2.
 
 ## P0 — decisions / owner actions
 
-1. **Testers: get to 12+.** The "KEPT internal testers" list has 3. Send App Manager 9+ Gmail addresses of friends/family who will install and stay opted in for 14 days, or say "draft a tester ask" and App Manager writes a short invite you send yourself (text/WhatsApp and a Reddit call for testers). Tracked in [#69](https://github.com/anujabbi/kept/issues/69).
+1. **Testers: get to 12+.** The "KEPT internal testers" list has 3. Copy-paste invite: [`docs/growth/drafts/2026-10-13-tester-invite.md`](../growth/drafts/2026-10-13-tester-invite.md). Or send App Manager 9+ Gmail addresses to add. Tracked in [#69](https://github.com/anujabbi/kept/issues/69).
 2. **Site fix: yes or no?** https://anujabbi.github.io/kept-site/ still says 1–4 habits, timer proof, buddy/Duo. App: 10-habit cap, tap/photo proof, no buddy. Testers will land there. Reply "site fix: yes" and App Manager opens a kept-site PR.
 
 ## P1 — if time
