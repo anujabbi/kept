@@ -8,23 +8,23 @@ main{max-width:860px;margin:auto;padding:16px}h1{margin:.2em 0}h2{margin-top:1.6
 .b{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;font-weight:600}.ok{background:#dff5e3;color:#176b2c}.warn{background:#fff1cc;color:#8a5a00}.bad{background:#fde2e2;color:#a11}.off{background:#eceef2;color:#555}
 table{width:100%;border-collapse:collapse;background:#fff}td,th{border:1px solid #dde2ea;padding:6px 8px;text-align:left;vertical-align:top}a{color:#2350b8}
 </style></head><body><main>
-<h1>KEPT launch — owner dashboard</h1><div class="ts">Last updated: 2026-10-11 6:15 PM PT · com.zenai.kept · data from gh + Play Console notes</div>
+<h1>KEPT launch — owner dashboard</h1><div class="ts">Last updated: 2026-10-12 9:35 PM PT · com.zenai.kept · data from gh + Play Console notes</div>
 
 <h2>Your 30 minutes</h2>
-<div class="card p0"><span class="t">5 min</span><b>1. Send the two Play Console declaration videos</b>, including the all-installed-apps (QUERY_ALL_PACKAGES) one. App Manager fills in both declarations once they arrive, and will not submit the closed test for review until you say so. Tracked in <a href="https://github.com/anujabbi/kept/issues/69">#69</a>.</div>
-<div class="card p0"><span class="t">1 min</span><b>2. Site fix: yes or no?</b> — <a href="https://anujabbi.github.io/kept-site/">kept-site</a> still says 1–4 habits, timer proof, buddy/Duo. App: 10-habit cap, tap/photo proof, no buddy. Reply on the <a href="https://github.com/anujabbi/kept/issues/69">#69</a> thread or tell App Manager <b>"site fix: yes"</b>, and App Manager will open a kept-site PR.</div>
-<div class="card p1"><span class="t">10 min</span><b>3. Finish the Play Console setup checklist</b> (<a href="https://github.com/anujabbi/kept/issues/69">#69</a>): privacy URL <code>https://anujabbi.github.io/kept-site/privacy-policy.html</code>, app access, ads: none, content rating, target audience 13+/18+, data safety, store listing from <a href="https://github.com/anujabbi/kept/blob/main/docs/growth/PLAY-LISTING.md">PLAY-LISTING.md</a>, then create a closed test with build 1.1 (3).</div>
-<div class="card p1"><span class="t">1 min</span><b>4. Unblock App Manager token</b> — as saathiabbi-ai: <pre>gh auth refresh -s read:project</pre></div>
-<div class="card p1"><span class="t">1 min</span><b>5. Story <a href="https://github.com/anujabbi/kept/issues/41">#41</a></b> ("you're all set" first Home): comment Ready / hold / rewrite.</div>
+<div class="card p0"><span class="t">5 min</span><b>1. Testers: get to 12+.</b> The "KEPT internal testers" list has 3. Send App Manager 9+ Gmail addresses, or say "draft a tester ask" for an invite you send yourself. Tracked in <a href="https://github.com/anujabbi/kept/issues/69">#69</a>.</div>
+<div class="card p0"><span class="t">1 min</span><b>2. Site fix: yes or no?</b> <a href="https://anujabbi.github.io/kept-site/">kept-site</a> still says 1–4 habits, timer proof, buddy/Duo. Testers will land there. Say <b>"site fix: yes"</b> and App Manager opens a kept-site PR.</div>
+<div class="card p1"><span class="t">10 min</span><b>3. Reddit replies</b> on r/getdisciplined: suggested text in <a href="https://github.com/anujabbi/kept/blob/main/docs/growth/feedback/2026-10-12-reddit-am.md">the AM note</a>. Post from your account.</div>
+<div class="card p1"><span class="t">1 min</span><b>4. Board access for App Manager</b> as saathiabbi-ai: <pre>gh auth refresh -s read:project,project</pre></div>
 
 <h2>Play Console</h2><table>
 <tr><th>Item</th><th>Status</th></tr>
 <tr><td>Account</td><td>Personal: anuj.abbi@gmail.com</td></tr>
-<tr><td>App com.zenai.kept</td><td><span class="b warn">Draft</span> temporary name "com.zenai.kept (unreviewed)"</td></tr>
+<tr><td>App com.zenai.kept</td><td><span class="b warn">Changes in review</span> submitted 2026-10-12 ~5:40 PM PT</td></tr>
 <tr><td>Internal testing</td><td><span class="b ok">Active</span> <span class="b warn">Not reviewed</span> build 1.1 (3)</td></tr>
-<tr><td>Closed / Open / Production</td><td><span class="b off">Inactive</span></td></tr>
+<tr><td>Closed testing - Alpha</td><td><span class="b warn">In review</span> version 3 (1.1), US + Canada, 3 testers on list</td></tr>
+<tr><td>Open / Production</td><td><span class="b off">Inactive</span></td></tr>
 <tr><td>Path to production</td><td>Personal account: closed test with <b>12+ testers opted in for 14 consecutive days</b></td></tr>
-<tr><td>QUERY_ALL_PACKAGES</td><td><span class="b warn">Waiting on your video</span> (risk: rejection; fallback is a narrower launchable-apps query)</td></tr>
+<tr><td>QUERY_ALL_PACKAGES</td><td><span class="b warn">Submitted with video</span> (risk: rejection; fallback is a narrower launchable-apps query)</td></tr>
 <tr><td>Full Console audit</td><td><span class="b ok">Unblocked</span> saathi.abbi@gmail.com invited (<a href="https://github.com/anujabbi/kept/issues/70">#70</a> closed), audit in progress</td></tr>
 </table>
 
@@ -32,10 +32,12 @@ table{width:100%;border-collapse:collapse;background:#fff}td,th{border:1px solid
 <tr><th>Item</th><th>Status</th></tr>
 <tr><td><a href="https://github.com/anujabbi/kept/pull/59">PR #59</a> Prefect runner</td><td><span class="b ok">Merged 2026-10-11</span> owner setup done (<a href="https://github.com/anujabbi/kept/issues/71">#71</a> closed)</td></tr>
 <tr><td><a href="https://github.com/anujabbi/kept/pull/68">PR #68</a> Git usr/bin on PATH</td><td><span class="b ok">Merged</span> fixed <a href="https://github.com/anujabbi/kept/issues/67">#67</a></td></tr>
-<tr><td><a href="https://github.com/anujabbi/kept/issues/41">#41</a> first-Home copy</td><td><span class="b warn">Open</span> awaiting priority</td></tr>
+<tr><td><a href="https://github.com/anujabbi/kept/issues/41">#41</a> first-Home copy</td><td><span class="b ok">Shipped</span> via <a href="https://github.com/anujabbi/kept/pull/79">PR #79</a></td></tr>
+<tr><td><a href="https://github.com/anujabbi/kept/issues/80">#80</a> owner /approve for version bumps</td><td><span class="b warn">Open</span> P1 next</td></tr>
+<tr><td><a href="https://github.com/anujabbi/kept/issues/76">#76</a> native debug symbols</td><td><span class="b off">Open</span> P2 later</td></tr>
 <tr><td><a href="https://github.com/anujabbi/kept/issues/4">#4</a> exceptions after onboarding</td><td><span class="b ok">Closed</span></td></tr>
 <tr><td><a href="https://github.com/anujabbi/kept/issues/11">#11</a> Parking lot</td><td><span class="b off">Open</span> deferred past MVP</td></tr>
-<tr><td>Recent merges</td><td>#60–#66 daily ops docs (through 2026-10-11)</td></tr>
+<tr><td>Recent merges</td><td>#79 (story #41), #81 Reddit PM note, Prefect fix #78 closed</td></tr>
 </table>
 
 <h2>Growth</h2><table>
@@ -49,5 +51,6 @@ table{width:100%;border-collapse:collapse;background:#fff}td,th{border:1px solid
 <tr><td>Project board unreadable</td><td>saathiabbi-ai token lacks <code>read:project</code> → <code>gh auth refresh -s read:project</code></td></tr>
 <tr><td>Cursor cloud agents</td><td>Cannot see anujabbi/kept (workaround: local clone + gh)</td></tr>
 <tr><td>Site fix</td><td>Needs your yes/no</td></tr>
+<tr><td>Reddit reads</td><td>Box IP blocked by Reddit since 2026-10-12 evening</td></tr>
 </table>
 </main></body></html>
