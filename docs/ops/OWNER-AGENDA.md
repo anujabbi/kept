@@ -1,35 +1,27 @@
 # Owner agenda (next 30 min)
 
-Last updated: 2026-10-12 (Monday morning prep for 9:30 PM PT slot)
+Last updated: 2026-10-12 9:35 PM PT (weekday evening slot)
 
-Dashboard: [`docs/ops/dashboard.html`](dashboard.html) (refreshed via #73). Internal testing is live; closed testing is the launch gate.
+Dashboard: [`docs/ops/dashboard.html`](dashboard.html). Closed test is **in review at Google**; the launch gate is now testers.
 
 If you only have five minutes, do #1 and #2.
 
 ## P0 — decisions / owner actions
 
-1. **Send the two Play Console declaration videos** (including QUERY_ALL_PACKAGES). App Manager fills both declarations once they arrive and will **not** submit closed testing for review until you say so. Tracked in [#69](https://github.com/anujabbi/kept/issues/69).
-2. **Site fix: yes or no?** https://anujabbi.github.io/kept-site/ still says 1–4 habits, timer proof, buddy/Duo. App: 10-habit cap, tap/photo proof, no buddy. Reply `"site fix: yes"` (or no) and App Manager opens a kept-site PR on yes.
-3. **Finish Play Console setup checklist** on [#69](https://github.com/anujabbi/kept/issues/69): privacy URL, app access, ads none, content rating, target audience 13+/18+, data safety, store listing from [`docs/growth/PLAY-LISTING.md`](https://github.com/anujabbi/kept/blob/main/docs/growth/PLAY-LISTING.md), then create a closed test with build 1.1 (3). Personal account path: **12+ testers opted in for 14 consecutive days** before production.
+1. **Testers: get to 12+.** The "KEPT internal testers" list has 3. Send App Manager 9+ Gmail addresses of friends/family who will install and stay opted in for 14 days, or say "draft a tester ask" and App Manager writes a short invite you send yourself (text/WhatsApp and a Reddit call for testers). Tracked in [#69](https://github.com/anujabbi/kept/issues/69).
+2. **Site fix: yes or no?** https://anujabbi.github.io/kept-site/ still says 1–4 habits, timer proof, buddy/Duo. App: 10-habit cap, tap/photo proof, no buddy. Testers will land there. Reply "site fix: yes" and App Manager opens a kept-site PR.
 
 ## P1 — if time
 
-4. **Unblock App Manager token** as saathiabbi-ai: `gh auth refresh -s read:project`
-5. **Story [#41](https://github.com/anujabbi/kept/issues/41)** ("you're all set" first Home): Ready / hold / rewrite.
+3. **Reddit replies.** Three comments on r/getdisciplined (avoidance objection, a step-to-unlock app user, the morning scroll). Suggested replies are in [`2026-10-12-reddit-am.md`](../growth/feedback/2026-10-12-reddit-am.md); post any you like from your account. App Manager can't read Reddit from the box tonight, so a quick phone peek helps.
+4. **Board access for App Manager** (saathiabbi-ai): `gh auth refresh -s read:project,project`. Needed to see Backlog vs Ready and move [#80](https://github.com/anujabbi/kept/issues/80) / [#76](https://github.com/anujabbi/kept/issues/76).
 
 ## Done since last agenda
 
-- PR #59 Prefect runner merged; owner setup tracked in #71 (closed).
-- PR #68 Git PATH fix merged.
-- #70 Play Console invite for saathi.abbi@gmail.com closed; Console audit unblocked.
-- #4 closed. Reddit validation posts live; watcher through Oct 25.
-
-## Blockers for App Manager
-
-- Waiting on declaration videos before filling Play declarations.
-- Site fix needs your yes/no.
-- Project board unread without `read:project` on saathiabbi-ai.
-- Cursor cloud agents still cannot see `anujabbi/kept` (local clone + `gh` workaround).
+- Declaration videos received; closed test (version 3 / 1.1, US + Canada) submitted, status "Changes in review".
+- Store listing en-US, content rating, target audience 13+, privacy URL, ads declaration filled.
+- Story #41 shipped via PR #79; Prefect PATH bug #78 closed.
+- Filed #80 (owner `/approve` for version bumps, your decision) and #76 (debug symbols, P2).
 
 ## Approvals
 
@@ -39,6 +31,6 @@ If you only have five minutes, do #1 and #2.
 
 ## FYI / App Manager will do without you
 
-- Continue Play Console audit via saathi access; keep dashboard current.
-- Nightly owner summary at the 9:30 PM PT weekday slot.
+- Watch Play Console for the review result and report it; if QUERY_ALL_PACKAGES is rejected, file the narrower launchable-apps story.
+- Keep the dashboard current; Reddit watch continues through Oct 25.
 - No Growth posts, no paid growth.
