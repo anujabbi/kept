@@ -13,6 +13,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.kept.core.data.HabitRepository
 import com.example.kept.core.data.db.KeptDatabase
 import com.example.kept.core.data.prefs.KeptPreferences
+import com.example.kept.core.lock.Permissions
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import kotlinx.coroutines.runBlocking
@@ -33,6 +34,7 @@ class OnboardingFlowTest {
     @Inject lateinit var db: KeptDatabase
     @Inject lateinit var prefs: KeptPreferences
     @Inject lateinit var habits: HabitRepository
+    @Inject lateinit var permissions: Permissions
 
     @Before fun setUp() { hilt.inject(); resetAppState(db, prefs) }
 
@@ -72,6 +74,30 @@ class OnboardingFlowTest {
             assertEquals(30, settings.breakDurationMin)
             val today = runBlocking { habits.today() }
             assertEquals(6, today.total)
+
+            // First landing (issue #41): the one-time card sits at the top of Home, and its
+            // reminder line follows the live notifications grant rather than onboarding's answer.
+            compose.onNodeWithText("That's it, you're all set!").assertIsDisplayed()
+            val expectedLine = if (permissions.notificationsGranted()) {
+                "You can close the app now. Sprig keeps watch in the background and reminds you when it matters."
+            } else {
+                "You can close the app now. Sprig keeps watch in the background, but reminders are off until notifications are turned on in Settings."
+            }
+            compose.onNodeWithText(expectedLine).assertIsDisplayed()
+            compose.onNodeWithText("Got it").assertIsDisplayed()
+            assertTrue(runBlocking { prefs.currentSettings() }.firstLandingPending)
+
+            // A configuration change recreates the activity but is not a second visit.
+            it.recreate()
+            compose.waitUntil(10_000) { compose.onAllNodesWithText("Today").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithText("That's it, you're all set!").assertIsDisplayed()
+        }
+        // Closing the scenario stops Home, which is the second-visit boundary. The next launch,
+        // the same as a relaunch after a swipe-away, is the everyday Home.
+        compose.waitUntil(10_000) { !runBlocking { prefs.currentSettings() }.firstLandingPending }
+        ActivityScenario.launch(MainActivity::class.java).use {
+            compose.waitUntil(10_000) { compose.onAllNodesWithText("Today").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithTag("home_first_landing").assertDoesNotExist()
         }
     }
 }

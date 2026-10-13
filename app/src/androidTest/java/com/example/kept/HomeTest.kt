@@ -4,7 +4,9 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.kept.core.data.DebugSeeder
@@ -13,6 +15,7 @@ import com.example.kept.core.data.prefs.KeptPreferences
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertFalse
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -58,6 +61,24 @@ class HomeTest {
             compose.onNodeWithText("Too late for today", substring = true).assertIsDisplayed()
             // The checklist still works: the habits are there to tick.
             compose.onAllNodesWithText("Tap when done", substring = true)[0].assertIsDisplayed()
+        }
+    }
+
+    @Test fun got_it_removes_the_first_landing_card_for_good() {
+        runBlocking {
+            seeder.seedIfNeeded()
+            prefs.updateSettings { it.copy(firstLandingPending = true) }
+        }
+        ActivityScenario.launch(MainActivity::class.java).use {
+            compose.waitUntil(10_000) { compose.onAllNodes(hasText("day streak", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithText("That's it, you're all set!").assertIsDisplayed()
+            // The everyday Home renders below the card, unchanged.
+            compose.onNodeWithText("12 day streak").assertIsDisplayed()
+            compose.onNodeWithTag("home_first_landing_dismiss").performClick()
+            compose.waitUntil(5_000) { compose.onAllNodes(hasText("That's it, you're all set!")).fetchSemanticsNodes().isEmpty() }
+            compose.onNodeWithTag("home_first_landing").assertDoesNotExist()
+            compose.waitUntil(5_000) { !runBlocking { prefs.currentSettings() }.firstLandingPending }
+            assertFalse(runBlocking { prefs.currentSettings() }.firstLandingPending)
         }
     }
 }

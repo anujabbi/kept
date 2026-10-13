@@ -13,6 +13,9 @@ const val ONBOARDING_STEPS = 4
  */
 fun Settings.onboardingDraft(today: LocalDate): Settings = copy(firstUseDate = firstUseDate ?: today)
 
-/** What "Start today" records: the draft, plus onboarding marked done at its last step. */
+/**
+ * What "Start today" records: the draft, onboarding marked done at its last step, and the
+ * first-landing card armed so Home shows it once (issue #41).
+ */
 fun Settings.onboardingFinished(today: LocalDate): Settings =
-    onboardingDraft(today).copy(onboardingDone = true, onboardingStep = ONBOARDING_STEPS)
+    onboardingDraft(today).copy(onboardingDone = true, onboardingStep = ONBOARDING_STEPS, firstLandingPending = true)
