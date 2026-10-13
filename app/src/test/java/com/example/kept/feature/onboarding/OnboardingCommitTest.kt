@@ -47,4 +47,21 @@ class OnboardingCommitTest {
         assertEquals(today, later.firstUseDate)
         assertEquals(today, later.onboardingFinished(today.plusDays(3)).firstUseDate)
     }
+
+    /** "Start today" is the only thing that arms the first-landing card on Home (issue #41). */
+    @Test fun `finishing arms the first landing card`() {
+        assertFalse(Settings().firstLandingPending)
+        assertTrue(Settings().onboardingFinished(today).firstLandingPending)
+        assertFalse(Settings().onboardingDraft(today).firstLandingPending)
+    }
+
+    /**
+     * Migration (issue #41): a user whose onboarding finished before the card existed has
+     * `onboarding_done` stored and no `first_landing_pending` key. The key reads back as false
+     * when absent, so such a Settings must not be pending.
+     */
+    @Test fun `onboarding already done with no first landing key is not pending`() {
+        val migrated = Settings(onboardingDone = true, onboardingStep = ONBOARDING_STEPS)
+        assertFalse(migrated.firstLandingPending)
+    }
 }

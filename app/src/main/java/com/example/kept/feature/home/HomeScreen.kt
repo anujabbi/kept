@@ -1,5 +1,6 @@
 package com.example.kept.feature.home
 
+import android.app.Activity
 import android.content.Context
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -38,6 +39,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -49,11 +51,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.kept.core.data.HabitToday
 import com.example.kept.core.domain.ProofType
@@ -66,6 +72,7 @@ import com.example.kept.core.ui.InfoBox
 import com.example.kept.core.ui.KeptCard
 import com.example.kept.core.ui.KeptTheme
 import com.example.kept.core.ui.Pill
+import com.example.kept.core.ui.QuietButton
 import com.example.kept.core.ui.SectionLabel
 import com.example.kept.core.ui.ThinProgress
 import com.example.kept.core.ui.WeekDots
@@ -94,10 +101,26 @@ fun HomeScreen(
         if (d != null && s.unseenUnlock == null) { vm.dismissRecap(); onOpenRecap(d) }
     }
 
+    // The first-landing card lasts while Home stays on screen. Leaving Home, by navigating away or
+    // the app going to the background, ends it; a rotation does not (issue #41).
+    val owner = LocalLifecycleOwner.current
+    val activity = LocalContext.current as? Activity
+    DisposableEffect(owner, activity) {
+        val obs = LifecycleEventObserver { _, e ->
+            if (e == Lifecycle.Event.ON_STOP && activity?.isChangingConfigurations != true) vm.firstLandingSeen()
+        }
+        owner.lifecycle.addObserver(obs)
+        onDispose { owner.lifecycle.removeObserver(obs) }
+    }
+
     if (!s.loaded) return
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 20.dp)) {
         Spacer(Modifier.height(12.dp))
+        if (s.firstLanding) {
+            FirstLandingCard(s.notificationsGranted, onDismiss = vm::firstLandingSeen)
+            Spacer(Modifier.height(14.dp))
+        }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column {
                 Text(s.date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault()), style = MaterialTheme.typography.titleMedium, color = c.textPrimary)
@@ -172,6 +195,27 @@ fun HomeScreen(
             }
         }
         Spacer(Modifier.height(28.dp))
+    }
+}
+
+/**
+ * The one-time "you're all set" moment right after "Start today" (issue #41). Which reminder line
+ * shows is decided from the live notifications grant, not from what onboarding remembered.
+ */
+@Composable
+private fun FirstLandingCard(notificationsGranted: Boolean, onDismiss: () -> Unit) {
+    val c = KeptTheme.colors
+    KeptCard(Modifier.testTag("home_first_landing"), background = c.teal50, border = null, shape = RoundedCornerShape(16.dp)) {
+        Text("That's it, you're all set!", style = MaterialTheme.typography.titleMedium, color = c.teal900)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            if (notificationsGranted) "You can close the app now. Sprig keeps watch in the background and reminds you when it matters."
+            else "You can close the app now. Sprig keeps watch in the background, but reminders are off until notifications are turned on in Settings.",
+            style = MaterialTheme.typography.bodySmall,
+            color = c.teal600,
+        )
+        Spacer(Modifier.height(4.dp))
+        QuietButton("Got it", onClick = onDismiss, modifier = Modifier.align(Alignment.End).testTag("home_first_landing_dismiss"), color = c.teal900)
     }
 }
 

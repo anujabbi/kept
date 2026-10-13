@@ -43,6 +43,12 @@ data class Settings(
      * a flow to follow and so the preference survives a build with no project token.
      */
     val analyticsEnabled: Boolean = true,
+    /**
+     * True from "Start today" until Home has shown its one-time "you're all set" card (issue #41).
+     * Only [onboardingFinished] sets it; an absent key reads as false, so an install whose
+     * onboarding finished before the card existed never sees it.
+     */
+    val firstLandingPending: Boolean = false,
 )
 
 @Singleton
@@ -61,6 +67,7 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
         val PENDING_RECAP = stringPreferencesKey("pending_recap_date")
         val PENDING_CELEBRATION = stringPreferencesKey("pending_celebration_date")
         val ANALYTICS = booleanPreferencesKey("analytics_enabled")
+        val FIRST_LANDING_PENDING = booleanPreferencesKey("first_landing_pending")
 
         val LEVEL = intPreferencesKey("sprig_level")
         val STREAK = intPreferencesKey("sprig_streak")
@@ -85,6 +92,7 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
         pendingRecapDate = this[K.PENDING_RECAP],
         celebrationPendingDate = this[K.PENDING_CELEBRATION],
         analyticsEnabled = this[K.ANALYTICS] ?: true,
+        firstLandingPending = this[K.FIRST_LANDING_PENDING] ?: false,
     )
 
     private fun Preferences.toSprig() = SprigState(
@@ -119,6 +127,7 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
             if (n.pendingRecapDate == null) p.remove(K.PENDING_RECAP) else p[K.PENDING_RECAP] = n.pendingRecapDate
             if (n.celebrationPendingDate == null) p.remove(K.PENDING_CELEBRATION) else p[K.PENDING_CELEBRATION] = n.celebrationPendingDate
             p[K.ANALYTICS] = n.analyticsEnabled
+            p[K.FIRST_LANDING_PENDING] = n.firstLandingPending
         }
     }
 

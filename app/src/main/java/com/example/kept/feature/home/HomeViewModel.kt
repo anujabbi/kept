@@ -23,11 +23,13 @@ import com.example.kept.core.lock.PermissionKind
 import com.example.kept.core.lock.Permissions
 import com.example.kept.core.lock.RequiredPermissions
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import javax.inject.Inject
 
@@ -47,6 +49,10 @@ data class HomeUiState(
     val missingLockPermissions: List<PermissionKind> = emptyList(),
     val lastSeven: List<Pair<LocalDate, DayRecordEntity?>> = emptyList(),
     val todayRecord: DayRecordEntity? = null,
+    /** Show the one-time "you're all set" card above everything else (issue #41). */
+    val firstLanding: Boolean = false,
+    /** Read live each render, so the first-landing card's reminder line reflects the current grant. */
+    val notificationsGranted: Boolean = true,
 ) {
     val form: SprigForm get() = sprig.form
     val nextForm: SprigForm? get() = SprigForm.next(form)
@@ -72,6 +78,7 @@ class HomeViewModel @Inject constructor(
         HomeUiState(
             loaded = true, today = today, sprig = sprig, lock = lock, lockActive = active, pastDue = pastDue,
             variant = Variants.forDate(date), date = date, pendingRecapDate = settings.pendingRecapDate,
+            firstLanding = settings.firstLandingPending,
         )
     }
 
@@ -81,6 +88,7 @@ class HomeViewModel @Inject constructor(
         s.copy(
             unseenUnlock = unseen.firstOrNull(),
             missingLockPermissions = permissions.missing(RequiredPermissions.lockGate),
+            notificationsGranted = permissions.notificationsGranted(),
             lastSeven = seven,
             todayRecord = todayRec,
         )
@@ -90,5 +98,16 @@ class HomeViewModel @Inject constructor(
     fun undo(habitId: Long) = viewModelScope.launch { actions.undo(habitId) }
     fun completeWithPhoto(habitId: Long, path: String) = viewModelScope.launch { actions.complete(habitId, path) }
     fun dismissRecap() = viewModelScope.launch { prefs.updateSettings { it.copy(pendingRecapDate = null) } }
+
+    /**
+     * The first-landing card is gone for good: "Got it" was tapped, or Home stopped being shown
+     * (issue #41). Cleared here rather than in the composable so a rotation, which recomposes
+     * Home but keeps this ViewModel, does not count as a second visit.
+     */
+    fun firstLandingSeen() = viewModelScope.launch {
+        // When Home stops because the activity is finishing, this ViewModel is cleared right
+        // after ON_STOP; the write must outlive that or the card comes back on the next launch.
+        if (state.value.firstLanding) withContext(NonCancellable) { prefs.updateSettings { it.copy(firstLandingPending = false) } }
+    }
     fun refreshPermissions() = viewModelScope.launch { /* state recomputes on next emission */ }
 }
