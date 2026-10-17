@@ -1,8 +1,8 @@
 # Owner agenda (next 30 min)
 
-Last updated: 2026-10-15 9:33 PM PT (weekday evening slot)
+Last updated: 2026-10-16 9:40 PM PT (weekday evening slot)
 
-Dashboard: [`docs/ops/dashboard.html`](dashboard.html). Closed testing Alpha is **Active** (release 3 / 1.1; last Console check 2026-10-13 ~9:40 PM PT). Launch gate: **12+ opted-in** testers for 14 days (list has 3, opted-in is **0**; clock not started — earliest production application ~Oct 30 if 12 opt in tomorrow).
+Dashboard: [`docs/ops/dashboard.html`](dashboard.html). Closed testing Alpha is **Active** (release 3 / 1.1; last Console check 2026-10-13 ~9:40 PM PT). Launch gate: **12+ opted-in** testers for 14 days (list has 3, opted-in is **0**; clock not started — earliest production application ~Oct 31 if 12 opt in tomorrow).
 
 If you only have five minutes, do #1 and #2.
 
@@ -13,13 +13,14 @@ If you only have five minutes, do #1 and #2.
 
 ## P1 — if time
 
-3. **Reddit phone check, and pause the watch?** Box IP blocked ~3.5 days (sixth failed run; watch already cut to once daily at 8:17 PM PT). Open [r/getdisciplined](https://www.reddit.com/r/getdisciplined/comments/1x3kpjw/anyone_else_lose_hours_to_doomscrolling_while_all/) and [r/digitalminimalism](https://www.reddit.com/r/digitalminimalism/comments/1x3kmes/needadvice_anyone_else_lose_hours_to/) on your phone, or paste new comments here. Suggested replies from the last good read: [`2026-10-12-reddit-am.md`](../growth/feedback/2026-10-12-reddit-am.md). Reply **pause** and App Manager pauses the watch until you paste comments or the block lifts.
+3. **Reddit phone check, and pause the watch?** Box IP blocked ~4.5 days (seventh failed run; watch already cut to once daily at 8:17 PM PT). Open [r/getdisciplined](https://www.reddit.com/r/getdisciplined/comments/1x3kpjw/anyone_else_lose_hours_to_doomscrolling_while_all/) and [r/digitalminimalism](https://www.reddit.com/r/digitalminimalism/comments/1x3kmes/needadvice_anyone_else_lose_hours_to/) on your phone, or paste new comments here. Suggested replies from the last good read: [`2026-10-12-reddit-am.md`](../growth/feedback/2026-10-12-reddit-am.md). Reply **pause** and App Manager pauses the watch until you paste comments or the block lifts.
 4. **Board access for App Manager** (saathiabbi-ai): `gh auth refresh -s read:project,project`. Needed to see Backlog vs Ready and move [#80](https://github.com/anujabbi/kept/issues/80) / [#76](https://github.com/anujabbi/kept/issues/76).
 5. **Optional:** Accept the Play Console invite in saathi.abbi@gmail.com (still unread) so collaborator access stays durable without relying on the Oct 12 browser session.
 
 ## Done since last evening agenda
 
-- Reddit PM note filed while blocked ([#90](https://github.com/anujabbi/kept/pull/90)).
+- Nothing new from you since last evening; all five asks below carry over.
+- Reddit PM note filed while blocked ([#92](https://github.com/anujabbi/kept/pull/92)); daily 10-15 merged ([#91](https://github.com/anujabbi/kept/pull/91)).
 - No new eng PRs; open set still #69 / #80 / #76 / #11. No Console re-check tonight (carried Oct 13 evening status); no Play mail in saathi inbox.
 
 ## Approvals
