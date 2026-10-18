@@ -1,8 +1,8 @@
 # Owner agenda (next 30 min)
 
-Last updated: 2026-10-17 10:10 AM PT (weekend morning slot)
+Last updated: 2026-10-18 10:10 AM PT (weekend morning slot)
 
-Dashboard: [`docs/ops/dashboard.html`](dashboard.html). Closed testing Alpha is **Active** (release 3 / 1.1; last Console check 2026-10-13 ~9:40 PM PT). Launch gate: **12+ opted-in** testers for 14 days (list has 3, opted-in is **0**; clock not started — earliest production application ~Oct 31 if 12 opt in today).
+Dashboard: [`docs/ops/dashboard.html`](dashboard.html). Closed testing Alpha is **Active** (release 3 / 1.1; last Console check 2026-10-13 ~9:40 PM PT). Launch gate: **12+ opted-in** testers for 14 days (list has 3, opted-in is **0**; clock not started — earliest production application ~Nov 1 if 12 opt in today).
 
 If you only have five minutes, do #1 and #2.
 
@@ -19,9 +19,8 @@ If you only have five minutes, do #1 and #2.
 
 ## Done since last agenda
 
-- Reddit feedback watch paused (blind runs stopped); the pause ask is closed.
-- Daily 10-16 merged ([#93](https://github.com/anujabbi/kept/pull/93)). No new eng PRs; open set still #69 / #80 / #76 / #11.
-- No Console re-check this morning (carried Oct 13 evening status); no Play or tester mail in the saathi inbox.
+- Nothing new since yesterday morning: daily 10-17 merged ([#94](https://github.com/anujabbi/kept/pull/94)); no eng PRs; open set still #69 / #80 / #76 / #11.
+- No Console re-check this morning (carried Oct 13 evening status); no Play or tester mail in the saathi inbox. Reddit watch still paused.
 
 ## Approvals
 
