@@ -1,8 +1,8 @@
 # Owner agenda (next 30 min)
 
-Last updated: 2026-10-19 9:40 PM PT (weekday evening slot)
+Last updated: 2026-10-20 9:40 PM PT (weekday evening slot)
 
-Dashboard: [`docs/ops/dashboard.html`](dashboard.html). Closed testing Alpha is **Active** (release 3 / 1.1; last Console check 2026-10-13 ~9:40 PM PT). Launch gate: **12+ opted-in** testers for 14 days (list has 3, opted-in is **0**; clock not started — earliest production application ~Nov 2 if 12 opt in today).
+Dashboard: [`docs/ops/dashboard.html`](dashboard.html). Closed testing Alpha is **Active** (release 3 / 1.1; last Console check 2026-10-13 ~9:40 PM PT). Launch gate: **12+ opted-in** testers for 14 days (list has 3, opted-in is **0**; clock not started — earliest production application ~Nov 3 if 12 opt in today).
 
 If you only have five minutes, do #1 and #2.
 
