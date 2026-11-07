@@ -1,8 +1,8 @@
 # Owner agenda (next 30 min)
 
-Last updated: 2026-11-05 9:40 PM PT (weekday evening slot)
+Last updated: 2026-11-06 9:45 PM PT (weekday evening slot)
 
-Dashboard: [`docs/ops/dashboard.html`](dashboard.html). Closed testing Alpha is **Active** (release 3 / 1.1; last Console check 2026-10-13 ~9:40 PM PT). Launch gate: **12+ opted-in** testers for 14 days (list has 3, opted-in is **0**; clock not started — earliest production application ~Nov 19 if 12 opt in today).
+Dashboard: [`docs/ops/dashboard.html`](dashboard.html). Closed testing Alpha is **Active** (release 3 / 1.1; last Console check 2026-10-13 ~9:40 PM PT). Launch gate: **12+ opted-in** testers for 14 days (list has 3, opted-in is **0**; clock not started — earliest production application ~Nov 20 if 12 opt in today).
 
 If you only have five minutes, do #1 and #2.
 
@@ -15,11 +15,11 @@ If you only have five minutes, do #1 and #2.
 
 3. **Reddit phone check (watch now paused).** The box is still blocked by Reddit, so the daily watch is paused. Open [r/getdisciplined](https://www.reddit.com/r/getdisciplined/comments/1x3kpjw/anyone_else_lose_hours_to_doomscrolling_while_all/) and [r/digitalminimalism](https://www.reddit.com/r/digitalminimalism/comments/1x3kmes/needadvice_anyone_else_lose_hours_to/) on your phone; anyone asking to try KEPT is a tester lead for #1. Paste new comments and App Manager drafts replies. Earlier suggested replies: [`2026-10-12-reddit-am.md`](../growth/feedback/2026-10-12-reddit-am.md).
 4. **Board access for App Manager** (saathiabbi-ai): `gh auth refresh -s read:project,project`. Needed to see Backlog vs Ready and move [#80](https://github.com/anujabbi/kept/issues/80) / [#76](https://github.com/anujabbi/kept/issues/76).
-5. **Optional but time-sensitive:** Accept the Play Console invite in saathi.abbi@gmail.com (still unread; Zenai_dev; expires **Nov 10 — 5 days left**) so collaborator access stays durable without relying on the Oct 12 browser session. Morning check-in already flagged this.
+5. **Optional but time-sensitive:** Accept the Play Console invite in saathi.abbi@gmail.com (still unread; Zenai_dev; expires **Nov 10 — 4 days left**) so collaborator access stays durable without relying on the Oct 12 browser session. Morning check-in already flagged this.
 
 ## Done since last agenda
 
-- Daily 11-04 merged ([#111](https://github.com/anujabbi/kept/pull/111)); no eng PRs; open set still #69 / #80 / #76 / #11. No owner replies for twenty-one days. Morning inactivity check-in already flagged the Play Console invite.
+- Daily 11-05 merged ([#112](https://github.com/anujabbi/kept/pull/112)); no eng PRs; open set still #69 / #80 / #76 / #11. No owner replies for twenty-two days. No new Play or tester mail.
 - No Console re-check (carried Oct 13 status); no other Play or tester mail. Reddit watch still paused.
 
 ## Approvals
