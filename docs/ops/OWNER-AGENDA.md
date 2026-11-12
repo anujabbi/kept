@@ -1,15 +1,15 @@
 # Owner agenda (next 30 min)
 
-Last updated: 2026-11-10 9:40 PM PT (weekday evening slot)
+Last updated: 2026-11-11 9:40 PM PT (weekday evening slot)
 
-Dashboard: [`docs/ops/dashboard.html`](dashboard.html). Closed testing Alpha is **Active** (release 3 / 1.1; last Console check 2026-10-13 ~9:40 PM PT). Launch gate: **12+ opted-in** testers for 14 days (list has 3, opted-in is **0**; clock not started — earliest production application ~Nov 24 if 12 opt in today).
+Dashboard: [`docs/ops/dashboard.html`](dashboard.html). Closed testing Alpha is **Active** (release 3 / 1.1; last Console check 2026-10-13 ~9:40 PM PT). Launch gate: **12+ opted-in** testers for 14 days (list has 3, opted-in is **0**; clock not started — earliest production application ~Nov 25 if 12 opt in today).
 
 If you only have five minutes, do #1 and #2.
 
 ## P0 — decisions / owner actions
 
 1. **Testers: get to 12+ opted-in.** Email list has 3, but Dashboard shows **0 opted-in** — people must open the Play join link and install. Copy-paste invite: [`docs/growth/drafts/2026-10-13-tester-invite.md`](../growth/drafts/2026-10-13-tester-invite.md). Or send App Manager 9+ Gmails + ask the 3 already listed to join. Tracked in [#69](https://github.com/anujabbi/kept/issues/69).
-2. **Re-invite App Manager to Play Console (1 min).** The Zenai_dev invite to saathi.abbi@gmail.com expired today unaccepted. Play Console › Users and permissions › Invite new users › saathi.abbi@gmail.com (Admin or release-manager access), then tell App Manager "accept the invite" while you are around.
+2. **Re-invite App Manager to Play Console (1 min).** The Zenai_dev invite to saathi.abbi@gmail.com expired Nov 10 unaccepted. Play Console › Users and permissions › Invite new users › saathi.abbi@gmail.com (Admin or release-manager access), then tell App Manager "accept the invite" while you are around.
 3. **Site fix: yes or no?** https://anujabbi.github.io/kept-site/ still says 1–4 habits, timer proof, buddy/Duo. App: 10-habit cap, tap/photo proof, no buddy. Testers will land there. Reply "site fix: yes" and App Manager opens a kept-site PR.
 
 ## P1 — if time
@@ -19,7 +19,7 @@ If you only have five minutes, do #1 and #2.
 
 ## Done since last agenda
 
-- Daily 11-09 merged ([#116](https://github.com/anujabbi/kept/pull/116)); no eng PRs; open set still #69 / #80 / #76 / #11. No owner replies for twenty-six days. Play invite expired unaccepted (Nov 10).
+- Daily 11-10 merged ([#117](https://github.com/anujabbi/kept/pull/117)); no eng PRs; open set still #69 / #80 / #76 / #11. No owner replies for twenty-seven days. No new Play invite in the saathi inbox yet.
 - No Console re-check (carried Oct 13 status). Reddit watch still paused.
 
 ## Approvals
