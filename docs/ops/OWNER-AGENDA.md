@@ -1,6 +1,6 @@
 # Owner agenda (next 30 min)
 
-Last updated: 2026-11-17 9:40 PM PT (weekday evening slot)
+Last updated: 2026-11-18 9:40 PM PT (weekday evening slot)
 
 Dashboard: [`docs/ops/dashboard.html`](dashboard.html). Closed testing Alpha now uses Google Groups (`testers-community@googlegroups.com` + `abbi-android-testing-friends-family@googlegroups.com`) and is open in all 178 countries; changes submitted for Google review Nov 16 (up to ~7 days). Launch gate: **12+ opted-in** testers for 14 days.
 
@@ -18,6 +18,7 @@ If you only have five minutes, do #1.
 
 ## Done since last agenda
 
+- 2026-11-18: no change; Google review still pending (no email). Docs PR #120 needs your `/approve`.
 - 2026-11-17: you approved docs PR #119; merged. Friends-and-family Google Group confirmed live. Google review of the Alpha changes still pending (no email yet).
 
 - Play Console access restored for saathi (Nov 16). Alpha testers switched to the two Google Groups; friends-and-family group created under saathi; Alpha opened to all 178 countries; all submitted for Google review Nov 16.
