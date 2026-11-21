@@ -788,9 +788,13 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     to locked.
   - *A lock screen left in its open state does not flash stale.* If the user leaves the gold
     screen with Home instead of "Open {App}", the activity stays in its task. When the watcher
-    raises it again (`onNewIntent`), maybe the next day, the activity counts a new showing. The
-    ViewModel recomputes for that showing, and any state from an earlier showing is replaced by a
-    blank one until today's arrives (`LockUi.forShowing`).
+    raises it again (`onNewIntent`), maybe the next day, `LockViewModel.onShown()` counts a new
+    showing and recomputes for it. Until the new showing's first state arrives, any state from an
+    earlier showing reads as not loaded (`LockUi.forShowing`), so nothing stale flashes up. The
+    counter lives only in the ViewModel, so a configuration change cannot split it (review round 2
+    on PR #140). For the same reason, the covered package and its label are kept in the
+    ViewModel's `SavedStateHandle`, not in the activity: a rebuilt activity reads no intent and
+    keeps the app it was raised for last.
   - *"Open {App}" does not re-trigger the lock* because `LockPolicy.isLockActive` is false once no
     habit is left; nothing new was added to the foreground watcher. If the app has no launch
     intent the button goes to the launcher.

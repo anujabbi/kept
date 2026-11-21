@@ -1,5 +1,9 @@
 package com.example.kept.feature.lock
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.kept.core.analytics.Analytics
@@ -39,7 +43,7 @@ data class LockUi(
     val blockedStillLocked: Boolean = true,
     val breaking: Boolean = false,
     /**
-     * Which showing of the lock screen this state was computed for (`LockViewModel.reshow`). A
+     * Which showing of the lock screen this state was computed for (`LockViewModel.onShown`). A
      * state from an earlier showing is stale (issue #127): see [forShowing].
      */
     val showing: Int = 0,
@@ -76,6 +80,7 @@ data class LockUi(
 
 @HiltViewModel
 class LockViewModel @Inject constructor(
+    private val saved: SavedStateHandle,
     private val lockRepo: LockRepository,
     private val sprigRepo: SprigRepository,
     private val actions: HabitActions,
@@ -84,22 +89,45 @@ class LockViewModel @Inject constructor(
     private val analytics: Analytics,
 ) : ViewModel() {
 
-    private val blockedPackage = MutableStateFlow<String?>(null)
+    /**
+     * The package this lock screen is covering and its label, from the intent that raised it last.
+     * Kept here, in the saved state, rather than in the activity: a configuration change rebuilds
+     * the activity from its first intent, which may name an earlier app, and process death loses
+     * the activity's fields. The screen answers to this package (issue #4).
+     */
+    private val blockedPackage: StateFlow<String?> = saved.getStateFlow(KEY_PKG, null)
+    val blockedLabel: StateFlow<String> = saved.getStateFlow(KEY_LABEL, "")
 
-    /** The package this lock screen is covering, so the screen can answer to it (issue #4). */
-    fun setBlockedPackage(pkg: String?) { blockedPackage.value = pkg }
+    /** The package the screen covers now, for "Open {App}". */
+    val blockedPackageNow: String? get() = blockedPackage.value
 
-    private val showing = MutableStateFlow(0)
+    /** Called with the extras of each intent that raises the screen; a missing extra keeps the last value. */
+    fun setBlocked(pkg: String?, label: String?) {
+        if (pkg != null) saved[KEY_PKG] = pkg
+        if (label != null) saved[KEY_LABEL] = label
+    }
 
     /**
-     * The lock screen was raised again (`LockActivity.onNewIntent`) as its [n]th showing: recompute
-     * everything for it. The activity drops any state not tagged with [n] ([LockUi.forShowing]),
-     * so the last showing's state never flashes up first.
+     * Which showing of the lock screen this is: bumped each time the watcher raises the screen
+     * again ([onShown]). It lives only here, so it survives a configuration change with the
+     * ViewModel and can never disagree with the states below. It is Compose state so the
+     * activity's very next frame drops the last showing's state, before the flows catch up.
      */
-    fun reshow(n: Int) { showing.value = n }
+    var showing by mutableIntStateOf(0)
+        private set
+    private val showingFlow = MutableStateFlow(0)
+
+    /** The lock screen was raised again (`LockActivity.onNewIntent`): recompute everything for it. */
+    fun onShown() {
+        showing += 1
+        showingFlow.value = showing
+    }
+
+    /** The current state as it may be shown: anything from an earlier showing reads as not loaded yet. */
+    fun shown(live: LockUi): LockUi = live.forShowing(showing)
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val state: StateFlow<LockUi> = showing.flatMapLatest { n ->
+    val state: StateFlow<LockUi> = showingFlow.flatMapLatest { n ->
         lockUiFlow(lockRepo.observeState(), sprigRepo.state, time.ticker(1_000), blockedPackage, time, n)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LockUi())
 
@@ -135,6 +163,9 @@ class LockViewModel @Inject constructor(
         then()
     }
 }
+
+private const val KEY_PKG = "blocked_pkg"
+private const val KEY_LABEL = "blocked_label"
 
 /**
  * The `combine` behind [LockViewModel.state], kept as a plain function of flows so a JVM test can

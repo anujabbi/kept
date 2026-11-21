@@ -12,7 +12,6 @@ import com.example.kept.core.ui.enableDaybreakEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -30,19 +29,17 @@ import dagger.hilt.android.AndroidEntryPoint
 class LockActivity : ComponentActivity() {
 
     private val vm: LockViewModel by viewModels()
-    private var blockedPackage by mutableStateOf("")
-    private var blockedLabel by mutableStateOf("")
-
-    /** Counts the times this screen was raised; states from an earlier showing are not shown. */
-    private var showing by mutableIntStateOf(0)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableDaybreakEdgeToEdge()
-        readIntent(intent)
+        // Only a fresh start reads the intent. A rebuilt activity (configuration change, or process
+        // death) keeps what the ViewModel saved, which is the intent that raised the screen last.
+        if (savedInstanceState == null) readIntent(intent)
         setContent {
             val live by vm.state.collectAsStateWithLifecycle()
-            val s = live.forShowing(showing)
+            val blockedLabel by vm.blockedLabel.collectAsStateWithLifecycle()
+            val s = vm.shown(live)
             var breaking by remember { mutableStateOf(false) }
             var breakStartedAt by remember { androidx.compose.runtime.mutableLongStateOf(0L) }
             // How long the break screen was held open. The countdown only unlocks the button after
@@ -104,17 +101,14 @@ class LockActivity : ComponentActivity() {
         super.onNewIntent(intent)
         // Raised again over an app, perhaps a day after it was left in its open state: start from
         // a blank state rather than flash the last one (issue #127).
-        showing++
-        vm.reshow(showing)
+        vm.onShown()
         readIntent(intent)
     }
 
     private fun readIntent(i: Intent?) {
-        blockedPackage = i?.getStringExtra(EXTRA_PKG) ?: blockedPackage
-        blockedLabel = i?.getStringExtra(EXTRA_LABEL) ?: blockedLabel
-        // Tell the ViewModel which package this screen is covering so it can drop the screen the
+        // The ViewModel learns which package this screen is covering, so it can drop the screen the
         // moment that package stops being blocked (issue #4).
-        vm.setBlockedPackage(blockedPackage)
+        vm.setBlocked(i?.getStringExtra(EXTRA_PKG), i?.getStringExtra(EXTRA_LABEL))
     }
 
     private fun goHome() {
@@ -128,7 +122,7 @@ class LockActivity : ComponentActivity() {
      * foreground watcher lets the app through instead of raising this screen again.
      */
     private fun openBlockedApp() {
-        val launch = blockedPackage.takeIf { it.isNotBlank() }?.let { packageManager.getLaunchIntentForPackage(it) }
+        val launch = vm.blockedPackageNow?.takeIf { it.isNotBlank() }?.let { packageManager.getLaunchIntentForPackage(it) }
         if (launch == null) { goHome(); return }
         startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         finishAndRemoveTask()
