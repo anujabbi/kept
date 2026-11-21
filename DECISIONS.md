@@ -1060,3 +1060,39 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     and the hollow-day note on Permissions), because it was a one-line change each; the rest of
     Settings is #133. The old Settings-only copy ("Permissions" title, "Always available",
     "Locked") is gone with it.
+
+- **Settings in Daybreak (issue #133).** Built from `A7-Settings`, `A15-History`,
+  `A12-Exceptions-settings` and `A13-Permissions-settings`; the pure rules are
+  `core/domain/SettingsLayout.kt` (`SettingsCopy`, `SettingsSky`, `SettingsRowFit`). The grouped
+  rows are `core/ui/Groups.kt` (`RowGroup`, `ValueRow`, `SwitchRow`, `Modifier.cardSegment`, which
+  the What stays open rows now share).
+  - *No theme row.* The old Settings had no dark-mode or theme row, so there was none to remove.
+  - *Editors are the existing ones.* "Lock apps from" and "Give-up time" open the existing time
+    picker (restyled on cream; no new bounds, so the window rules are unchanged), "Unlock length
+    after a break" opens the existing three lengths (15, 30, 60 min) as chips in a dialog. The
+    lock window still goes through `requestSetLockWindow`, so changing it while locked still asks
+    "Change it anyway" (the dialog is restyled: cream card, ink title, red confirm).
+  - *Values.* Exceptions reads "1 app" in the singular and "0 apps" with none (the design only
+    shows "2 apps"). Permissions counts every permission the Permissions page lists that is off,
+    as the old row did, camera included; "{n} off" and its dot are red. Times and values use
+    no-break spaces.
+  - *Copy the design drops.* The old long explanations under the lock window ("Apps lock between
+    these times…"), the break ("A break always works…"), the reminders ("When apps lock, two hours
+    before…"), the "{n} of 3 used this week" count and "Helps us see what works." are gone; the
+    rows carry the design's short hints instead.
+  - *Row fit.* A row's value sits beside its title only when the whole title fits on one line
+    beside it (the onboarding stepper rule); otherwise it goes under the title. At 360dp this
+    already stacks "Unlock length after a break" at font 1.0.
+  - *Sky geometry from the screen.* The title gets the width left beside the 130dp Sprig (14dp in
+    from the right, as in the mock) and shrinks to fit at large fonts; a taller title moves the
+    crest and Sprig down. Sprig's bottom keeps the mock's 22dp under the crest and is at least 2dp
+    under the hill at both lower corners. Sprig wears the current form's outfit (the mock shows the
+    cardigan) and is interactive, as everywhere it is over 100dp.
+  - *History* is its own page (`Routes.HISTORY`, `Screens.HISTORY`), with the last 14 finalized
+    days, newest first. A day still opens its recap when tapped, as the old inline list did, but
+    without a chevron (the design has none). Outcomes use `RecapOutcome`, so "Missed" is the
+    recap's slipped. Before the first recap the page shows "Your first recap lands after tonight."
+    in a card under the title and line. When a date and its two values do not fit on one line
+    (360dp at font 2.0) the values go under the date.
+  - *TalkBack.* Every switch (Settings rows, What stays open rows, `KeptSwitch` with its own
+    toggle) reports "On" or "Off" as its state.

@@ -43,6 +43,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.toggleableState
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.font.FontWeight
@@ -325,6 +326,7 @@ fun KeptSwitch(
     val toggle = if (onCheckedChange != null) {
         Modifier.sizeIn(minWidth = MIN_TOUCH, minHeight = MIN_TOUCH)
             .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
+            .semantics { stateDescription = switchState(checked) }
             .then(if (label != null) Modifier.semantics { contentDescription = label } else Modifier)
     } else Modifier
     Box(modifier.then(toggle), contentAlignment = Alignment.Center) {
@@ -333,6 +335,9 @@ fun KeptSwitch(
         }
     }
 }
+
+/** What TalkBack says for a switch's state: "On" or "Off". */
+fun switchState(checked: Boolean): String = if (checked) "On" else "Off"
 
 /**
  * A chip (`A9-Habit-edit` unit chips): 36dp, fully round, purple when selected and purple

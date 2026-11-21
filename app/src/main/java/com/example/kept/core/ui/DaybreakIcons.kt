@@ -49,6 +49,9 @@ object DaybreakIcons {
     /** The back arrow in a page header (`A10`–`A14`). */
     val Back: ImageVector = stroke("Back", 2.4f, "M15 5l-7 7 7 7")
 
+    /** A Settings row's chevron (`A7-Settings`). */
+    val Chevron: ImageVector = stroke("Chevron", 2.4f, "M9 5l7 7-7 7")
+
     /** The search field's magnifier (`A12-Exceptions`). */
     val Search: ImageVector = stroke("Search", 2.4f, circle(11f, 11f, 6f), "M20 20l-4-4")
 

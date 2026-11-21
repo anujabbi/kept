@@ -32,6 +32,7 @@ import com.example.kept.feature.onboarding.OnboardingScreen
 import com.example.kept.feature.recap.RecapScreen
 import com.example.kept.feature.settings.ExceptionsScreen
 import com.example.kept.feature.settings.HabitsEditScreen
+import com.example.kept.feature.settings.HistoryScreen
 import com.example.kept.feature.settings.PermissionsScreen
 import com.example.kept.feature.settings.SettingsScreen
 
@@ -44,6 +45,7 @@ object Routes {
     const val EXCEPTIONS = "exceptions"
     const val HABITS = "habits"
     const val PERMISSIONS = "permissions"
+    const val HISTORY = "history"
     const val REVEAL = "reveal/{galleryId}"
 
     fun recap(date: String) = "recap/$date"
@@ -65,6 +67,7 @@ fun screenNameFor(route: String?): String? = when (route) {
     Routes.EXCEPTIONS -> Screens.EXCEPTIONS
     Routes.HABITS -> Screens.HABITS
     Routes.PERMISSIONS -> Screens.PERMISSIONS
+    Routes.HISTORY -> Screens.HISTORY
     Routes.REVEAL -> Screens.REVEAL
     else -> null
 }
@@ -143,7 +146,7 @@ fun KeptApp(startDestination: String, pendingRoute: String?, consumeRoute: () ->
                             onOpenExceptions = { nav.navigate(Routes.EXCEPTIONS) },
                             onOpenHabits = { nav.navigate(Routes.HABITS) },
                             onOpenPermissions = { nav.navigate(Routes.PERMISSIONS) },
-                            onOpenRecap = { nav.navigate(Routes.recap(it)) },
+                            onOpenHistory = { nav.navigate(Routes.HISTORY) },
                         )
                     }
                     composable(Routes.RECAP, arguments = listOf(navArgument("date") { type = NavType.StringType })) {
@@ -156,6 +159,9 @@ fun KeptApp(startDestination: String, pendingRoute: String?, consumeRoute: () ->
                     composable(Routes.EXCEPTIONS) { ExceptionsScreen(onBack = { nav.popBackStack() }) }
                     composable(Routes.HABITS) { HabitsEditScreen(onBack = { nav.popBackStack() }) }
                     composable(Routes.PERMISSIONS) { PermissionsScreen(onBack = { nav.popBackStack() }) }
+                    composable(Routes.HISTORY) {
+                        HistoryScreen(onBack = { nav.popBackStack() }, onOpenRecap = { nav.navigate(Routes.recap(it)) })
+                    }
                     composable(Routes.REVEAL, arguments = listOf(navArgument("galleryId") { type = NavType.LongType })) {
                         // "Sprig is now {Form}" (issue #130) replaces the old reveal, at the same moment.
                         SprigEvolvesScreen(onClose = { nav.popBackStack() })
