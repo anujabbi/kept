@@ -128,11 +128,27 @@ class CollectionBehaviourTest {
         assertEquals("Reached 1 September 2026", bud.content().subline)
         assertEquals("Reached at a 3-day streak", bud.sheetLine)
         val sprig = FormShare.of(SprigForm.SPRIG, cards, state)
-        assertEquals(FormShare(SprigForm.SPRIG, 2, null), sprig)
+        assertEquals(FormShare(SprigForm.SPRIG, 2, null, current = true), sprig)
         assertEquals("Day 2 with Sprig", sprig.content().headline)
         assertEquals("Where everyone starts", sprig.content().subline)
         // A form below the current one with no entry (an old install) falls back to its threshold.
         assertEquals(FormShare(SprigForm.BLOOM, 7, null), FormShare.of(SprigForm.BLOOM, emptyList(), SprigState(streakDays = 20)))
+    }
+
+    /** QA on PR #145: a 100-day user sharing Sprig must not post "Day 0 with Sprig". */
+    @Test fun sharing_sprig_once_passed_never_says_day_0() {
+        for (streak in listOf(3, 12, 100)) {
+            val share = FormShare.of(SprigForm.SPRIG, CollectionFixtures.cards(streak), SprigState(streakDays = streak))
+            val c = share.content()
+            assertEquals("at $streak", "Where it all started", c.headline)
+            assertEquals("at $streak", "Every promise starts small.", c.subline)
+            assertTrue("at $streak: ${c.headline}", !c.headline.contains("Day 0"))
+        }
+        // While Sprig is current it keeps the real streak.
+        val now = FormShare.of(SprigForm.SPRIG, CollectionFixtures.cards(2), SprigState(streakDays = 2)).content()
+        assertEquals("Day 2 with Sprig", now.headline)
+        val day0 = FormShare.of(SprigForm.SPRIG, emptyList(), SprigState(streakDays = 0)).content()
+        assertEquals("Day 0 with Sprig", day0.headline)
     }
 
     @Test fun no_route_or_screen_name_for_the_roadmap_is_left() {

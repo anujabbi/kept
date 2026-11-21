@@ -103,26 +103,37 @@ class GalleryViewModel @Inject constructor(repo: SprigRepository) : ViewModel() 
 
 /**
  * What sharing a reached form shows: the streak and date it was first reached, from its earliest
- * gallery entry. A form with no entry (Sprig itself, where every streak starts) uses today's
- * streak while it is the current form, else its threshold.
+ * gallery entry. A form with no entry uses today's streak while it is the [current] form, else
+ * its threshold. Sprig itself is where every streak starts: while current it shares "Day {n}
+ * with Sprig" with today's streak; once passed, "Where it all started" and its tagline, never
+ * "Day 0" (QA on PR #145).
  */
-internal data class FormShare(val form: SprigForm, val streak: Int, val date: LocalDate?) {
+internal data class FormShare(val form: SprigForm, val streak: Int, val date: LocalDate?, val current: Boolean = false) {
     /** The sheet's line under the name. */
     val sheetLine: String
         get() = if (form == SprigForm.SPRIG) "Where everyone starts" else "Reached at a $streak-day streak"
 
+    private val sprigPassed: Boolean get() = form == SprigForm.SPRIG && !current
+
     fun content(): ShareCard.Content = ShareCard.Content(
         SprigSpec(form, SprigPose.CHEER),
-        ShareCard.formHeadline(form, streak),
-        date?.let { "Reached ${it.format(DateTimeFormatter.ofPattern("d MMMM yyyy"))}" } ?: sheetLine,
+        if (sprigPassed) SPRIG_PASSED_HEADLINE else ShareCard.formHeadline(form, streak),
+        when {
+            sprigPassed -> form.tagline
+            date != null -> "Reached ${date.format(DateTimeFormatter.ofPattern("d MMMM yyyy"))}"
+            else -> sheetLine
+        },
     )
 
     companion object {
+        const val SPRIG_PASSED_HEADLINE = "Where it all started"
+
         fun of(form: SprigForm, cards: List<GalleryCard>, state: SprigState): FormShare {
             val card = cards.filter { it.form == form }.minByOrNull { it.unlockedDate }
+            val current = form == state.form
             return when {
-                card != null -> FormShare(form, card.streakAtUnlock, card.unlockedDate)
-                form == state.form -> FormShare(form, state.streakDays, null)
+                card != null -> FormShare(form, card.streakAtUnlock, card.unlockedDate, current)
+                current -> FormShare(form, state.streakDays, null, current = true)
                 else -> FormShare(form, form.streakThreshold, null)
             }
         }

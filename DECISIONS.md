@@ -1008,7 +1008,9 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
   - *Share flow.* A reached card opens the existing share sheet (restyled in Daybreak tokens),
     then the share card. It uses the form's earliest gallery entry for the streak and date; a
     form with no entry (Sprig itself) shares "Day {n} with Sprig" with today's streak while it is
-    the current form, and "Where everyone starts" as the line. Locked cards have a TalkBack label
+    the current form, and "Where everyone starts" as the line. Once Sprig is passed it shares
+    "Where it all started" with its tagline "Every promise starts small." rather than "Day 0 with
+    Sprig" (QA on PR #145, orchestrator's copy). Locked cards have a TalkBack label
     and no click action.
   - *Removed:* the roadmap screen ("How Sprig grows"), `Routes.ROADMAP` and `Screens.ROADMAP`,
     and the old "Now" card, "Collected" and "Still to earn" sections. `GalleryViewModel` no
