@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.os.SystemClock
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -12,9 +11,7 @@ import com.example.kept.core.ui.enableDaybreakEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.kept.core.ui.KeptTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -40,20 +37,13 @@ class LockActivity : ComponentActivity() {
             val live by vm.state.collectAsStateWithLifecycle()
             val blockedLabel by vm.blockedLabel.collectAsStateWithLifecycle()
             val s = vm.shown(live)
-            var breaking by remember { mutableStateOf(false) }
-            var breakStartedAt by remember { androidx.compose.runtime.mutableLongStateOf(0L) }
-            // How long the break screen was held open. The countdown only unlocks the button after
-            // a minute, so this says how much longer than that the user sat with it (issue #10).
-            fun secondsWaited() = ((SystemClock.elapsedRealtime() - breakStartedAt) / 1000L).toInt()
+            // The break screen's state lives in the ViewModel, so a rotation keeps it and its countdown.
+            val breaking = vm.breakTimer.breaking
 
-            // This activity is its own surface, so the screens it shows report themselves.
+            // This activity is its own surface, so the screens it shows report themselves. The break
+            // screen reports itself once, when it opens (`LockViewModel.startBreak`).
             LaunchedEffect(breaking) {
-                if (breaking) {
-                    breakStartedAt = SystemClock.elapsedRealtime()
-                    vm.reportBreakScreenOpened()
-                } else {
-                    vm.reportLockScreenViewed()
-                }
+                if (!breaking) vm.reportLockScreenViewed()
             }
 
             // Lock lifted by a break, the window ending, or this very package added as an exception
@@ -63,19 +53,17 @@ class LockActivity : ComponentActivity() {
                 if (s.shouldDismiss) goHome()
             }
 
-            val cancelBreak = {
-                vm.reportBreakCancelled()
-                breaking = false
-            }
-
-            BackHandler { if (breaking) cancelBreak() else goHome() }
+            BackHandler { if (breaking) vm.cancelBreak() else goHome() }
 
             KeptTheme {
                 if (breaking) {
                     BreakLockScreen(
                         state = s,
-                        onCancel = cancelBreak,
-                        onConfirm = { vm.breakLock(secondsWaited()) { goHome() } },
+                        secondsLeft = vm.breakTimer.secondsLeft,
+                        onCancel = { vm.cancelBreak() },
+                        onConfirm = { vm.breakLock { goHome() } },
+                        playIntro = !vm.breakTimer.introPlayed,
+                        onIntroStarted = { vm.breakTimer.markIntroPlayed() },
                     )
                 } else {
                     LockScreen(
@@ -87,7 +75,7 @@ class LockActivity : ComponentActivity() {
                                 onUndo = { vm.undo(it) },
                                 onPhoto = { id, path -> vm.completeWithPhoto(id, path) },
                                 onPhone = { dial() },
-                                onBreak = { breaking = true },
+                                onBreak = { vm.startBreak() },
                                 onOpenApp = { openBlockedApp() },
                             )
                         },

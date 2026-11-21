@@ -56,6 +56,10 @@ object DaybreakColors {
     val missedDay = Color(0xFFE6E2EE)
     /** Text on a sky in the dark half of its ramp. */
     val skyTextLight = Color(0xFFFFF4E4)
+    /** "Unlock anyway (42s)" while the break countdown runs (`A4-Break`). */
+    val waitingInk = Color(0xFF6E6A88)
+    /** The break screen's speech bubble shadow, `rgba(30,27,60,0.12)` (`A4-Break`). */
+    val bubbleShadow = Color(0x1F1E1B3C)
 }
 
 /** The top band of each screen. See [SkyRamp] for which one a screen shows. */

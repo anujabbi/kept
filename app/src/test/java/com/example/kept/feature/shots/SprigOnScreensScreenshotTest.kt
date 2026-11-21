@@ -9,19 +9,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.dp
-import com.example.kept.core.data.HabitToday
-import com.example.kept.core.data.LockState
-import com.example.kept.core.data.TodaySummary
 import com.example.kept.core.data.db.DayRecordEntity
-import com.example.kept.core.data.db.HabitEntity
-import com.example.kept.core.data.db.HabitEntryEntity
-import com.example.kept.core.data.prefs.Settings
-import com.example.kept.core.domain.ProofType
-import com.example.kept.core.domain.SprigState
 import com.example.kept.core.ui.KeptTheme
 import com.example.kept.core.ui.shots.Shot
-import com.example.kept.feature.lock.BreakLockScreen
-import com.example.kept.feature.lock.LockUi
 import com.example.kept.feature.recap.RecapContent
 import com.example.kept.feature.recap.RecapUi
 import com.github.takahirom.roborazzi.captureRoboImage
@@ -35,8 +25,8 @@ import java.time.LocalDate
 
 /**
  * The existing screens with the new Sprig in place, to check nothing in their (not yet
- * redesigned) layouts breaks: Break, and Recap kept and slipped. The lock screen has its own
- * Daybreak screenshots (`LockScreenshotTest`).
+ * redesigned) layouts breaks: Recap kept and slipped. The lock and break screens have their own
+ * Daybreak screenshots (`LockScreenshotTest`, `BreakScreenshotTest`).
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -48,23 +38,6 @@ class SprigOnScreensScreenshotTest {
     private fun shot(name: String, content: @Composable () -> Unit) {
         rule.setContent { Shot { Box(Modifier.fillMaxSize().background(KeptTheme.colors.surface1)) { content() } } }
         rule.onRoot().captureRoboImage("src/test/screenshots/screen_$name.png")
-    }
-
-    private fun habit(id: Long, title: String, icon: String, done: Boolean) = HabitToday(
-        HabitEntity(id = id, title = title, iconKey = icon, proofType = ProofType.MANUAL, targetValue = 1, unit = "", createdAt = 0),
-        if (done) HabitEntryEntity(habitId = id, date = "2026-11-21", progressValue = 1, completedAt = 1) else null,
-    )
-
-    private fun today(done: Boolean) = TodaySummary(listOf(habit(1, "Exercise", "run", done), habit(2, "Read", "book", done)))
-
-    private val lockUi = LockUi(
-        loaded = true,
-        lock = LockState(Settings(), today(false), breakActiveUntil = null, breaksUsedThisWeek = 0, userExceptions = emptySet(), unprotectedToday = false),
-        sprig = SprigState(level = 2, streakDays = 9),
-    )
-
-    @Test fun breakLock() = shot("break") {
-        BreakLockScreen(lockUi, onCancel = {}, onConfirm = {}, countdownSeconds = 0)
     }
 
     @Test fun recapKept() = shot("recap_kept") {

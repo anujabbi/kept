@@ -833,3 +833,38 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     now shared by Home and Lock, and the pending file path survives activity recreation.
   - *Removed:* "Open KEPT", the clock row and "{App} is locked" (the design has neither; the status
     bar shows the time), `LockUi.clockLabel`, and `feature/home/LegacyHabitRow.kt`.
+- **Break the lock in Daybreak (issue #128).** Built from `A4-Break` and `A4-Break-last`; the pure
+  rules (countdown, fade, costs, copy, layout) are `core/domain/BreakLayout.kt`. The break rules,
+  the weekly cap, the 60 second countdown (`BREAK_COUNTDOWN_SECONDS`, moved to `core/domain`) and
+  the confirm path (`LockRepository.breakLock`, then home) are unchanged.
+  - *Countdown in the ViewModel.* Whether the break screen is up, when it opened and whether Sprig's
+    rise has played now live in `LockViewModel` (`BreakTimer`, with the start time in the
+    `SavedStateHandle`, read on `SystemClock.elapsedRealtime`) instead of `remember` in
+    `LockActivity`. Before, a rotation dropped the user back on the lock screen, and opening the
+    break again restarted the minute. Now the screen and its countdown survive a rotation or process
+    death. "lock_break_started" is reported once when the screen opens, not again on recreation;
+    `seconds_waited` is measured the same way as before.
+  - *Real values the design does not draw.* At level 1 Sprig cannot drop a level, so the first row
+    reads "Sprig wilts until tomorrow."; with no streak the "Your {n} day streak stays." row is left
+    out, and the last-resort line says "your streak" instead of "your 0 day streak". "{left} of 3
+    breaks left this week." counts the breaks left before this one, as the old screen did.
+  - *Sprig* wears the user's form's outfit (the design hard-codes Bloom's sweater). It is drawn at its
+    full colour and drained by the countdown (`SprigView(saturation =)`, a colour matrix like the
+    wilted look), rather than shown already wilted as before. The fade animates linearly over each
+    second, as the design's `transition: 1s linear`, also with reduce motion on.
+  - *Layout.* The design's values (headline 60 in a 190dp column, bubble at 20/178, Sprig 230 at
+    116 with its right edge 6dp past the screen, crest 312) are measured below the status bar. On a
+    narrower screen Sprig shrinks so the headline column keeps 166dp (200dp at 360); a taller headline
+    or bubble moves the crest and Sprig down. The bubble is at most as wide as the gap before Sprig's
+    body, so at large fonts the plea wraps (between words) instead of covering Sprig. The clock steps
+    its size down rather than clip.
+  - *Short screens* (under 760dp between the bars, 360 × 640): the crest comes up to 216 and Sprig
+    shrinks to 170dp, the clock is 60sp instead of 84, cost rows are 8dp apart, the footer margin is
+    16dp, and the page starts 24dp up into the hill (still on cream at every x). Everything fits at
+    font 1.0; larger fonts scroll the costs and clock above the fixed buttons.
+  - *Buttons.* "Never mind, go back" is 60dp tall at 18sp as in the design; "Unlock anyway ({s}s)"
+    reads in `#6E6A88` while waiting (`QuietButton(disabledColor =)`), not the paler disabled grey.
+  - *Icons.* The three duotone cost icons are `DaybreakIcons.Wilt`, `StreakFlame` and `Ticket`, drawn
+    in their own colours; the ticket's dashed perforation is drawn as its three dashes.
+  - *Removed:* the old break screen's paragraph, the "Unlocking in" card and its monospace clock, and
+    the old `screen_break` golden in `SprigOnScreensScreenshotTest`.

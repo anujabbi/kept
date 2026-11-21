@@ -51,14 +51,16 @@ class LockScreensTest {
     }
 
     @Test fun break_lock_requires_countdown_before_unlock() {
-        compose.mainClock.autoAdvance = false
-        compose.setContent { KeptTheme { BreakLockScreen(sampleState(), onCancel = {}, onConfirm = {}, countdownSeconds = 3) } }
-        compose.onNodeWithText("This drops Sprig to level 3").assertIsDisplayed()
+        // The countdown itself lives in LockViewModel (BreakTimer); the screen shows what it is given.
+        val left = androidx.compose.runtime.mutableIntStateOf(3)
+        compose.setContent { KeptTheme { BreakLockScreen(sampleState(), secondsLeft = left.intValue, onCancel = {}, onConfirm = {}) } }
+        compose.onNodeWithText("Break the lock?").assertIsDisplayed()
+        compose.onNodeWithText("Sprig drops a level and wilts until tomorrow.").assertIsDisplayed()
+        compose.onNodeWithTag("unlock_anyway").assertIsNotEnabled().assertTextEquals("Unlock anyway (3s)")
+        left.intValue = 1
         compose.onNodeWithTag("unlock_anyway").assertIsNotEnabled()
-        compose.mainClock.advanceTimeBy(1_500)
-        compose.onNodeWithTag("unlock_anyway").assertIsNotEnabled()
-        compose.mainClock.advanceTimeBy(2_500)
-        compose.onNodeWithTag("unlock_anyway").assertIsEnabled()
+        left.intValue = 0
+        compose.onNodeWithTag("unlock_anyway").assertIsEnabled().assertTextEquals("Unlock for 30 min")
         compose.onNodeWithText("Never mind, go back").assertIsDisplayed()
     }
 }
