@@ -43,6 +43,9 @@ object DaybreakIcons {
     /** "Shield ready" (`Main`). */
     val Shield: ImageVector = stroke("Shield", 2.4f, "M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z")
 
+    /** Lock screen, "Phone" (`A3-Lock`). */
+    val Phone: ImageVector = stroke("Phone", 2.4f, "M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z")
+
     /** An SVG `<circle>` as path data: two half-circle arcs. */
     private fun circle(cx: Float, cy: Float, r: Float): String =
         "M${cx - r} ${cy}a$r $r 0 1 0 ${2 * r} 0a$r $r 0 1 0 ${-2 * r} 0z"

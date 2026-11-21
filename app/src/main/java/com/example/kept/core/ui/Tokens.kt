@@ -83,3 +83,20 @@ object Sky {
         night, Color(0xFF332D6C), Color(0xFF3E3478), Color(0xFF4A3E86), Color(0xFF5A4A9A),
     )
 }
+
+/**
+ * The lock screen while locked (`A3-Lock`): text, the footer rule and the dark habit rows on the
+ * [Sky.lockGround]. Once everything is done the screen uses the cream page colours instead.
+ */
+object LockPalette {
+    /** Secondary text on the lock sky and ground. */
+    val soft = Color(0xFFD8D3F5)
+    /** The footer's top rule. */
+    val rule = Color(0xFF2E2A5E)
+    /** A to-do row's border and its empty ring. */
+    val rowLine = Color(0xFF4A4590)
+    val ring = Color(0xFFA9A3DC)
+    /** A done row: fill and border; its dot is [Sky.gold] with an ink check. */
+    val rowDone = Color(0xFF3E3895)
+    val rowDoneLine = Color(0xFF8B7CF6)
+}

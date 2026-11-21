@@ -13,15 +13,17 @@ import androidx.activity.viewModels
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.kept.MainActivity
 import com.example.kept.core.ui.KeptTheme
 import dagger.hilt.android.AndroidEntryPoint
 
 /**
- * Shown over any locked app. Single instance, excluded from recents. Back goes to the launcher,
- * never back into the locked app.
+ * Shown over any locked app, in its own task (`singleTask`, empty affinity), excluded from
+ * recents. Back goes to the launcher, never back into the locked app. Not `singleInstance`: an
+ * activity started for a result from a single-instance activity is forced into a new task and
+ * its result is cancelled at once, which would lose the photo a photo habit takes from here.
  */
 @AndroidEntryPoint
 class LockActivity : ComponentActivity() {
@@ -36,8 +38,8 @@ class LockActivity : ComponentActivity() {
         readIntent(intent)
         setContent {
             val s by vm.state.collectAsStateWithLifecycle()
-            var breaking by androidx.compose.runtime.remember { mutableStateOf(false) }
-            var breakStartedAt by androidx.compose.runtime.remember { androidx.compose.runtime.mutableLongStateOf(0L) }
+            var breaking by remember { mutableStateOf(false) }
+            var breakStartedAt by remember { androidx.compose.runtime.mutableLongStateOf(0L) }
             // How long the break screen was held open. The countdown only unlocks the button after
             // a minute, so this says how much longer than that the user sat with it (issue #10).
             fun secondsWaited() = ((SystemClock.elapsedRealtime() - breakStartedAt) / 1000L).toInt()
@@ -52,12 +54,11 @@ class LockActivity : ComponentActivity() {
                 }
             }
 
-            // Lock lifted (habits done, break granted, window ended) or this very package added as
-            // an exception from Settings (issue #4): get out of the way. Finishing the day is the
-            // one case that goes to KEPT instead of the launcher, because the celebration is
-            // waiting on Home and this screen cannot show it (issue #9).
+            // Lock lifted by a break, the window ending, or this very package added as an exception
+            // from Settings (issue #4): get out of the way. Finishing the day in time does not
+            // dismiss: the screen turns into its open state and "Open {App}" leaves (issue #127).
             LaunchedEffect(s.shouldDismiss) {
-                if (s.shouldDismiss) { if (s.finishedToday) openApp("home") else goHome() }
+                if (s.shouldDismiss) goHome()
             }
 
             val cancelBreak = {
@@ -77,11 +78,17 @@ class LockActivity : ComponentActivity() {
                 } else {
                     LockScreen(
                         state = s,
-                        blockedLabel = blockedLabel,
-                        onComplete = { vm.complete(it) },
-                        onBreak = { breaking = true },
-                        onEmergency = { dial() },
-                        onOpenKept = { openApp(null) },
+                        appLabel = blockedLabel,
+                        actions = remember(vm) {
+                            LockActions(
+                                onComplete = { vm.complete(it) },
+                                onUndo = { vm.undo(it) },
+                                onPhoto = { id, path -> vm.completeWithPhoto(id, path) },
+                                onPhone = { dial() },
+                                onBreak = { breaking = true },
+                                onOpenApp = { openBlockedApp() },
+                            )
+                        },
                     )
                 }
             }
@@ -106,11 +113,15 @@ class LockActivity : ComponentActivity() {
         finishAndRemoveTask()
     }
 
-    private fun openApp(route: String?) {
-        startActivity(Intent(this, MainActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            route?.let { putExtra(EXTRA_DEEP_ROUTE, it) }
-        })
+    /**
+     * "Open {App}" (issue #127): launch the app this screen was covering and leave. The lock is no
+     * longer active once every habit is done (`LockPolicy.isLockActive` needs habits left), so the
+     * foreground watcher lets the app through instead of raising this screen again.
+     */
+    private fun openBlockedApp() {
+        val launch = blockedPackage.takeIf { it.isNotBlank() }?.let { packageManager.getLaunchIntentForPackage(it) }
+        if (launch == null) { goHome(); return }
+        startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         finishAndRemoveTask()
     }
 
@@ -122,7 +133,6 @@ class LockActivity : ComponentActivity() {
     companion object {
         const val EXTRA_PKG = "blocked_pkg"
         const val EXTRA_LABEL = "blocked_label"
-        const val EXTRA_DEEP_ROUTE = "route"
 
         fun show(ctx: Context, pkg: String, label: String) {
             ctx.startActivity(

@@ -2,8 +2,6 @@ package com.example.kept.feature.home
 
 import android.app.Activity
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
@@ -50,9 +48,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -76,6 +72,7 @@ import com.example.kept.core.ui.DaybreakType
 import com.example.kept.core.ui.FIRST_LANDING_BODY
 import com.example.kept.core.ui.FIRST_LANDING_BODY_NO_NOTIFICATIONS
 import com.example.kept.core.ui.FirstLandingBanner
+import com.example.kept.core.ui.fitLongestWord
 import com.example.kept.core.ui.HabitRowState
 import com.example.kept.core.ui.Hill
 import com.example.kept.core.ui.LockOffBanner
@@ -84,9 +81,8 @@ import com.example.kept.core.ui.SkyRamp
 import com.example.kept.core.ui.SkyScaffold
 import com.example.kept.core.ui.TooLateBanner
 import com.example.kept.core.ui.keptTween
-import com.example.kept.core.ui.rememberHaptics
+import com.example.kept.core.ui.rememberPhotoTick
 import com.example.kept.core.ui.sprig.SprigView
-import java.io.File
 
 /** What Home can ask for. Navigation is the caller's; Sprig is not a way to navigate. */
 internal class HomeActions(
@@ -268,26 +264,6 @@ private fun HeadlineBlock(s: HomeUiState, layout: HomeLayout, ink: Color, textWi
     }
 }
 
-/**
- * Headlines may wrap between words but never inside one: at large font scales the size steps
- * down until the longest word fits [width].
- */
-@Composable
-private fun fitLongestWord(text: String, style: TextStyle, width: Dp): TextStyle {
-    val measurer = rememberTextMeasurer()
-    val density = LocalDensity.current
-    val max = with(density) { width.roundToPx() }
-    return remember(text, style, max, density) {
-        val widest = text.split(' ').filter { it.isNotEmpty() }
-            .maxOfOrNull { measurer.measure(it, style, softWrap = false, maxLines = 1, density = density).size.width } ?: 0
-        if (widest <= max) style
-        else {
-            val k = max.toFloat() / widest * 0.98f
-            style.copy(fontSize = style.fontSize * k, lineHeight = style.lineHeight * k)
-        }
-    }
-}
-
 /** Banners, in the spec's order, when they apply. */
 @Composable
 private fun ColumnScope.Banners(s: HomeUiState, actions: HomeActions) {
@@ -398,29 +374,13 @@ private fun CompactPage(s: HomeUiState, actions: HomeActions, shieldOpen: Boolea
 private val COMPACT_LIST_MIN = 128.dp
 
 /**
- * A habit on Home: [DaybreakHabitRow] plus the camera for photo habits. The tick haptic for a
- * photo habit plays once the photo is saved, not on the tap that opens the camera.
+ * A habit on Home: [DaybreakHabitRow] plus the camera for photo habits ([rememberPhotoTick]).
+ * The tick haptic for a photo habit plays once the photo is saved, not on the tap that opens the
+ * camera.
  */
 @Composable
 private fun HomeHabitRow(h: HabitToday, roomy: Boolean, actions: HomeActions) {
-    val ctx = LocalContext.current
-    val haptics = rememberHaptics()
-    var pendingPhoto by remember { mutableStateOf<File?>(null) }
-    val takePicture = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
-        val f = pendingPhoto
-        if (ok && f != null) {
-            haptics.habitTicked()
-            actions.onPhoto(h.id, f.absolutePath)
-        }
-        pendingPhoto = null
-    }
-    val cameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) {
-            val (file, uri) = newProofFile(ctx)
-            pendingPhoto = file
-            takePicture.launch(uri)
-        }
-    }
+    val snap = rememberPhotoTick { path -> actions.onPhoto(h.id, path) }
     val photo = h.habit.proofType == ProofType.PHOTO
     DaybreakHabitRow(
         title = h.habit.title,
@@ -430,7 +390,7 @@ private fun HomeHabitRow(h: HabitToday, roomy: Boolean, actions: HomeActions) {
             h.late -> HabitRowState.DoneLate
             else -> HabitRowState.Done
         },
-        onTick = { if (photo) cameraPermission.launch(android.Manifest.permission.CAMERA) else actions.onComplete(h.id) },
+        onTick = { if (photo) snap() else actions.onComplete(h.id) },
         onUndo = { actions.onUndo(h.id) },
         modifier = Modifier.testTag("home_habit_${h.id}"),
         photo = photo,

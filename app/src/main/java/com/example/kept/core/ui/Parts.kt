@@ -185,6 +185,9 @@ enum class HabitRowState { ToDo, Done, DoneLate }
  *
  * [roomy] is Home's 1 to 3 habit row (`Main`): 68dp, radius 22, a 34dp dot, a 17sp title with
  * the detail (or state) on a second line instead of on the right.
+ *
+ * [night] is the lock screen's dark row (`A3-Lock`) on [Sky.lockGround]: a clear row with a
+ * `#4A4590` border, and when done a `#3E3895` fill with a gold dot and an ink check.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -197,16 +200,20 @@ fun DaybreakHabitRow(
     modifier: Modifier = Modifier,
     photo: Boolean = false,
     roomy: Boolean = false,
+    night: Boolean = false,
 ) {
     val haptics = rememberHaptics()
     val done = state != HabitRowState.ToDo
     val shape = RoundedCornerShape(if (roomy) 22.dp else 18.dp)
     val dot = if (roomy) 34.dp else 28.dp
-    val (ground, border) = when (state) {
-        HabitRowState.ToDo -> D.white to D.rowLine
-        HabitRowState.Done -> D.purpleTint to D.purpleDone
-        HabitRowState.DoneLate -> D.lateRow to D.rowLine
+    val (ground, border) = when {
+        night -> if (done) LockPalette.rowDone to LockPalette.rowDoneLine else Color.Transparent to LockPalette.rowLine
+        state == HabitRowState.ToDo -> D.white to D.rowLine
+        state == HabitRowState.Done -> D.purpleTint to D.purpleDone
+        else -> D.lateRow to D.rowLine
     }
+    val ink = if (night) D.skyTextLight else D.ink
+    val soft = if (night) LockPalette.soft else D.muted
     Row(
         modifier.fillMaxWidth().heightIn(min = if (roomy) 68.dp else 56.dp).clip(shape).background(ground).border(2.dp, border, shape)
             .combinedClickable(
@@ -228,33 +235,40 @@ fun DaybreakHabitRow(
         horizontalArrangement = Arrangement.spacedBy(if (roomy) 14.dp else 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        when (state) {
-            HabitRowState.ToDo -> Box(Modifier.size(dot).border(2.dp, D.faint, CircleShape))
-            HabitRowState.Done, HabitRowState.DoneLate -> Box(
-                Modifier.size(dot).clip(CircleShape).background(if (state == HabitRowState.Done) D.purple else D.disabled),
+        when {
+            !done -> Box(Modifier.size(dot).border(2.dp, if (night) LockPalette.ring else D.faint, CircleShape))
+            else -> Box(
+                Modifier.size(dot).clip(CircleShape).background(
+                    when {
+                        night -> Sky.gold
+                        state == HabitRowState.Done -> D.purple
+                        else -> D.disabled
+                    },
+                ),
                 contentAlignment = Alignment.Center,
-            ) { Icon(DaybreakIcons.Check, null, Modifier.size(if (roomy) 18.dp else 15.dp), tint = D.white) }
+            ) { Icon(DaybreakIcons.Check, null, Modifier.size(if (roomy) 18.dp else 15.dp), tint = if (night) D.ink else D.white) }
         }
         val titleText: @Composable (Modifier) -> Unit = { m ->
             Text(
                 title,
                 m,
                 style = if (roomy) DaybreakType.rowTitle.copy(fontSize = 17.sp, lineHeight = 22.sp) else DaybreakType.rowTitle,
-                color = if (state == HabitRowState.DoneLate) D.muted else D.ink,
-                textDecoration = if (state == HabitRowState.Done) TextDecoration.LineThrough else null,
+                color = if (state == HabitRowState.DoneLate && !night) D.muted else ink,
+                textDecoration = if (state == HabitRowState.Done || (night && done)) TextDecoration.LineThrough else null,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
         }
         val trailing: @Composable () -> Unit = {
             when {
-                state == HabitRowState.Done -> Text(if (roomy) "Done. Hold to undo" else "Done", style = DaybreakType.caption, color = D.muted)
+                state == HabitRowState.Done || (night && done) -> Text(if (roomy) "Done. Hold to undo" else "Done", style = DaybreakType.caption, color = soft)
                 state == HabitRowState.DoneLate -> Text("Too late", style = DaybreakType.caption, fontWeight = FontWeight.SemiBold, color = D.amberLabel)
                 photo -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Icon(DaybreakIcons.Camera, null, Modifier.size(16.dp), tint = D.purple)
-                    Text("Snap photo", style = DaybreakType.caption, fontWeight = FontWeight.SemiBold, color = D.purple)
+                    val accent = if (night) LockPalette.soft else D.purple
+                    Icon(DaybreakIcons.Camera, null, Modifier.size(16.dp), tint = accent)
+                    Text("Snap photo", style = DaybreakType.caption, fontWeight = FontWeight.SemiBold, color = accent)
                 }
-                else -> Text(detail, style = DaybreakType.caption, color = D.muted)
+                else -> Text(detail, style = DaybreakType.caption, color = soft)
             }
         }
         if (roomy) {

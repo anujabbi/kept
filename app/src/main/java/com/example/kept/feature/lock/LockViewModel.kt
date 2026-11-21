@@ -9,6 +9,7 @@ import com.example.kept.core.data.LockRepository
 import com.example.kept.core.data.LockState
 import com.example.kept.core.data.SprigRepository
 import com.example.kept.core.data.TimeSource
+import com.example.kept.core.domain.LockMode
 import com.example.kept.core.domain.LockPolicy
 import com.example.kept.core.domain.SprigState
 import com.example.kept.core.domain.minuteOfDayLabel
@@ -22,7 +23,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
 data class LockUi(
@@ -36,20 +36,20 @@ data class LockUi(
      */
     val blockedStillLocked: Boolean = true,
     val breaking: Boolean = false,
-    /**
-     * The wall clock shown in the top row, "H:mm". Recomputed on the ViewModel's one-second
-     * ticker from the injected [TimeSource] so it actually advances (issue #15).
-     */
-    val clockLabel: String = "",
 ) {
-    /** True once the lock screen has nothing left to cover and should get out of the way. */
-    val shouldDismiss: Boolean get() = loaded && (!lockActive || !blockedStillLocked)
-
     /**
-     * The lock lifted because the day was finished in time, rather than because of a break, an
-     * exception or the window closing (issue #9). Read from the same emission as [shouldDismiss],
-     * so the two can never disagree about why the screen is going away.
+     * Locked, open (every habit done in time, issue #127) or gone. Read from one emission, so the
+     * screen can never show the open state for a reason [shouldDismiss] disagrees with.
      */
+    val mode: LockMode get() = LockMode.of(loaded, lockActive, blockedStillLocked, finishedToday)
+
+    /** True once the lock screen has nothing left to cover and should get out of the way. */
+    val shouldDismiss: Boolean get() = mode == LockMode.DISMISS
+
+    /** The day was finished in time: the screen turns gold and offers "Open {App}". */
+    val open: Boolean get() = mode == LockMode.OPEN
+
+    /** The lock lifted because the day was finished in time, not a break, exception or the window closing (issue #9). */
     val finishedToday: Boolean get() = lock?.today?.allDoneOnTime == true
 
     val remaining: Int get() = lock?.today?.remaining ?: 0
@@ -79,12 +79,14 @@ class LockViewModel @Inject constructor(
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LockUi())
 
     /**
-     * Ticked on the application scope, not `viewModelScope` (issue #9). Completing the last habit
-     * lifts the lock, and `LockActivity` reacts by calling `finishAndRemoveTask()` — which clears
-     * this ViewModel. On `viewModelScope` that cancelled the rest of the work mid-flight, so the
-     * level grant and the celebration flag were written only sometimes.
+     * Ticks and undos go through [HabitActions], exactly as on Home, so a tick on the lock screen
+     * counts the same (on time or late, level, celebration, recap). They run on the application
+     * scope, not `viewModelScope` (issue #9): the last tick can end with the activity finishing,
+     * which clears this ViewModel, and the rest of the write must not be cancelled with it.
      */
     fun complete(habitId: Long) = appScope.launch { actions.complete(habitId) }
+    fun completeWithPhoto(habitId: Long, path: String) = appScope.launch { actions.complete(habitId, path) }
+    fun undo(habitId: Long) = appScope.launch { actions.undo(habitId) }
 
     /**
      * `LockActivity` is its own surface: no NavController reaches it, so the two screens it can
@@ -107,13 +109,11 @@ class LockViewModel @Inject constructor(
     }
 }
 
-private val CLOCK_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("H:mm")
-
 /**
  * The `combine` behind [LockViewModel.state], kept as a plain function of flows so a JVM test can
  * drive it with a pinned clock: the repositories it would otherwise need bottom out in Room and a
- * DataStore-backed `KeptPreferences(Context)`. [ticker] is what makes the result live — every
- * emission re-reads [time] for the lock policy and for [LockUi.clockLabel] (issue #15).
+ * DataStore-backed `KeptPreferences(Context)`. [ticker] is what makes the result live: every
+ * emission re-reads [time] for the lock policy, so the window ending lifts the lock on time.
  */
 internal fun lockUiFlow(
     lockState: Flow<LockState>,
@@ -128,6 +128,5 @@ internal fun lockUiFlow(
         loaded = true, lock = lock, sprig = sprigState,
         lockActive = active,
         blockedStillLocked = LockPolicy.lockScreenShouldStay(blocked, time.now(), time.localTime(), snapshot),
-        clockLabel = time.localTime().format(CLOCK_FORMAT),
     )
 }

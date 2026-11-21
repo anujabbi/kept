@@ -767,3 +767,44 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
   - *Sprig no longer opens the roadmap from Home.* `HomeScreen` lost `onOpenRoadmap`; the roadmap
     route stays for Collection until #131 removes it. The old `HabitRow` moved to
     `feature/home/LegacyHabitRow.kt` because the lock screen still uses it until #127.
+
+- **Lock screen in Daybreak (issue #127).** Built from `A3-Lock`; the pure rules are
+  `core/domain/LockLayout.kt` (`LockMode`, `LockCopy`, `LockSprig`). Where the issue or the design
+  leaves something open:
+  - *Finishing the day no longer opens KEPT.* Since issue #9 the lock screen went to Home when the
+    last habit was ticked, so the celebration showed at once. Now a day finished in time turns the
+    lock screen into its open state (`LockMode.OPEN`) and "Open {App}" launches the locked app
+    with its launch intent. The "Promise kept" celebration stays pending and shows the next time
+    KEPT is opened. A day that ends up all ticked but after the give-up time has nothing to
+    celebrate, so the screen dismisses to the launcher as for a break, an exception or the window
+    ending. Undoing a tick in the open state (hold) takes the screen back to locked.
+  - *"Open {App}" does not re-trigger the lock* because `LockPolicy.isLockActive` is false once no
+    habit is left; nothing new was added to the foreground watcher. If the app has no launch
+    intent the button goes to the launcher.
+  - *App name.* The label the foreground watcher already passes (`InstalledAppsSource.label`).
+    Blank (never expected) reads "This app". Long names step the headline down until the longest
+    word fits, like Home's headline.
+  - *Layout.* Compact Home's widths (`HomeSprig.compactWidths`): the headline column is 180dp, not
+    `A3-Lock`'s 190, so it ends 4dp before Sprig's box instead of running under it; Sprig is 180dp
+    at 412dp, 168 at 390, 150 at 360, keeping the design's bottom edge. The design's top values
+    (headline 60, Sprig 116 / 80, crest 232) are measured below the status bar, as on Home. A
+    taller headline block (large font) moves the crest and Sprig down. Only the habit list
+    scrolls; at 360 × 640dp and font 2.0, where the sky and footer leave the list under 128dp,
+    "Today" and the list scroll together. The footer never scrolls.
+  - *Sprig* wears the outfit of the user's form (the design hard-codes the Bloom sweater). The
+    guarding Sprig at 116 shows only its head above the hill, as in the design; the flat mouth and
+    most of the raised arm sit behind the hill.
+  - *Rows.* `DaybreakHabitRow` gained `night` for the dark row rather than a second row part. A
+    photo habit reads "Snap photo" with the camera icon (as on Home and `A18-Parts`) in the lock
+    screen's soft text colour, instead of the design's plain "Photo". The open state uses the
+    normal done rows, which match the design's all-done colours.
+  - *Footer.* "Break the lock" is a text button in `#D8D3F5`, as the design's link. Button content
+    padding is 12dp (not Material's 24) so "Phone" and its icon fit half of a 360dp row at font
+    2.0; "Phone" steps its size down rather than break inside the word.
+  - *Camera from the lock screen.* `LockActivity` is now `singleTask` (still its own task with an
+    empty affinity, excluded from recents) instead of `singleInstance`: an activity started for a
+    result from a single-instance activity is forced into a new task and its result is cancelled,
+    which would lose the photo. The photo flow (`core/ui/PhotoProof.kt`, `rememberPhotoTick`) is
+    now shared by Home and Lock, and the pending file path survives activity recreation.
+  - *Removed:* "Open KEPT", the clock row and "{App} is locked" (the design has neither; the status
+    bar shows the time), `LockUi.clockLabel`, and `feature/home/LegacyHabitRow.kt`.
