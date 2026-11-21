@@ -16,7 +16,7 @@ enum class RecapOutcome(val streakKept: Boolean) {
 
     companion object {
         /**
-         * The outcome for a day record. The order is the one the recap always used: a counted day
+         * The outcome for a day record, in this order: a counted day
          * is kept; a day the lock was off (and not also written off) cost nothing (issue #2); then
          * written off, which the shield cannot save (issue #143: a record from an older build may
          * still carry the shield flag); then the shield; then too late, which is everything ticked
