@@ -1,5 +1,6 @@
 package com.example.kept.feature.lock
 
+import android.os.SystemClock
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
@@ -117,10 +118,16 @@ class LockViewModel @Inject constructor(
         private set
     private val showingFlow = MutableStateFlow(0)
 
-    /** The lock screen was raised again (`LockActivity.onNewIntent`): recompute everything for it. */
+    /**
+     * The lock screen was raised again (`LockActivity.onNewIntent`): recompute everything for it.
+     * A break screen left open on an earlier showing (break, then Home) is closed without a
+     * "lock_break_cancelled" event, so the new showing starts on the lock screen and a break taken
+     * from it waits its own full minute (review of PR #141).
+     */
     fun onShown() {
         showing += 1
         showingFlow.value = showing
+        breakTimer.cancel()
     }
 
     /** The current state as it may be shown: anything from an earlier showing reads as not loaded yet. */
@@ -149,18 +156,38 @@ class LockViewModel @Inject constructor(
      */
     fun reportLockScreenViewed() = analytics.screen(Screens.LOCK)
 
-    fun reportBreakScreenOpened() {
-        analytics.capture("lock_break_started")
-        analytics.screen(Screens.BREAK)
+    /**
+     * The break screen (issue #128): whether it is up, its countdown and Sprig's one-time rise. Kept
+     * here rather than in the composable, so a rotation keeps the screen and the countdown going.
+     */
+    val breakTimer = BreakTimer(saved, viewModelScope, { SystemClock.elapsedRealtime() })
+
+    /** "Break the lock": open the break screen and start its minute. Reported once, not on every recreation. */
+    fun startBreak() {
+        if (breakTimer.start()) {
+            analytics.capture("lock_break_started")
+            analytics.screen(Screens.BREAK)
+        }
     }
 
-    fun reportBreakCancelled() = analytics.capture("lock_break_cancelled")
+    /** "Never mind, go back" or Back. */
+    fun cancelBreak() {
+        breakTimer.cancel()
+        analytics.capture("lock_break_cancelled")
+    }
 
-    /** [secondsWaited] is how long the break screen was held open before the unlock was confirmed. */
-    fun breakLock(secondsWaited: Int, then: () -> Unit) = viewModelScope.launch {
-        lockRepo.breakLock()
-        analytics.capture("lock_broken", mapOf("seconds_waited" to secondsWaited))
-        then()
+    /**
+     * "Unlock for {minutes} min". `seconds_waited` is how long the break screen was held open before
+     * the unlock was confirmed: the countdown only unlocks the button after a minute, so this says
+     * how much longer than that the user sat with it (issue #10).
+     */
+    fun breakLock(then: () -> Unit) {
+        val waited = breakTimer.secondsWaited()
+        viewModelScope.launch {
+            lockRepo.breakLock()
+            analytics.capture("lock_broken", mapOf("seconds_waited" to waited))
+            then()
+        }
     }
 }
 

@@ -98,14 +98,24 @@ fun SecondaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modi
     }
 }
 
-/** Daybreak quiet button (`A18-Parts`): text only, 16/700, muted by default, 48dp tall. */
+/**
+ * Daybreak quiet button (`A18-Parts`): text only, 16/700, muted by default, 48dp tall. Disabled it
+ * reads in [disabledColor] (the break screen's waiting "Unlock anyway" uses `#6E6A88`).
+ */
 @Composable
-fun QuietButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, color: Color = DaybreakColors.muted, enabled: Boolean = true) {
+fun QuietButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    color: Color = DaybreakColors.muted,
+    enabled: Boolean = true,
+    disabledColor: Color = DaybreakColors.disabled,
+) {
     TextButton(
         onClick = onClick,
         modifier = modifier.heightIn(min = 48.dp),
         enabled = enabled,
-        colors = ButtonDefaults.textButtonColors(contentColor = color, disabledContentColor = DaybreakColors.disabled),
+        colors = ButtonDefaults.textButtonColors(contentColor = color, disabledContentColor = disabledColor),
     ) {
         Text(text, style = DaybreakType.rowTitle, textAlign = TextAlign.Center)
     }

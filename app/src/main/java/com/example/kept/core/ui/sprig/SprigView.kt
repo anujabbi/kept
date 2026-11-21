@@ -52,6 +52,8 @@ private const val OFFSCREEN_POLL_MS = 250L
  * drag to pet, sleep after 12 seconds untouched. With reduce motion on it does not sway, hop or wobble, but poses,
  * blinks, petting and sleep still change.
  *
+ * [saturation] (0 to 1) drains the colour, as the break screen does over its countdown.
+ *
  * [motion] is hoisted for tests; screens leave it alone.
  */
 @Composable
@@ -64,6 +66,7 @@ fun SprigView(
     silhouetteAlpha: Float? = null,
     animate: Boolean = true,
     motion: SprigMotion = remember { SprigMotion() },
+    saturation: Float = 1f,
 ) {
     val reduce = LocalReduceMotion.current
     val haptics = rememberHaptics()
@@ -103,7 +106,7 @@ fun SprigView(
         }
     }
 
-    val spec = SprigSpec(form, pose, wilted, tear, silhouetteAlpha)
+    val spec = SprigSpec(form, pose, wilted, tear, silhouetteAlpha, saturation)
     val description = SprigLook.contentDescription(form, if (asleep) SprigPose.SLEEP else pose, wilted)
     val touch = if (!live) Modifier else Modifier
         // Its own focus stop, so inside a clickable card TalkBack's double tap hops Sprig instead

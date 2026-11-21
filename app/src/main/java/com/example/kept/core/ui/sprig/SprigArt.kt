@@ -35,6 +35,11 @@ data class SprigSpec(
     val tear: Boolean = false,
     /** Locked forms: the whole drawing, outfit included, as solid ink at this alpha. */
     val silhouetteAlpha: Float? = null,
+    /**
+     * How much colour the drawing keeps, 0 to 1, like CSS `saturate()`: the break screen fades
+     * Sprig from 1 to 0.25 over its countdown. [wilted] wins when both are set.
+     */
+    val saturation: Float = 1f,
 )
 
 /** Colours from `SprigA.dc.html`. */
@@ -112,11 +117,17 @@ fun DrawScope.drawSprig(spec: SprigSpec, size: Size = this.size) =
 /** Draws Sprig at one frame of [motion]. */
 fun DrawScope.drawSprig(spec: SprigSpec, motion: SprigMotion, size: Size = this.size) {
     val frame = SprigFrame.of(spec.pose, SprigLook.stage(spec.form), SprigLook.outfit(spec.form), spec.tear, motion)
-    drawSprigFrame(frame, size, spec.wilted, spec.silhouetteAlpha)
+    drawSprigFrame(frame, size, spec.wilted, spec.silhouetteAlpha, spec.saturation)
 }
 
 /** The art is authored in a 120 × 120 box; the body runs below it and is clipped there. */
-fun DrawScope.drawSprigFrame(frame: SprigFrame, size: Size = this.size, wilted: Boolean = false, silhouetteAlpha: Float? = null) {
+fun DrawScope.drawSprigFrame(
+    frame: SprigFrame,
+    size: Size = this.size,
+    wilted: Boolean = false,
+    silhouetteAlpha: Float? = null,
+    saturation: Float = 1f,
+) {
     val s = minOf(size.width, size.height) / 120f
     val dx = (size.width - 120f * s) / 2f
     val dy = (size.height - 120f * s) / 2f
@@ -130,6 +141,9 @@ fun DrawScope.drawSprigFrame(frame: SprigFrame, size: Size = this.size, wilted: 
                     }
                     wilted -> Paint().apply {
                         colorFilter = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(WILTED_SATURATION) })
+                    }
+                    saturation < 1f -> Paint().apply {
+                        colorFilter = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(saturation.coerceIn(0f, 1f)) })
                     }
                     else -> null
                 }
