@@ -11,8 +11,6 @@ import com.example.kept.core.data.SprigRepository
 import com.example.kept.core.data.TimeSource
 import com.example.kept.core.domain.LockPolicy
 import com.example.kept.core.domain.SprigState
-import com.example.kept.core.domain.Variants
-import com.example.kept.core.domain.WeekVariant
 import com.example.kept.core.domain.minuteOfDayLabel
 import com.example.kept.core.di.ApplicationScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -31,7 +29,6 @@ data class LockUi(
     val loaded: Boolean = false,
     val lock: LockState? = null,
     val sprig: SprigState = SprigState(),
-    val variant: WeekVariant = Variants.table[0],
     val lockActive: Boolean = true,
     /**
      * Whether the package this lock screen was raised for is still blocked (issue #4). Goes false
@@ -128,7 +125,7 @@ internal fun lockUiFlow(
     val snapshot = lock.snapshot(emptySet(), null)
     val active = LockPolicy.isLockActive(time.now(), time.localTime(), snapshot)
     LockUi(
-        loaded = true, lock = lock, sprig = sprigState, variant = Variants.forDate(time.today()),
+        loaded = true, lock = lock, sprig = sprigState,
         lockActive = active,
         blockedStillLocked = LockPolicy.lockScreenShouldStay(blocked, time.now(), time.localTime(), snapshot),
         clockLabel = time.localTime().format(CLOCK_FORMAT),

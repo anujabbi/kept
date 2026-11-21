@@ -24,7 +24,6 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -43,9 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -60,8 +57,6 @@ import com.example.kept.core.data.TimeSource
 import com.example.kept.core.domain.SprigForm
 import com.example.kept.core.domain.SprigPose
 import com.example.kept.core.domain.SprigState
-import com.example.kept.core.domain.Variants
-import com.example.kept.core.domain.WeekVariant
 import com.example.kept.core.ui.KeptCard
 import com.example.kept.core.ui.KeptTheme
 import com.example.kept.core.ui.Pill
@@ -82,11 +77,11 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
-data class GalleryUi(val cards: List<GalleryCard> = emptyList(), val state: SprigState = SprigState(), val thisWeek: WeekVariant = Variants.table[0], val today: LocalDate = LocalDate.now())
+data class GalleryUi(val cards: List<GalleryCard> = emptyList(), val state: SprigState = SprigState(), val today: LocalDate = LocalDate.now())
 
 @HiltViewModel
 class GalleryViewModel @Inject constructor(private val repo: SprigRepository, time: TimeSource) : ViewModel() {
-    val state = combine(repo.gallery, repo.state, time.observeToday()) { g, s, d -> GalleryUi(g, s, Variants.forDate(d), d) }
+    val state = combine(repo.gallery, repo.state, time.observeToday()) { g, s, d -> GalleryUi(g, s, d) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), GalleryUi())
 }
 
@@ -107,7 +102,7 @@ fun GalleryScreen(onOpenRoadmap: () -> Unit, vm: GalleryViewModel = hiltViewMode
     ) {
         item(span = { GridItemSpan(2) }) {
             Column {
-                ScreenTitle("Sprig", "${s.cards.size} of ${SprigForm.entries.size} looks collected")
+                ScreenTitle("Sprig", "${s.cards.size} of ${SprigForm.entries.size} forms collected")
                 Spacer(Modifier.height(14.dp))
                 KeptCard(background = c.purple50, border = null, shape = RoundedCornerShape(16.dp), onClick = onOpenRoadmap) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -120,12 +115,6 @@ fun GalleryScreen(onOpenRoadmap: () -> Unit, vm: GalleryViewModel = hiltViewMode
                                 if (next != null) "${next.streakThreshold - s.state.streakDays} more days to ${next.displayName}" else "Final form reached",
                                 style = MaterialTheme.typography.bodySmall, color = c.purple600,
                             )
-                            Spacer(Modifier.height(6.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(Modifier.size(10.dp).clip(CircleShape).background(Color(s.thisWeek.accentArgb)))
-                                Spacer(Modifier.width(6.dp))
-                                Text("This week's look: ${s.thisWeek.name}", style = MaterialTheme.typography.labelMedium, color = c.purple900)
-                            }
                         }
                     }
                 }
@@ -134,19 +123,19 @@ fun GalleryScreen(onOpenRoadmap: () -> Unit, vm: GalleryViewModel = hiltViewMode
             }
         }
         items(s.cards, key = { it.id }) { card ->
-            FormCard(card.form, card.variant, unlocked = true, caption = "${card.variant.name} · ${card.unlockedDate.format(DateTimeFormatter.ofPattern("d MMM"))}", onClick = { selected = card })
+            FormCard(card.form, unlocked = true, caption = card.unlockedDate.format(DateTimeFormatter.ofPattern("d MMM")), onClick = { selected = card })
         }
         item(span = { GridItemSpan(2) }) {
             Column { Spacer(Modifier.height(10.dp)); SectionLabel("Still to earn") }
         }
         items(SprigForm.entries.filter { it !in unlockedForms }, key = { it.id }) { form ->
-            FormCard(form, s.thisWeek, unlocked = false, caption = "${form.streakThreshold}-day streak", onClick = onOpenRoadmap)
+            FormCard(form, unlocked = false, caption = "${form.streakThreshold}-day streak", onClick = onOpenRoadmap)
         }
     }
 
     selected?.let { card ->
         ShareSheet(card, onDismiss = { selected = null }, onShare = {
-            ShareCard.share(ctx, ShareCard.Content(SprigSpec(card.form, SprigPose.CHEER), ShareCard.formHeadline(card.form, card.streakAtUnlock), "${card.variant.name} look · ${card.unlockedDate.format(DateTimeFormatter.ofPattern("d MMMM yyyy"))}"))
+            ShareCard.share(ctx, ShareCard.Content(SprigSpec(card.form, SprigPose.CHEER), ShareCard.formHeadline(card.form, card.streakAtUnlock), "Reached ${card.unlockedDate.format(DateTimeFormatter.ofPattern("d MMMM yyyy"))}"))
             selected = null
         })
     }
@@ -159,17 +148,17 @@ private fun ShareSheet(card: GalleryCard, onDismiss: () -> Unit, onShare: () -> 
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             SprigView(card.form, SprigPose.CHEER, Modifier.size(180.dp))
             Text(card.form.displayName, style = MaterialTheme.typography.headlineSmall, color = c.textPrimary)
-            Text("${card.variant.name} look · reached at a ${card.streakAtUnlock}-day streak", style = MaterialTheme.typography.bodyMedium, color = c.textSecondary, textAlign = TextAlign.Center)
+            Text("Reached at a ${card.streakAtUnlock}-day streak", style = MaterialTheme.typography.bodyMedium, color = c.textSecondary, textAlign = TextAlign.Center)
             Spacer(Modifier.height(6.dp))
             Text(card.form.tagline, style = MaterialTheme.typography.bodySmall, color = c.textMuted, textAlign = TextAlign.Center)
             Spacer(Modifier.height(18.dp))
-            PrimaryButton("Share this look", onClick = onShare)
+            PrimaryButton("Share this form", onClick = onShare)
         }
     }
 }
 
 @Composable
-fun FormCard(form: SprigForm, variant: WeekVariant, unlocked: Boolean, caption: String, onClick: () -> Unit) {
+fun FormCard(form: SprigForm, unlocked: Boolean, caption: String, onClick: () -> Unit) {
     val c = KeptTheme.colors
     KeptCard(Modifier.fillMaxWidth(), background = if (unlocked) c.surface2 else c.surface1, border = if (unlocked) c.border else null, onClick = onClick, padding = androidx.compose.foundation.layout.PaddingValues(12.dp)) {
         Box(Modifier.fillMaxWidth().aspectRatio(1.1f), contentAlignment = Alignment.Center) {
@@ -208,7 +197,7 @@ fun EvolutionRevealScreen(galleryId: Long, onClose: () -> Unit, vm: RevealViewMo
 
     Column(Modifier.fillMaxSize().background(c.purple50).statusBarsPadding().navigationBarsPadding().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Spacer(Modifier.weight(1f))
-        Pill("New form", background = Color(card0.variant.accentArgb).copy(alpha = 0.18f), foreground = c.purple900)
+        Pill("New form", background = c.purple100, foreground = c.purple900)
         Spacer(Modifier.height(18.dp))
         SprigView(card0.form, SprigPose.CHEER, Modifier.size(240.dp).scale(scale))
         Spacer(Modifier.height(18.dp))
@@ -217,11 +206,11 @@ fun EvolutionRevealScreen(galleryId: Long, onClose: () -> Unit, vm: RevealViewMo
             Spacer(Modifier.height(6.dp))
             Text(card0.form.tagline, style = MaterialTheme.typography.bodyLarge, color = c.purple600, textAlign = TextAlign.Center)
             Spacer(Modifier.height(4.dp))
-            Text("${card0.variant.name} look, only this week. It's yours to keep.", style = MaterialTheme.typography.bodySmall, color = c.textSecondary, textAlign = TextAlign.Center)
+            Text("It's yours to keep.", style = MaterialTheme.typography.bodySmall, color = c.textSecondary, textAlign = TextAlign.Center)
         }
         Spacer(Modifier.weight(1f))
         PrimaryButton("Show it off", onClick = {
-            ShareCard.share(ctx, ShareCard.Content(SprigSpec(card0.form, SprigPose.CHEER), "Sprig became ${card0.form.displayName}", "${card0.streakAtUnlock} days kept · ${card0.variant.name} look"))
+            ShareCard.share(ctx, ShareCard.Content(SprigSpec(card0.form, SprigPose.CHEER), "Sprig became ${card0.form.displayName}", "${card0.streakAtUnlock} days kept"))
         })
         Spacer(Modifier.height(8.dp))
         SecondaryButton("Keep going", onClick = onClose)

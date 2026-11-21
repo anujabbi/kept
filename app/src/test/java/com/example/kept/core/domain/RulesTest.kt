@@ -227,12 +227,4 @@ class EvolutionTest {
         assertEquals(SprigForm.BUD, SprigForm.next(SprigForm.SPRIG))
         assertEquals(null, SprigForm.next(SprigForm.CELESTIAL))
     }
-
-    @Test fun `variant is stable within a week and changes across weeks`() {
-        val mon = LocalDate.of(2026, 9, 7)
-        val sun = LocalDate.of(2026, 9, 13)
-        val nextMon = LocalDate.of(2026, 9, 14)
-        assertEquals(Variants.forDate(mon), Variants.forDate(sun))
-        assertTrue(Variants.forDate(mon) != Variants.forDate(nextMon))
-    }
 }

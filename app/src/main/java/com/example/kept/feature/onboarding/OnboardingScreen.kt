@@ -303,7 +303,7 @@ private fun StepMeetSprig(s: OnboardingState, vm: OnboardingViewModel, onDone: (
             }
         }
         Spacer(Modifier.height(8.dp))
-        MutedText("Each form you reach stays in your collection, in this week's look only. Share them anywhere.", Modifier.fillMaxWidth(), TextAlign.Center)
+        MutedText("Each form you reach stays in your collection. Share them anywhere.", Modifier.fillMaxWidth(), TextAlign.Center)
         Spacer(Modifier.height(20.dp))
         InfoBox("Breaking the lock always works. It takes a 60-second countdown, costs Sprig a level, and you get three a week before a day is written off.")
         Spacer(Modifier.height(8.dp))

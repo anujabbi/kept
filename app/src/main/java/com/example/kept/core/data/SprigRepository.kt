@@ -7,8 +7,6 @@ import com.example.kept.core.data.prefs.KeptPreferences
 import com.example.kept.core.domain.LevelRules
 import com.example.kept.core.domain.SprigForm
 import com.example.kept.core.domain.SprigState
-import com.example.kept.core.domain.Variants
-import com.example.kept.core.domain.WeekVariant
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
@@ -18,7 +16,6 @@ import javax.inject.Singleton
 data class GalleryCard(
     val id: Long,
     val form: SprigForm,
-    val variant: WeekVariant,
     val unlockedDate: LocalDate,
     val streakAtUnlock: Int,
     val seen: Boolean,
@@ -38,7 +35,7 @@ class SprigRepository @Inject constructor(
     val unseenUnlocks: Flow<List<GalleryCard>> = galleryDao.observeUnseen().map { list -> list.map { it.toCard() } }
 
     private fun GalleryEntryEntity.toCard() = GalleryCard(
-        id, SprigForm.fromId(formId), Variants.byId(variantId), LocalDate.parse(unlockedDate), streakAtUnlock, seen,
+        id, SprigForm.fromId(formId), LocalDate.parse(unlockedDate), streakAtUnlock, seen,
     )
 
     suspend fun markSeen(id: Long) = galleryDao.markSeen(id)
@@ -69,7 +66,7 @@ class SprigRepository @Inject constructor(
     suspend fun write(state: SprigState) = prefs.updateSprig { state }
     suspend fun update(block: (SprigState) -> SprigState) = prefs.updateSprig(block)
 
-    suspend fun insertUnlock(form: SprigForm, variant: WeekVariant, date: LocalDate, streak: Int, seen: Boolean = false) {
-        galleryDao.insert(GalleryEntryEntity(formId = form.id, variantId = variant.id, unlockedDate = date.toString(), streakAtUnlock = streak, seen = seen))
+    suspend fun insertUnlock(form: SprigForm, date: LocalDate, streak: Int, seen: Boolean = false) {
+        galleryDao.insert(GalleryEntryEntity(formId = form.id, unlockedDate = date.toString(), streakAtUnlock = streak, seen = seen))
     }
 }

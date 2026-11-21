@@ -26,14 +26,15 @@ class RolloverEngineTest {
         assertTrue(out.summary.countedForStreak)
     }
 
-    @Test fun `crossing a threshold unlocks that form with the week variant`() {
+    @Test fun `crossing a threshold unlocks that form on that date`() {
         val d = LocalDate.of(2026, 9, 5)
         val out = RolloverEngine.rollover(SprigState(streakDays = 6), day(d))
         assertEquals(SprigForm.BUD, out.formBefore)
         assertEquals(SprigForm.BLOOM, out.formAfter)
         assertEquals(1, out.unlocks.size)
         assertEquals(SprigForm.BLOOM, out.unlocks[0].form)
-        assertEquals(Variants.forDate(d), out.unlocks[0].variant)
+        assertEquals(d, out.unlocks[0].date)
+        assertEquals(7, out.unlocks[0].streakAtUnlock)
     }
 
     @Test fun `a missed day uses the shield and unlocks nothing`() {

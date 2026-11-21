@@ -135,7 +135,7 @@ class RolloverRunner @Inject constructor(
                 finalized = true,
             ),
         )
-        out.unlocks.forEach { sprig.insertUnlock(it.form, it.variant, it.date, it.streakAtUnlock) }
+        out.unlocks.forEach { sprig.insertUnlock(it.form, it.date, it.streakAtUnlock) }
         sprig.write(out.state)
     }
 }

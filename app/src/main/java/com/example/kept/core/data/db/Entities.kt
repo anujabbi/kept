@@ -84,7 +84,6 @@ data class ProtectionGapEntity(
 data class GalleryEntryEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val formId: Int,
-    val variantId: Int,
     val unlockedDate: String,
     val streakAtUnlock: Int,
     val seen: Boolean = false,

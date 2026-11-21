@@ -9,8 +9,6 @@ import com.example.kept.core.data.SprigRepository
 import com.example.kept.core.data.TimeSource
 import com.example.kept.core.data.prefs.KeptPreferences
 import com.example.kept.core.domain.SprigForm
-import com.example.kept.core.domain.Variants
-import com.example.kept.core.domain.WeekVariant
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -23,7 +21,6 @@ data class CelebrationUiState(
     val visible: Boolean = false,
     val habitTitles: List<String> = emptyList(),
     val form: SprigForm = SprigForm.SPRIG,
-    val variant: WeekVariant = Variants.table[0],
     val streakDays: Int = 0,
 )
 
@@ -53,7 +50,6 @@ class CelebrationViewModel @Inject constructor(
                 visible = pending && today.allDoneOnTime,
                 habitTitles = today.habits.map { it.habit.title },
                 form = sprigState.form,
-                variant = Variants.forDate(date),
                 streakDays = sprigState.streakDays,
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CelebrationUiState())

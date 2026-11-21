@@ -8,9 +8,7 @@ import com.example.kept.core.data.DayCompletionReactor
 import com.example.kept.core.data.ForegroundSignal
 import com.example.kept.core.data.RecapNotifier
 import com.example.kept.core.data.db.KeptDatabase
-import com.example.kept.core.data.db.MIGRATION_1_2
-import com.example.kept.core.data.db.MIGRATION_2_3
-import com.example.kept.core.data.db.MIGRATION_3_4
+import com.example.kept.core.data.db.ALL_MIGRATIONS
 import com.example.kept.core.notify.KeptNotifications
 import com.example.kept.core.notify.NotificationDayCompletion
 import dagger.Binds
@@ -61,7 +59,7 @@ object AppModule {
     @Provides @Singleton
     fun database(@ApplicationContext ctx: Context): KeptDatabase =
         Room.databaseBuilder(ctx, KeptDatabase::class.java, "kept.db")
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+            .addMigrations(*ALL_MIGRATIONS)
             .build()
 
     @Provides fun habitDao(db: KeptDatabase) = db.habitDao()
