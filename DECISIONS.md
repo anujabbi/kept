@@ -904,8 +904,9 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     and a 16dp footer margin instead of 28, so nothing scrolls at font 1.0. When the page still
     cannot fit (large fonts) the whole page scrolls, sky included; the buttons are not pinned.
   - *Buttons* use 10dp side padding (`contentPadding` added to `PrimaryButton`/`SecondaryButton`)
-    so "Share this look" stays on one line at 154dp wide (360dp screen). "See my Sprigs" opens the
-    Sprig tab the way the tab bar does and leaves the recap. "Share this look" uses the existing
+    so "Share this look" stays on one line at 154dp wide (360dp screen). "See my Sprigs" pops the
+    recap first (so the Today tab never restores it) and then opens the Sprig tab the way the tab
+    bar does (`leaveRecapForSprigs`, QA on PR #142). "Share this look" uses the existing
     share card. With no record (still loading, or nothing recorded) the screen shows "Nothing
     recorded." and only "Done".
   - *Moment.* The petals, the grow and the knob pop are functions of one clock (`RecapMotion`),
@@ -917,3 +918,8 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
   - *Removed:* "Time off apps" (`lockedMillis` is still recorded), the "Today, wrapped up" date
     line (not in the design), `formatMillis`, and the old `screen_recap_*` goldens with
     `SprigOnScreensScreenshotTest`.
+  - *QA on PR #142.* The card's top line is a small layout (`CardHeader`) rather than a `FlowRow`
+    with `SpaceBetween`, which let "Bud in 3 days" and "Day 0 of 3" touch at 390dp, font 2.0: the
+    two share a baseline with at least 12dp between them, or the count goes under the line. The two
+    stat values take one size (the one that fits the wider value), so their labels start level when
+    "locks broken" wraps at large fonts.

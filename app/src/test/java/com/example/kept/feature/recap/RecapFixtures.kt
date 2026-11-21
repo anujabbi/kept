@@ -112,9 +112,20 @@ internal fun assertRecapFits(rule: ComposeContentTestRule, current: MutableState
             assertTrue("$at: the card ${card.bottom} runs into $tag ${b.top}", card.bottom <= b.top)
             assertTrue("$at: $tag $b is too small or off the page", b.height >= 47.9f && b.left >= 0f && b.right <= widthDp + 0.5f)
         }
+        val doneLabel = rule.recapRect("recap_done_label", unmerged = true)
+        val brokenLabel = rule.recapRect("recap_broken_label", unmerged = true)
+        assertEquals("$at: the stat labels start on different lines", doneLabel.top, brokenLabel.top, 0.5f)
         if (ui.record!!.streakEnd < 100) {
             val bar = rule.recapRect("recap_bar")
             assertTrue("$at: the bar is squeezed to ${bar.width}dp", bar.width >= 60f)
+            // "Bud in 3 days" and "Day 0 of 3": 8dp apart on one line, or the second under the first.
+            val next = rule.recapRect("recap_next", unmerged = true)
+            val count = rule.recapRect("recap_count", unmerged = true)
+            assertTrue(
+                "$at: \"${rule.recapText("recap_next").layoutInput.text}\" $next touches \"${rule.recapText("recap_count").layoutInput.text}\" $count",
+                count.left - next.right >= 8f || count.top >= next.bottom,
+            )
+            assertTrue("$at: the day count runs off the card", count.right <= widthDp - 36f + 0.5f)
         }
     }
 }

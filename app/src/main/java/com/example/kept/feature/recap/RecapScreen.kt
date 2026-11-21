@@ -5,13 +5,11 @@ import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -58,6 +56,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Constraints
@@ -296,21 +295,24 @@ private fun Headline(outcome: RecapOutcome?, streak: Int, reset: Boolean, width:
 @Composable
 private fun Stats(r: DayRecordEntity, cellWidth: Dp) {
     Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(horizontal = 24.dp).testTag("recap_stats")) {
-        Stat(RecapCopy.done(r.habitsDone, r.habitsTotal), RecapCopy.HABITS_DONE, "recap_done", cellWidth, Modifier.weight(1f))
+        // Both values take the size that fits the wider one, so the labels start on one line.
+        val done = RecapCopy.done(r.habitsDone, r.habitsTotal)
+        val broken = "${r.breaksUsed}"
+        val base = DaybreakType.display.copy(fontSize = 28.sp, lineHeight = (28 * 1.1).sp, letterSpacing = (-0.02).em)
+        val style = fitLongestWord(if (done.length >= broken.length) done else broken, base, cellWidth - 8.dp)
+        Stat(done, RecapCopy.HABITS_DONE, "recap_done", style, Modifier.weight(1f))
         Stat(
-            "${r.breaksUsed}", RecapCopy.brokenLabel(r.breaksUsed), "recap_broken", cellWidth,
+            broken, RecapCopy.brokenLabel(r.breaksUsed), "recap_broken", style,
             Modifier.weight(1f).drawBehind { drawRect(D.rowLine, size = Size(1.5.dp.toPx(), size.height)) },
         )
     }
 }
 
 @Composable
-private fun Stat(value: String, label: String, tag: String, cellWidth: Dp, modifier: Modifier) {
-    val w = cellWidth - 8.dp
-    val base = DaybreakType.display.copy(fontSize = 28.sp, lineHeight = (28 * 1.1).sp, letterSpacing = (-0.02).em)
+private fun Stat(value: String, label: String, tag: String, valueStyle: TextStyle, modifier: Modifier) {
     // 4dp sides so a long label at a large font wraps before it touches the divider.
     Column(modifier.padding(horizontal = 4.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(value, Modifier.testTag(tag), style = fitLongestWord(value, base, w), color = D.ink, maxLines = 1, textAlign = TextAlign.Center)
+        Text(value, Modifier.testTag(tag), style = valueStyle, color = D.ink, maxLines = 1, textAlign = TextAlign.Center)
         Text(
             label,
             Modifier.testTag("${tag}_label"),
@@ -325,7 +327,6 @@ private fun Stat(value: String, label: String, tag: String, cellWidth: Dp, modif
  * The progress card (`A5-Recap`): "{Next} in {n} days" and "Day {d} of {target}" over the current
  * form, the bar and the next form's silhouette; at the final form, one line and no bar.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ProgressCard(progress: RecapProgress, kept: Boolean, elapsed: () -> Long, compact: Boolean) {
     Column(
@@ -342,20 +343,58 @@ private fun ProgressCard(progress: RecapProgress, kept: Boolean, elapsed: () -> 
                 Text(RecapCopy.finalForm(progress.form), Modifier.weight(1f).testTag("recap_final"), style = lineStyle, color = D.ink)
             }
             is RecapProgress.Toward -> {
-                FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(RecapCopy.nextLine(progress.to, progress.daysLeft), Modifier.alignByBaseline().testTag("recap_next"), style = lineStyle, color = D.ink)
-                    Text(
-                        RecapCopy.dayCount(progress.day, progress.target),
-                        Modifier.alignByBaseline().testTag("recap_count"),
-                        style = DaybreakType.bodySmall.copy(fontWeight = FontWeight.SemiBold),
-                        color = D.muted,
-                    )
-                }
+                CardHeader(
+                    first = { Text(RecapCopy.nextLine(progress.to, progress.daysLeft), Modifier.testTag("recap_next"), style = lineStyle, color = D.ink) },
+                    second = {
+                        Text(
+                            RecapCopy.dayCount(progress.day, progress.target),
+                            Modifier.testTag("recap_count"),
+                            style = DaybreakType.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = D.muted,
+                        )
+                    },
+                )
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     MiniSprig(progress.from, silhouette = false, tag = "recap_from_sprig")
                     Bar(progress, kept, elapsed, Modifier.weight(1f))
                     MiniSprig(progress.to, silhouette = true, tag = "recap_to_sprig")
                 }
+            }
+        }
+    }
+}
+
+/** Least space between "{Next} in {n} days" and "Day {d} of {target}" on one line. */
+private val HEADER_GAP = 12.dp
+
+/**
+ * The card's top line (`justify-content: space-between; align-items: baseline`): [first] at the
+ * start and [second] at the end on a shared baseline when both fit with [HEADER_GAP] between them;
+ * otherwise [second] goes under [first], at the start. A `FlowRow` with `SpaceBetween` left them
+ * touching when they only just fit (QA on #129).
+ */
+@Composable
+private fun CardHeader(first: @Composable () -> Unit, second: @Composable () -> Unit) {
+    Layout(contents = listOf(first, second), modifier = Modifier.fillMaxWidth()) { (a, b), c ->
+        val w = c.maxWidth
+        val loose = c.copy(minWidth = 0, minHeight = 0)
+        val pa = a.single().measure(loose)
+        val pb = b.single().measure(loose)
+        val gap = HEADER_GAP.roundToPx()
+        if (pa.width + gap + pb.width <= w) {
+            val baseA = pa[androidx.compose.ui.layout.FirstBaseline]
+            val baseB = pb[androidx.compose.ui.layout.FirstBaseline]
+            val base = maxOf(baseA, baseB)
+            val h = maxOf(base - baseA + pa.height, base - baseB + pb.height)
+            layout(w, h) {
+                pa.place(0, base - baseA)
+                pb.place(w - pb.width, base - baseB)
+            }
+        } else {
+            val between = 2.dp.roundToPx()
+            layout(w, pa.height + between + pb.height) {
+                pa.place(0, 0)
+                pb.place(0, pa.height + between)
             }
         }
     }
