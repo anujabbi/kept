@@ -1,0 +1,89 @@
+package com.example.kept.core.domain
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class HomeLayoutTest {
+
+    @Test fun `roomy for one to three habits, compact from four to ten`() {
+        (0..3).forEach { assertEquals("$it habits", HomeLayout.ROOMY, HomeLayout.forHabitCount(it)) }
+        (4..10).forEach { assertEquals("$it habits", HomeLayout.COMPACT, HomeLayout.forHabitCount(it)) }
+    }
+
+    @Test fun `headline words one to ten`() {
+        val words = listOf("One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten")
+        words.forEachIndexed { i, w ->
+            val left = i + 1
+            assertEquals("$w to go.", HomeCopy.headline(total = 10, done = 10 - left, keptOnTime = false))
+        }
+        assertEquals("One to go.", HomeCopy.headline(total = 2, done = 1, keptOnTime = false))
+        assertEquals("Two to go.", HomeCopy.headline(total = 2, done = 0, keptOnTime = false))
+    }
+
+    @Test fun `promise kept only when finished in time`() {
+        assertEquals("Promise kept.", HomeCopy.headline(total = 2, done = 2, keptOnTime = true))
+        assertEquals("Too late to count.", HomeCopy.headline(total = 2, done = 2, keptOnTime = false))
+    }
+
+    @Test fun `line under the headline`() {
+        assertEquals("Apps unlock when you finish, or at 9:00 pm.", HomeCopy.line(2, 0, "9:00 pm", pastDue = false, breakActive = false))
+        assertEquals("Apps are open. See you tomorrow.", HomeCopy.line(2, 2, "9:00 pm", pastDue = false, breakActive = false))
+        assertEquals("Apps are open. See you tomorrow.", HomeCopy.line(2, 2, "9:00 pm", pastDue = true, breakActive = false))
+        assertEquals("Apps are open. Today won't count.", HomeCopy.line(2, 1, "9:00 pm", pastDue = true, breakActive = false))
+        assertEquals("Lock paused for a break. Apps lock again soon.", HomeCopy.line(2, 1, "9:00 pm", pastDue = false, breakActive = true))
+    }
+
+    @Test fun `streak pill copy`() {
+        assertEquals("12 day streak", HomeCopy.streak(12))
+        assertEquals("1 day streak", HomeCopy.streak(1))
+    }
+
+    @Test fun `habit detail`() {
+        assertEquals("30 min", HomeCopy.habitDetail(30, "min"))
+        assertEquals("10 pages", HomeCopy.habitDetail(10, "pages"))
+        assertEquals("Once a day", HomeCopy.habitDetail(1, ""))
+        assertEquals("Once a day", HomeCopy.habitDetail(1, "times"))
+        assertEquals("1 glass", HomeCopy.habitDetail(1, "glass"))
+    }
+
+    @Test fun `sprig tops match the design scripts`() {
+        // Main.dc.html, two habits: 224, 200, 176.
+        assertEquals(listOf(224, 200, 176), (0..2).map { HomeSprig.designTopDp(HomeLayout.ROOMY, it, 2) })
+        // A2-Home-6.dc.html: round(100 − 44 × frac).
+        assertEquals(100, HomeSprig.designTopDp(HomeLayout.COMPACT, 0, 6))
+        assertEquals(78, HomeSprig.designTopDp(HomeLayout.COMPACT, 3, 6))
+        assertEquals(56, HomeSprig.designTopDp(HomeLayout.COMPACT, 6, 6))
+        assertEquals(100, HomeSprig.designTopDp(HomeLayout.COMPACT, 0, 0))
+    }
+
+    @Test fun `sprig rises as habits are done`() {
+        for (layout in HomeLayout.entries) for (total in 1..10) {
+            val tops = (0..total).map { HomeSprig.designTopDp(layout, it, total) }
+            assertEquals("$layout $total never sinks", tops, tops.sortedDescending())
+        }
+    }
+
+    @Test fun `crest stays at the design for normal text and moves down for tall text`() {
+        assertEquals(396, HomeSprig.crestDp(HomeLayout.ROOMY, textBottomDp = 150))
+        assertEquals(212, HomeSprig.crestDp(HomeLayout.COMPACT, textBottomDp = 170))
+        // Roomy: even the highest Sprig (everything done, 220 above the crest) clears the text.
+        val crest = HomeSprig.crestDp(HomeLayout.ROOMY, textBottomDp = 300)
+        assertTrue(HomeSprig.topDp(HomeLayout.ROOMY, crest, 2, 2) >= 300 + HomeSprig.CLEARANCE_DP)
+        assertEquals(312, HomeSprig.crestDp(HomeLayout.COMPACT, textBottomDp = 300))
+    }
+
+    @Test fun `sprig never overlaps the headline and always reaches the crest in the listed states`() {
+        val states = listOf(0 to 1, 0 to 3, 3 to 3, 0 to 6, 6 to 6, 0 to 10)
+        for (textBottom in listOf(150, 250, 420)) for ((done, total) in states) {
+            val layout = HomeLayout.forHabitCount(total)
+            val crest = HomeSprig.crestDp(layout, textBottom)
+            val top = HomeSprig.topDp(layout, crest, done, total)
+            val size = HomeSprig.sizeDp(layout)
+            if (layout == HomeLayout.ROOMY) assertTrue("$done/$total below text", top >= textBottom + HomeSprig.CLEARANCE_DP)
+            // Its head is above the hill and its body reaches behind it: never floating, never buried.
+            assertTrue("$done/$total head above crest", top < crest)
+            assertTrue("$done/$total body behind hill", top + size > crest)
+        }
+    }
+}

@@ -52,6 +52,8 @@ object DaybreakColors {
     val amberLabel = Color(0xFF8A4B00)
     /** Ground of a habit row done late (`A18-Parts`). */
     val lateRow = Color(0xFFF6F2EC)
+    /** A missed day in Home's week row (spec, Home). */
+    val missedDay = Color(0xFFE6E2EE)
     /** Text on a sky in the dark half of its ramp. */
     val skyTextLight = Color(0xFFFFF4E4)
 }

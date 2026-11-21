@@ -20,8 +20,6 @@ import com.example.kept.core.domain.ProofType
 import com.example.kept.core.domain.SprigState
 import com.example.kept.core.ui.KeptTheme
 import com.example.kept.core.ui.shots.Shot
-import com.example.kept.feature.home.HomeUiState
-import com.example.kept.feature.home.SprigPanel
 import com.example.kept.feature.lock.BreakLockScreen
 import com.example.kept.feature.lock.LockScreen
 import com.example.kept.feature.lock.LockUi
@@ -38,7 +36,7 @@ import java.time.LocalDate
 
 /**
  * The existing screens with the new Sprig in place, to check nothing in their (not yet
- * redesigned) layouts breaks: Home's Sprig panel, Lock, Break, and Recap kept and slipped.
+ * redesigned) layouts breaks: Lock, Break, and Recap kept and slipped.
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -65,18 +63,6 @@ class SprigOnScreensScreenshotTest {
         sprig = SprigState(level = 2, streakDays = 9),
         clockLabel = "10:42",
     )
-
-    @Test fun homeIdle() = shot("home_sprig_idle") {
-        Box(Modifier.padding(20.dp)) { SprigPanel(HomeUiState(loaded = true, today = today(false), sprig = SprigState(streakDays = 9)), onOpenRoadmap = {}) }
-    }
-
-    @Test fun homeAllDone() = shot("home_sprig_cheer") {
-        Box(Modifier.padding(20.dp)) { SprigPanel(HomeUiState(loaded = true, today = today(true), sprig = SprigState(streakDays = 30)), onOpenRoadmap = {}) }
-    }
-
-    @Test fun homeWilted() = shot("home_sprig_wilted") {
-        Box(Modifier.padding(20.dp)) { SprigPanel(HomeUiState(loaded = true, today = today(false), sprig = SprigState(streakDays = 14, wilted = true)), onOpenRoadmap = {}) }
-    }
 
     @Test fun lock() = shot("lock") {
         LockScreen(lockUi, blockedLabel = "Instagram", onComplete = {}, onBreak = {}, onEmergency = {}, onOpenKept = {})

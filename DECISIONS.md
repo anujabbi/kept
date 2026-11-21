@@ -711,3 +711,44 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     "New form" pill uses `purple100` instead of the week's colour, its note is "It's yours to
     keep.", and its share subline is "{n} days kept". Onboarding's Sprig page drops "in this
     week's look only". No analytics property named a variant, so analytics is unchanged.
+
+- **Home in Daybreak (issue #126).** Built from `Main` (1 to 3 habits) and `A2-Home-6` (4 or
+  more); the pure rules are `core/domain/HomeLayout.kt` (`HomeLayout`, `HomeSprig`, `HomeCopy`).
+  Where the issue or the design files leave something open:
+  - *Sky.* `Main`'s script hard-codes 1 of 2 as dawn (`#FFD0A6`); the spec's ramp, which
+    `A2-Home-6` and the issue follow, gives index `round(1/2 × 6) = 3` (`#B57F98`). Home uses the
+    ramp for every count, so 1 of 2 is `#B57F98` with ink text.
+  - *Sprig height.* `Main` (224, 200, 176 for 0, 1, 2 of 2) is generalised to
+    `224 − 48 × done/total`; compact uses `A2-Home-6`'s `round(100 − 44 × done/total)`. Both are
+    kept as a distance above the hill's crest. When a large font makes the headline block taller,
+    the crest (and so the sky) moves down: roomy until even the highest Sprig clears the text by
+    8dp, compact until the text ends 12dp above the crest. The hill keeps the foundation's 48dp
+    radius rather than `Main`'s 56px.
+  - *Headlines never break inside a word.* At large font scales the headline steps its size down
+    until its longest word fits the column (342dp roomy, 180dp compact). It still wraps between
+    words.
+  - *Copy the design does not cover.* All ticked but some after the give-up time: "Too late to
+    count." (the recap's headline) instead of "Promise kept.". Past the give-up time with habits
+    left the line is "Apps are open. Today won't count."; during a break "Lock paused for a break.
+    Apps lock again soon."; with no habits the headline is "Add a habit." and the line "Nothing
+    locks until you add one.". A once-a-day habit with no unit reads "Once a day" on its row.
+  - *Undo is hold, not tap.* `Main`'s script says "Done. Tap to undo"; the issue and `A18-Parts`
+    say hold, so a roomy done row reads "Done. Hold to undo". `DaybreakHabitRow` gained a `roomy`
+    flag for `Main`'s 68dp two-line row rather than a second row part.
+  - *Shield used.* The button reads "Shield used this week" in muted grey; its card keeps the title
+    and says "You used this week's shield. A new one comes on Monday." (the shield refills on the
+    ISO week, which starts Monday). The card is drawn over the content above the button, not in a
+    popup window; while it is open a transparent layer above Home closes it on any tap (so that tap
+    does nothing else), and Back closes it too.
+  - *First landing with notifications off* keeps issue #41's other line, reworded to the banner's
+    voice: "You can close the app now. Sprig keeps watch, but reminders are off until
+    notifications are turned on in Settings." `FirstLandingBanner` gained a `body` parameter.
+  - *Dropped from the old Home:* the date header, the lock status box under the habits (its states
+    now live in the headline line) and the "Hollow days are days the lock was off" sentence under
+    the week; the dashed hollow dot remains and TalkBack reads it as "lock was off, doesn't count".
+  - *Banners in the compact layout* sit with "Today" above the scrolling list, as the spec orders
+    them; in the roomy layout everything below the hill scrolls together, which only matters at
+    large font scales.
+  - *Sprig no longer opens the roadmap from Home.* `HomeScreen` lost `onOpenRoadmap`; the roadmap
+    route stays for Collection until #131 removes it. The old `HabitRow` moved to
+    `feature/home/LegacyHabitRow.kt` because the lock screen still uses it until #127.
