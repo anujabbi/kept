@@ -111,7 +111,7 @@ fun GalleryScreen(onOpenRoadmap: () -> Unit, vm: GalleryViewModel = hiltViewMode
                 Spacer(Modifier.height(14.dp))
                 KeptCard(background = c.purple50, border = null, shape = RoundedCornerShape(16.dp), onClick = onOpenRoadmap) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        SprigView(s.state.form, SprigPose.IDLE, Modifier.size(84.dp), variant = s.thisWeek, wilted = s.state.wilted)
+                        SprigView(s.state.form, SprigPose.IDLE, Modifier.size(84.dp), wilted = s.state.wilted)
                         Spacer(Modifier.width(14.dp))
                         Column(Modifier.weight(1f)) {
                             Text("Now: ${s.state.form.displayName}", style = MaterialTheme.typography.titleMedium, color = c.purple900)
@@ -146,7 +146,7 @@ fun GalleryScreen(onOpenRoadmap: () -> Unit, vm: GalleryViewModel = hiltViewMode
 
     selected?.let { card ->
         ShareSheet(card, onDismiss = { selected = null }, onShare = {
-            ShareCard.share(ctx, ShareCard.Content(SprigSpec(card.form, SprigPose.CHEER, card.variant), ShareCard.formHeadline(card.form, card.streakAtUnlock), "${card.variant.name} look · ${card.unlockedDate.format(DateTimeFormatter.ofPattern("d MMMM yyyy"))}"))
+            ShareCard.share(ctx, ShareCard.Content(SprigSpec(card.form, SprigPose.CHEER), ShareCard.formHeadline(card.form, card.streakAtUnlock), "${card.variant.name} look · ${card.unlockedDate.format(DateTimeFormatter.ofPattern("d MMMM yyyy"))}"))
             selected = null
         })
     }
@@ -157,7 +157,7 @@ private fun ShareSheet(card: GalleryCard, onDismiss: () -> Unit, onShare: () -> 
     val c = KeptTheme.colors
     androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss, containerColor = c.surface2, shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            SprigView(card.form, SprigPose.CHEER, Modifier.size(180.dp), variant = card.variant)
+            SprigView(card.form, SprigPose.CHEER, Modifier.size(180.dp))
             Text(card.form.displayName, style = MaterialTheme.typography.headlineSmall, color = c.textPrimary)
             Text("${card.variant.name} look · reached at a ${card.streakAtUnlock}-day streak", style = MaterialTheme.typography.bodyMedium, color = c.textSecondary, textAlign = TextAlign.Center)
             Spacer(Modifier.height(6.dp))
@@ -174,9 +174,9 @@ fun FormCard(form: SprigForm, variant: WeekVariant, unlocked: Boolean, caption: 
     KeptCard(Modifier.fillMaxWidth(), background = if (unlocked) c.surface2 else c.surface1, border = if (unlocked) c.border else null, onClick = onClick, padding = androidx.compose.foundation.layout.PaddingValues(12.dp)) {
         Box(Modifier.fillMaxWidth().aspectRatio(1.1f), contentAlignment = Alignment.Center) {
             if (unlocked) {
-                SprigView(form, SprigPose.IDLE, Modifier.fillMaxSize(), variant = variant, animate = false)
+                SprigView(form, SprigPose.IDLE, Modifier.fillMaxSize(), animate = false)
             } else {
-                Box(Modifier.fillMaxSize().alpha(0.18f)) { SprigView(form, SprigPose.IDLE, Modifier.fillMaxSize(), variant = variant, animate = false, showAccessory = false) }
+                SprigView(form, SprigPose.IDLE, Modifier.fillMaxSize(), silhouetteAlpha = 0.18f)
                 Icon(Icons.Outlined.Lock, null, tint = c.textMuted, modifier = Modifier.size(22.dp))
             }
         }
@@ -210,7 +210,7 @@ fun EvolutionRevealScreen(galleryId: Long, onClose: () -> Unit, vm: RevealViewMo
         Spacer(Modifier.weight(1f))
         Pill("New form", background = Color(card0.variant.accentArgb).copy(alpha = 0.18f), foreground = c.purple900)
         Spacer(Modifier.height(18.dp))
-        SprigView(card0.form, SprigPose.CHEER, Modifier.size(240.dp).scale(scale), variant = card0.variant)
+        SprigView(card0.form, SprigPose.CHEER, Modifier.size(240.dp).scale(scale))
         Spacer(Modifier.height(18.dp))
         Column(Modifier.alpha(alpha), horizontalAlignment = Alignment.CenterHorizontally) {
             Text("Sprig became ${card0.form.displayName}", style = MaterialTheme.typography.headlineMedium, color = c.purple900, textAlign = TextAlign.Center)
@@ -221,7 +221,7 @@ fun EvolutionRevealScreen(galleryId: Long, onClose: () -> Unit, vm: RevealViewMo
         }
         Spacer(Modifier.weight(1f))
         PrimaryButton("Show it off", onClick = {
-            ShareCard.share(ctx, ShareCard.Content(SprigSpec(card0.form, SprigPose.CHEER, card0.variant), "Sprig became ${card0.form.displayName}", "${card0.streakAtUnlock} days kept · ${card0.variant.name} look"))
+            ShareCard.share(ctx, ShareCard.Content(SprigSpec(card0.form, SprigPose.CHEER), "Sprig became ${card0.form.displayName}", "${card0.streakAtUnlock} days kept · ${card0.variant.name} look"))
         })
         Spacer(Modifier.height(8.dp))
         SecondaryButton("Keep going", onClick = onClose)
@@ -245,7 +245,7 @@ fun RoadmapScreen(onBack: () -> Unit, vm: GalleryViewModel = hiltViewModel()) {
             val current = form == s.state.form
             KeptCard(Modifier.fillMaxWidth(), background = if (current) c.purple50 else c.surface2, border = if (current) null else c.border, padding = androidx.compose.foundation.layout.PaddingValues(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(64.dp).alpha(if (reached) 1f else 0.35f)) { SprigView(form, SprigPose.IDLE, Modifier.fillMaxSize(), variant = s.thisWeek, animate = false, showAccessory = false) }
+                    SprigView(form, SprigPose.IDLE, Modifier.size(64.dp), silhouetteAlpha = if (reached) null else 0.2f)
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {

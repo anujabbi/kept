@@ -62,6 +62,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.kept.core.data.HabitToday
+import com.example.kept.core.domain.SprigLook
 import com.example.kept.core.domain.ProofType
 import com.example.kept.core.domain.SprigPose
 import com.example.kept.core.domain.minuteOfDayLabel
@@ -234,15 +235,11 @@ private fun StreakPill(streak: Int) {
 }
 
 @Composable
-private fun SprigPanel(s: HomeUiState, onOpenRoadmap: () -> Unit) {
+internal fun SprigPanel(s: HomeUiState, onOpenRoadmap: () -> Unit) {
     val c = KeptTheme.colors
     // Only a day finished before the give-up time is worth cheering about (issue #7).
     val allDone = s.today.allDoneOnTime
-    val pose = when {
-        s.sprig.wilted -> SprigPose.DROOP
-        allDone -> SprigPose.CHEER
-        else -> SprigPose.IDLE
-    }
+    val pose = SprigLook.pose(wilted = s.sprig.wilted, allDone = allDone)
     val bg = when {
         s.sprig.wilted -> c.surface0
         allDone -> c.teal50
@@ -260,7 +257,7 @@ private fun SprigPanel(s: HomeUiState, onOpenRoadmap: () -> Unit) {
     }
     KeptCard(background = bg, border = null, shape = RoundedCornerShape(16.dp), onClick = onOpenRoadmap, padding = androidx.compose.foundation.layout.PaddingValues(20.dp)) {
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-            SprigView(s.form, pose, Modifier.size(170.dp), variant = s.variant, wilted = s.sprig.wilted)
+            SprigView(s.form, pose, Modifier.size(170.dp), wilted = s.sprig.wilted)
             Spacer(Modifier.height(10.dp))
             val headline = when {
                 s.sprig.wilted -> "Sprig is wilting"

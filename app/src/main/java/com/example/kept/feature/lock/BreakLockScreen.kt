@@ -55,7 +55,7 @@ fun BreakLockScreen(state: LockUi, onCancel: () -> Unit, onConfirm: () -> Unit, 
         Spacer(Modifier.height(18.dp))
         Text("Break the lock", style = MaterialTheme.typography.bodySmall, color = c.textMuted)
         Spacer(Modifier.height(22.dp))
-        SprigView(state.sprig.form, SprigPose.DROOP, Modifier.size(150.dp), variant = state.variant, wilted = true, animate = false)
+        SprigView(state.sprig.form, SprigPose.DROOP, Modifier.size(150.dp), wilted = true, tear = true)
         Spacer(Modifier.height(18.dp))
         Text(
             if (state.sprig.level > 1) "This drops Sprig to level $newLevel" else "Sprig will wilt",
