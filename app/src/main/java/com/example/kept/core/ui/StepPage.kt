@@ -36,6 +36,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -91,9 +92,9 @@ fun StepProgress(step: Int, total: Int, modifier: Modifier = Modifier) {
 
 /** Title (34/800, never split inside a word) and its line (15/1.4, muted): padding `6 24 18`. */
 @Composable
-fun PageTitle(title: String, line: String?, width: Dp, modifier: Modifier = Modifier) {
+fun PageTitle(title: String, line: String?, width: Dp, modifier: Modifier = Modifier, style: TextStyle = DaybreakType.pageTitle) {
     Column(modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 6.dp, bottom = 18.dp)) {
-        Text(title, Modifier.testTag("page_title"), style = fitLongestWord(title, DaybreakType.pageTitle, width - 48.dp), color = D.ink)
+        Text(title, Modifier.testTag("page_title"), style = fitLongestWord(title, style, width - 48.dp), color = D.ink)
         if (line != null) {
             Text(
                 line,
@@ -123,6 +124,7 @@ fun StepFooter(modifier: Modifier = Modifier, content: @Composable ColumnScope.(
  * A cream page: [header], the title block, the [body] (a lazy list with 20dp sides) and an
  * optional fixed [footer]. The title stays put above the list as in the design; from font
  * scale 1.5 it scrolls with the list, so a small screen at a large font keeps room for the body.
+ * [titleStyle] is 34/800 unless a page's design says otherwise (Your habits is 40).
  */
 @Composable
 fun StepPage(
@@ -133,6 +135,7 @@ fun StepPage(
     footer: (@Composable ColumnScope.() -> Unit)? = null,
     listState: LazyListState = rememberLazyListState(),
     bodySpacing: Dp = 8.dp,
+    titleStyle: TextStyle = DaybreakType.pageTitle,
     body: LazyListScope.() -> Unit,
 ) {
     val pinned = LocalDensity.current.fontScale < 1.5f
@@ -140,14 +143,14 @@ fun StepPage(
         val width = maxWidth
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
             PageHeaderRow(header)
-            if (pinned) PageTitle(title, line, width)
+            if (pinned) PageTitle(title, line, width, style = titleStyle)
             LazyColumn(
                 Modifier.weight(1f).fillMaxWidth().testTag("page_body"),
                 state = listState,
                 contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(bodySpacing),
             ) {
-                if (!pinned) item(key = "page_title") { PageTitleInList(title, line, width) }
+                if (!pinned) item(key = "page_title") { PageTitleInList(title, line, width, titleStyle) }
                 body()
             }
             if (footer != null) StepFooter(content = footer)
@@ -158,9 +161,9 @@ fun StepPage(
 
 /** The title block inside the list, which already has 20dp sides: 4dp more to reach the design's 24. */
 @Composable
-private fun PageTitleInList(title: String, line: String?, width: Dp) {
+private fun PageTitleInList(title: String, line: String?, width: Dp, style: TextStyle) {
     Column(Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, top = 6.dp, bottom = 10.dp)) {
-        Text(title, Modifier.testTag("page_title"), style = fitLongestWord(title, DaybreakType.pageTitle, width - 48.dp), color = D.ink)
+        Text(title, Modifier.testTag("page_title"), style = fitLongestWord(title, style, width - 48.dp), color = D.ink)
         if (line != null) Text(line, Modifier.padding(top = 8.dp), style = DaybreakType.body, color = D.muted)
     }
 }

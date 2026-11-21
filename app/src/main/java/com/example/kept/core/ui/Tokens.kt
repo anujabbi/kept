@@ -38,6 +38,8 @@ object DaybreakColors {
 
     // Values the design source uses that the spec's table does not name. They get tokens too,
     // so no screen has to hard-code them.
+    /** Placeholder in Add a habit's name field (`A9-Habit-edit`). */
+    val placeholder = Color(0xFF9A95B3)
     /** Text on a selectable purple-tint chip (`A9-Habit-edit`). */
     val purpleInk = Color(0xFF3A2FA0)
     /** Body text of the "Lock is off" banner (`A18-Parts`). */

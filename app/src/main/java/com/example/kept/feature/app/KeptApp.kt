@@ -31,7 +31,8 @@ import com.example.kept.feature.home.HomeScreen
 import com.example.kept.feature.onboarding.OnboardingScreen
 import com.example.kept.feature.recap.RecapScreen
 import com.example.kept.feature.settings.ExceptionsScreen
-import com.example.kept.feature.settings.HabitsEditScreen
+import com.example.kept.feature.settings.HabitEditScreen
+import com.example.kept.feature.settings.HabitsScreen
 import com.example.kept.feature.settings.HistoryScreen
 import com.example.kept.feature.settings.PermissionsScreen
 import com.example.kept.feature.settings.SettingsScreen
@@ -44,12 +45,15 @@ object Routes {
     const val RECAP = "recap/{date}"
     const val EXCEPTIONS = "exceptions"
     const val HABITS = "habits"
+    const val HABIT_ADD = "habits/add"
+    const val HABIT_EDIT = "habits/edit/{habitId}"
     const val PERMISSIONS = "permissions"
     const val HISTORY = "history"
     const val REVEAL = "reveal/{galleryId}"
 
     fun recap(date: String) = "recap/$date"
     fun reveal(id: Long) = "reveal/$id"
+    fun habitEdit(id: Long) = "habits/edit/$id"
 }
 
 /**
@@ -66,6 +70,8 @@ fun screenNameFor(route: String?): String? = when (route) {
     Routes.RECAP -> Screens.RECAP
     Routes.EXCEPTIONS -> Screens.EXCEPTIONS
     Routes.HABITS -> Screens.HABITS
+    Routes.HABIT_ADD -> Screens.ADD_HABIT
+    Routes.HABIT_EDIT -> Screens.EDIT_HABIT
     Routes.PERMISSIONS -> Screens.PERMISSIONS
     Routes.HISTORY -> Screens.HISTORY
     Routes.REVEAL -> Screens.REVEAL
@@ -86,6 +92,19 @@ internal fun NavController.openTab(route: String) {
  * and brought back by the next tap on Today (QA on #129), then the Sprig tab opens as from the
  * tab bar.
  */
+/**
+ * Navigates to [to] only while [from] is on top, so a double tap opens one page, not two
+ * (review on #149: two Add pages at 9 habits could save an 11th).
+ */
+internal fun NavController.navigateFrom(from: String, to: String) {
+    if (currentBackStackEntry?.destination?.route == from) navigate(to)
+}
+
+/** Pops only while [route] is on top, so a second close cannot pop the page under it. */
+internal fun NavController.popFrom(route: String) {
+    if (currentBackStackEntry?.destination?.route == route) popBackStack()
+}
+
 internal fun NavController.leaveRecapForSprigs() {
     popBackStack()
     openTab(Routes.GALLERY)
@@ -157,7 +176,17 @@ fun KeptApp(startDestination: String, pendingRoute: String?, consumeRoute: () ->
                         )
                     }
                     composable(Routes.EXCEPTIONS) { ExceptionsScreen(onBack = { nav.popBackStack() }) }
-                    composable(Routes.HABITS) { HabitsEditScreen(onBack = { nav.popBackStack() }) }
+                    composable(Routes.HABITS) {
+                        HabitsScreen(
+                            onBack = { nav.popBackStack() },
+                            onAdd = { nav.navigateFrom(Routes.HABITS, Routes.HABIT_ADD) },
+                            onEdit = { nav.navigateFrom(Routes.HABITS, Routes.habitEdit(it)) },
+                        )
+                    }
+                    composable(Routes.HABIT_ADD) { HabitEditScreen(habitId = null, onClose = { nav.popFrom(Routes.HABIT_ADD) }) }
+                    composable(Routes.HABIT_EDIT, arguments = listOf(navArgument("habitId") { type = NavType.LongType })) {
+                        HabitEditScreen(habitId = it.arguments!!.getLong("habitId"), onClose = { nav.popFrom(Routes.HABIT_EDIT) })
+                    }
                     composable(Routes.PERMISSIONS) { PermissionsScreen(onBack = { nav.popBackStack() }) }
                     composable(Routes.HISTORY) {
                         HistoryScreen(onBack = { nav.popBackStack() }, onOpenRecap = { nav.navigate(Routes.recap(it)) })

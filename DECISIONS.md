@@ -1096,3 +1096,43 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     (360dp at font 2.0) the values go under the date.
   - *TalkBack.* Every switch (Settings rows, What stays open rows, `KeptSwitch` with its own
     toggle) reports "On" or "Off" as its state.
+
+- **Your habits and Add a habit in Daybreak (issue #134).** Built from `A8-Habits` and
+  `A9-Habit-edit`; the pure rules are `HabitDraft`, `HabitsCopy` and `HabitIconRules` in
+  `core/domain/HabitsLayout.kt`. No Room schema change: an edit updates the existing row.
+  - *Pages.* Your habits (`Routes.HABITS`), Add a habit (`Routes.HABIT_ADD`, `Screens.ADD_HABIT`)
+    and Edit habit (`Routes.HABIT_EDIT`, `Screens.EDIT_HABIT`) are their own destinations; a row
+    opens Edit habit. The old inline editor (`HabitEditor`, icon grid, two proof cards, free
+    target and unit fields) is gone, and onboarding's "Add your own" opens the same page.
+  - *Quick picks* show the name only, as the mock does ("Exercise"); tapping one fills the name,
+    amount and unit. Typing a quick pick's name by hand hides the unit chips but does not change
+    the amount.
+  - *Amounts.* "times" at 1 reads "Once a day" (owner). Filled gaps: one page or glass is singular
+    ("1 page", "1 glass"); the old "Sleep by 11" unit `check-in` at 1 also reads "Once a day" in the
+    editor and "Tap when done" in the list (the mock's row). The stepper stops at 999 (the old
+    editor's three digits) and never goes below one step. Amounts use a no-break space.
+  - *List row detail* is "{amount}, tap when done", so a times habit at 1 reads "Once a day, tap
+    when done".
+  - *Icon from the name.* A keyword map (first rule whose keyword starts a word of the name wins;
+    activities come before tidy, so "Read in my room" is a book); unknown names get a pencil. The
+    pencil, glass and dumbbell are new line icons in the design's style (the design draws only six).
+    Editing keeps a habit's stored icon unless its name changed, so existing habits look the same.
+  - *Edit habit.* "Remove habit" is a red quiet button under "Save habit". For the last habit it is
+    replaced by the old copy "Keep at least one habit. Remove this one after adding another."
+    Removing still goes through the existing "Apps are locked right now" confirm during a lock
+    window; saving an edit has no confirm, as before (editing never opened apps early). A photo
+    habit opens with the switch on and, if switched off, starts at 20 min rather than "1 photo".
+  - *Writes outlive the page.* Add, edit and remove run on the application scope, because the
+    page closes as soon as it saves and its ViewModel's scope would cancel the write.
+  - *Once only (review on #149).* Save and Close act once per page, and the edit screen closes
+    once, so a double tap cannot add twice or pop past Your habits. Remove can be tapped again
+    after a cancelled lock-window confirm. "Add a habit", a row and a close only navigate while
+    their page is on top. The 10-habit limit is also checked in the write
+    (`HabitRepository.addHabitWithinLimit`, under a lock), so two Add pages at 9 cannot save an
+    11th; at the limit nothing is inserted and `habit_added` is not sent.
+  - *Fit.* "How much?" sits beside the stepper only when it fits on one line, else above it (the
+    onboarding stepper rule); unit chips wrap, right-aligned. From font 1.5 the Your habits title
+    scrolls with the list (the `StepPage` fallback), so a small screen keeps room for rows.
+    The Your habits title is 40/800 (`StepPage` gained a `titleStyle`); its block keeps
+    `StepPage`'s padding (2dp off the mock's `4 24 16`). The name field gets a 2dp purple border
+    when focused (the mock's focus outline). Add a habit pads above the keyboard.

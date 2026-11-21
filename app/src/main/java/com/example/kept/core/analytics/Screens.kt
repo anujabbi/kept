@@ -14,6 +14,8 @@ object Screens {
     const val RECAP = "Recap"
     const val EXCEPTIONS = "Exceptions"
     const val HABITS = "Habits"
+    const val ADD_HABIT = "Add habit"
+    const val EDIT_HABIT = "Edit habit"
     const val PERMISSIONS = "Permissions"
     const val HISTORY = "History"
     const val REVEAL = "Reveal"

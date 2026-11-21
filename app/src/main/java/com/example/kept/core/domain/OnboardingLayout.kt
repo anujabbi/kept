@@ -65,7 +65,6 @@ object OnboardingCopy {
     const val HABITS_TITLE = "What will you do every day?"
     const val HABITS_LINE = "Pick two or three. You can change them later."
     const val ADD_YOUR_OWN = "Add your own"
-    const val ADD_A_HABIT = "Add a habit"
 
     fun habitsPicked(n: Int): String = when (n) {
         0 -> "Pick at least one"
