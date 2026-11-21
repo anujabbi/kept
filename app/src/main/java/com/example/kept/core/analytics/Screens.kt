@@ -16,7 +16,6 @@ object Screens {
     const val HABITS = "Habits"
     const val PERMISSIONS = "Permissions"
     const val REVEAL = "Reveal"
-    const val ROADMAP = "Roadmap"
 
     /** Not in the nav graph: `LockActivity` and the overlay above it are their own surfaces. */
     const val LOCK = "Lock"

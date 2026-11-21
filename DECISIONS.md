@@ -981,3 +981,35 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     cream. Goldens with Celestial moved: `evolve_*celestial*`, `sprig_form_celestial_idle`,
     `sprig_silhouette_celestial` (the silhouette's outline grows by the trim), `share_card_celestial`
     and `recap_*final*`.
+
+- **Collection in Daybreak (issue #131).** Built from `A6-Collection`; the pure rules are
+  `core/domain/CollectionLayout.kt` (`CollectionForms`, `CollectionCopy`, `CollectionSprig`).
+  Where the issue or the design leaves something open:
+  - *What "reached" means.* The design marks every form up to the current one as reached. A form
+    a gallery entry records also stays reached after a streak reset (the old roadmap's promise:
+    "every form you've reached stays in your collection"). "{k} of 7 reached" counts distinct
+    forms, so a form reached twice (two gallery rows) counts once; the old subtitle counted rows
+    (QA on #125). The current form is reached, and tapping it shares it too.
+  - *Widths from the real screen*, as on compact Home: the 180dp headline column and Sprig's box
+    never touch (Sprig's drawing can reach its box's edge), so Sprig is 200dp from 412dp wide and
+    gives way first (178dp at 390, 150dp at 360), then the column. The design lets the two boxes
+    overlap by 18dp at 390.
+  - *Sprig behind the hill.* Sprig stands off-centre where the hill has already curved down, and
+    its drawing is clipped at its box's bottom, so the design's "bottom 4dp under the crest"
+    left its flat bottom showing above the hill on the right. Its bottom now also goes 2dp under
+    the hill at both lower corners (about 13dp lower than the design at 412dp). A taller headline
+    block (large font) moves the crest, and Sprig with it, down.
+  - *"in 1 day"* when one day is left; the design only shows the plural. The pill's words are
+    joined by no-break spaces and the text shrinks to fit rather than wrap.
+  - *Card text at large fonts.* Every card uses one name size and one note size, the largest at
+    which the longest word fits a card ("Celestial", "Reached"); notes may wrap between words.
+    Cards in a row are as tall as the tallest, as CSS grid stretches them. The dashed border is a
+    6dp dash, 4dp gap.
+  - *Share flow.* A reached card opens the existing share sheet (restyled in Daybreak tokens),
+    then the share card. It uses the form's earliest gallery entry for the streak and date; a
+    form with no entry (Sprig itself) shares "Day {n} with Sprig" with today's streak while it is
+    the current form, and "Where everyone starts" as the line. Locked cards have a TalkBack label
+    and no click action.
+  - *Removed:* the roadmap screen ("How Sprig grows"), `Routes.ROADMAP` and `Screens.ROADMAP`,
+    and the old "Now" card, "Collected" and "Still to earn" sections. `GalleryViewModel` no
+    longer needs `TimeSource`.
