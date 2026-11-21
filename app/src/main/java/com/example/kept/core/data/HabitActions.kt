@@ -26,11 +26,15 @@ class HabitActions @Inject constructor(
      * Ticks a habit off. Idempotent: [HabitRepository.markDone] returns null for a habit that is
      * already done, so a "Mark done" notification action tapped twice completes once, fires one
      * event and grants one level.
+     *
+     * [momentShown] is true when the screen the tick came from shows the "Promise kept" moment
+     * itself (the lock screen); a day finished that way leaves no celebration pending.
      */
     suspend fun complete(
         habitId: Long,
         photoPath: String? = null,
         source: CompletionSource = CompletionSource.APP,
+        momentShown: Boolean = false,
     ): HabitEvent.Completed? {
         val event = habits.markDone(habitId, photoPath) ?: return null
         analytics.capture(
@@ -41,7 +45,7 @@ class HabitActions @Inject constructor(
                 "source" to source.eventValue,
             ),
         )
-        if (event.allDoneNow && event.beforeDue) onDayCompleted(event)
+        if (event.allDoneNow && event.beforeDue) onDayCompleted(event, momentShown)
         sprig.onHabitEvent(event)
         return event
     }
@@ -55,8 +59,12 @@ class HabitActions @Inject constructor(
         return event
     }
 
-    /** Every habit ticked, and in time. Worth a moment (issue #9). */
-    private suspend fun onDayCompleted(event: HabitEvent.Completed) {
+    /**
+     * Every habit ticked, and in time. Worth a moment (issue #9). When the tick came from a screen
+     * that is itself the moment ([momentShown]: the lock screen's gold open state, issue #127),
+     * nothing is left pending, so KEPT does not celebrate the same day a second time.
+     */
+    private suspend fun onDayCompleted(event: HabitEvent.Completed, momentShown: Boolean) {
         analytics.capture(
             "day_completed",
             mapOf(
@@ -64,7 +72,7 @@ class HabitActions @Inject constructor(
                 "minutes_before_due" to event.minutesBeforeDue,
             ),
         )
-        prefs.updateSettings { it.copy(celebrationPendingDate = time.todayKey()) }
+        prefs.updateSettings { it.copy(celebrationPendingDate = if (momentShown) null else time.todayKey()) }
         dayCompletion.onDayCompleted()
     }
 

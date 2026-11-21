@@ -771,13 +771,26 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
 - **Lock screen in Daybreak (issue #127).** Built from `A3-Lock`; the pure rules are
   `core/domain/LockLayout.kt` (`LockMode`, `LockCopy`, `LockSprig`). Where the issue or the design
   leaves something open:
-  - *Finishing the day no longer opens KEPT.* Since issue #9 the lock screen went to Home when the
-    last habit was ticked, so the celebration showed at once. Now a day finished in time turns the
-    lock screen into its open state (`LockMode.OPEN`) and "Open {App}" launches the locked app
-    with its launch intent. The "Promise kept" celebration stays pending and shows the next time
-    KEPT is opened. A day that ends up all ticked but after the give-up time has nothing to
-    celebrate, so the screen dismisses to the launcher as for a break, an exception or the window
-    ending. Undoing a tick in the open state (hold) takes the screen back to locked.
+  - *Finishing the day on the lock screen: the open state is today's "Promise kept" moment.*
+    Decided by the orchestrator on the owner's behalf (option (c) of the review on PR #140),
+    pending the owner's review. Since issue #9 the lock screen went to Home when the last habit was
+    ticked, so the celebration showed at once. Now a day finished in time turns the lock screen into
+    its gold open state ("{App} is open.", "Promise kept. Enjoy it.", Sprig cheering), and
+    "Open {App}" launches the locked app. That screen is the day's moment: a tick from the lock
+    screen (`HabitActions.complete(momentShown = true)`) that finishes the day in time leaves no
+    `celebrationPendingDate`, so KEPT does not celebrate the same day again later. The day still
+    counts in full: `day_completed` is reported and the level is granted. No "Apps are open.
+    Promise kept." notification is posted, because the lock screen is in the foreground when the
+    day finishes, as before. A day finished in KEPT keeps the #9 behaviour. Undoing and finishing
+    again in KEPT celebrates there. A day that ends up all ticked but after the give-up time has
+    nothing to celebrate, so the screen dismisses to the launcher, as it does for a break, an
+    exception or the window ending. Undoing a tick in the open state (hold) takes the screen back
+    to locked.
+  - *A lock screen left in its open state does not flash stale.* If the user leaves the gold
+    screen with Home instead of "Open {App}", the activity stays in its task. When the watcher
+    raises it again (`onNewIntent`), maybe the next day, the activity counts a new showing. The
+    ViewModel recomputes for that showing, and any state from an earlier showing is replaced by a
+    blank one until today's arrives (`LockUi.forShowing`).
   - *"Open {App}" does not re-trigger the lock* because `LockPolicy.isLockActive` is false once no
     habit is left; nothing new was added to the foreground watcher. If the app has no launch
     intent the button goes to the launcher.

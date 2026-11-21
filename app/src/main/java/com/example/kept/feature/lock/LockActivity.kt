@@ -12,6 +12,7 @@ import com.example.kept.core.ui.enableDaybreakEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -32,12 +33,16 @@ class LockActivity : ComponentActivity() {
     private var blockedPackage by mutableStateOf("")
     private var blockedLabel by mutableStateOf("")
 
+    /** Counts the times this screen was raised; states from an earlier showing are not shown. */
+    private var showing by mutableIntStateOf(0)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableDaybreakEdgeToEdge()
         readIntent(intent)
         setContent {
-            val s by vm.state.collectAsStateWithLifecycle()
+            val live by vm.state.collectAsStateWithLifecycle()
+            val s = live.forShowing(showing)
             var breaking by remember { mutableStateOf(false) }
             var breakStartedAt by remember { androidx.compose.runtime.mutableLongStateOf(0L) }
             // How long the break screen was held open. The countdown only unlocks the button after
@@ -97,6 +102,10 @@ class LockActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        // Raised again over an app, perhaps a day after it was left in its open state: start from
+        // a blank state rather than flash the last one (issue #127).
+        showing++
+        vm.reshow(showing)
         readIntent(intent)
     }
 

@@ -20,7 +20,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -36,6 +38,11 @@ data class LockUi(
      */
     val blockedStillLocked: Boolean = true,
     val breaking: Boolean = false,
+    /**
+     * Which showing of the lock screen this state was computed for (`LockViewModel.reshow`). A
+     * state from an earlier showing is stale (issue #127): see [forShowing].
+     */
+    val showing: Int = 0,
 ) {
     /**
      * Locked, open (every habit done in time, issue #127) or gone. Read from one emission, so the
@@ -51,6 +58,14 @@ data class LockUi(
 
     /** The lock lifted because the day was finished in time, not a break, exception or the window closing (issue #9). */
     val finishedToday: Boolean get() = lock?.today?.allDoneOnTime == true
+
+    /**
+     * This state if it was computed for [showing], else a blank, not-yet-loaded one. A lock screen
+     * left in its gold open state with Home (rather than "Open {App}") stays in the back stack;
+     * when the watcher raises it again, maybe the next day, the last state it held must not flash
+     * up before today's arrives.
+     */
+    fun forShowing(showing: Int): LockUi = if (this.showing == showing) this else LockUi(showing = showing)
 
     val remaining: Int get() = lock?.today?.remaining ?: 0
     val dueLabel: String get() = lock?.settings?.dueMinute?.minuteOfDayLabel() ?: ""
@@ -74,18 +89,30 @@ class LockViewModel @Inject constructor(
     /** The package this lock screen is covering, so the screen can answer to it (issue #4). */
     fun setBlockedPackage(pkg: String?) { blockedPackage.value = pkg }
 
-    val state: StateFlow<LockUi> =
-        lockUiFlow(lockRepo.observeState(), sprigRepo.state, time.ticker(1_000), blockedPackage, time)
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LockUi())
+    private val showing = MutableStateFlow(0)
+
+    /**
+     * The lock screen was raised again (`LockActivity.onNewIntent`) as its [n]th showing: recompute
+     * everything for it. The activity drops any state not tagged with [n] ([LockUi.forShowing]),
+     * so the last showing's state never flashes up first.
+     */
+    fun reshow(n: Int) { showing.value = n }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val state: StateFlow<LockUi> = showing.flatMapLatest { n ->
+        lockUiFlow(lockRepo.observeState(), sprigRepo.state, time.ticker(1_000), blockedPackage, time, n)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LockUi())
 
     /**
      * Ticks and undos go through [HabitActions], exactly as on Home, so a tick on the lock screen
-     * counts the same (on time or late, level, celebration, recap). They run on the application
+     * counts the same (on time or late, level, recap). The one difference: a day finished here gets
+     * its "Promise kept" moment from this screen's gold open state, so no celebration is left
+     * pending for KEPT (`momentShown`). They run on the application
      * scope, not `viewModelScope` (issue #9): the last tick can end with the activity finishing,
      * which clears this ViewModel, and the rest of the write must not be cancelled with it.
      */
-    fun complete(habitId: Long) = appScope.launch { actions.complete(habitId) }
-    fun completeWithPhoto(habitId: Long, path: String) = appScope.launch { actions.complete(habitId, path) }
+    fun complete(habitId: Long) = appScope.launch { actions.complete(habitId, momentShown = true) }
+    fun completeWithPhoto(habitId: Long, path: String) = appScope.launch { actions.complete(habitId, path, momentShown = true) }
     fun undo(habitId: Long) = appScope.launch { actions.undo(habitId) }
 
     /**
@@ -121,6 +148,7 @@ internal fun lockUiFlow(
     ticker: Flow<Long>,
     blockedPackage: Flow<String?>,
     time: TimeSource,
+    showing: Int = 0,
 ): Flow<LockUi> = combine(lockState, sprig, ticker, blockedPackage) { lock, sprigState, _, blocked ->
     val snapshot = lock.snapshot(emptySet(), null)
     val active = LockPolicy.isLockActive(time.now(), time.localTime(), snapshot)
@@ -128,5 +156,6 @@ internal fun lockUiFlow(
         loaded = true, lock = lock, sprig = sprigState,
         lockActive = active,
         blockedStillLocked = LockPolicy.lockScreenShouldStay(blocked, time.now(), time.localTime(), snapshot),
+        showing = showing,
     )
 }

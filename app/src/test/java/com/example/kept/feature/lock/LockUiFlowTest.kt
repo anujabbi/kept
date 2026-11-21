@@ -91,6 +91,24 @@ class LockUiFlowTest {
         assertFalse(state.value.shouldDismiss)
     }
 
+    @Test fun `a state from an earlier showing is never shown`() = runTest {
+        // Left gold with Home, then raised again (the next day): the old state is dropped until
+        // the new showing's first emission.
+        val stale = LockUi(loaded = true, lock = lockState(done = true), lockActive = false, blockedStillLocked = false, showing = 0)
+        assertEquals(LockMode.OPEN, stale.mode)
+        val shown = stale.forShowing(1)
+        assertFalse(shown.open)
+        assertFalse(shown.shouldDismiss)
+        assertFalse(shown.loaded)
+        assertEquals(stale, stale.forShowing(0))
+
+        val fresh = lockUiFlow(flowOf(lockState(done = false)), flowOf(SprigState()), time.ticker(1_000), MutableStateFlow("com.android.chrome"), time, showing = 1)
+            .stateIn(backgroundScope, SharingStarted.Eagerly, LockUi())
+        runCurrent()
+        assertEquals(1, fresh.value.showing)
+        assertEquals(LockMode.LOCKED, fresh.value.forShowing(1).mode)
+    }
+
     @Test fun `nothing is decided before the first emission`() {
         assertEquals(LockMode.LOCKED, LockUi().mode)
         assertFalse(LockUi().shouldDismiss)
