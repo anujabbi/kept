@@ -14,6 +14,9 @@ import androidx.compose.animation.core.withInfiniteAnimationFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
@@ -31,16 +34,22 @@ import com.example.kept.core.domain.SprigLook
 import com.example.kept.core.domain.SprigPose
 import com.example.kept.core.ui.LocalReduceMotion
 import com.example.kept.core.ui.rememberHaptics
+import androidx.compose.ui.platform.InfiniteAnimationPolicy
+import kotlinx.coroutines.delay
+import kotlin.coroutines.coroutineContext
 import kotlin.math.abs
 
 /** Sprigs smaller than this (lists, rows) are drawn still and do not take touches. */
 val SPRIG_ANIMATE_MIN = 100.dp
 
+/** How often a scrolled-away Sprig checks whether it is back in view. */
+private const val OFFSCREEN_POLL_MS = 250L
+
 /**
  * The Daybreak Sprig (spec, Sprig (Daybreak)). Size it with [modifier]. At 100dp and over it
- * animates on one frame clock, paused when it leaves composition or the app goes to the
- * background, and reacts to touch: follow, tap to hop, triple tap to tickle, drag to pet, sleep
- * after 12 seconds untouched. With reduce motion on it does not sway, hop or wobble, but poses,
+ * animates on one frame clock, paused when it leaves composition, is scrolled out of view or
+ * the app goes to the background, and reacts to touch: follow, tap to hop, triple tap to tickle,
+ * drag to pet, sleep after 12 seconds untouched. With reduce motion on it does not sway, hop or wobble, but poses,
  * blinks, petting and sleep still change.
  *
  * [motion] is hoisted for tests; screens leave it alone.
@@ -64,6 +73,8 @@ fun SprigView(
     val live = animate && big && silhouetteAlpha == null
     val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
     val running = live && lifecycle.isAtLeast(Lifecycle.State.STARTED)
+    // Where Sprig is laid out, read live by the loop to tell when it is scrolled out of view.
+    val place = remember { arrayOfNulls<LayoutCoordinates>(1) }
     // Read only in the draw phase, so a frame redraws the Canvas without recomposing.
     var frames by remember { mutableIntStateOf(0) }
     var asleep by remember { mutableStateOf(false) }
@@ -75,6 +86,13 @@ fun SprigView(
         if (!running) return@LaunchedEffect
         var last = 0L
         while (true) {
+            // Off screen (scrolled out of a scroll container's viewport, which keeps it composed):
+            // no frames, just a cheap check a few times a second until it comes back.
+            if (place[0]?.isVisibleInWindow() == false) {
+                last = 0L
+                offscreenPause()
+                continue
+            }
             withInfiniteAnimationFrameNanos { now ->
                 val dt = if (last == 0L) 0f else (now - last) / 1_000_000_000f
                 last = now
@@ -88,7 +106,9 @@ fun SprigView(
     val spec = SprigSpec(form, pose, wilted, tear, silhouetteAlpha)
     val description = SprigLook.contentDescription(form, if (asleep) SprigPose.SLEEP else pose, wilted)
     val touch = if (!live) Modifier else Modifier
-        .semantics {
+        // Its own focus stop, so inside a clickable card TalkBack's double tap hops Sprig instead
+        // of running the card's click.
+        .semantics(mergeDescendants = true) {
             role = Role.Button
             contentDescription = description
             onClick { motion.poke(); haptics.sprigHop(); true }
@@ -123,8 +143,28 @@ fun SprigView(
         }
     val a11y = if (live) Modifier else Modifier.semantics { contentDescription = description }
 
-    Canvas(modifier.onSizeChanged { px = it }.then(a11y).then(touch)) {
+    val track = Modifier.onGloballyPositioned { place[0] = it }
+    Canvas(modifier.onSizeChanged { px = it }.then(track).then(a11y).then(touch)) {
         frames // redraw on every frame tick
         drawSprig(spec, motion)
     }
+}
+
+/**
+ * Waits [OFFSCREEN_POLL_MS]. Goes through [InfiniteAnimationPolicy] like the frame loop does, so
+ * UI tests that cancel infinite animations are not kept busy by the poll either.
+ */
+private suspend fun offscreenPause() {
+    val policy = coroutineContext[InfiniteAnimationPolicy]
+    if (policy == null) delay(OFFSCREEN_POLL_MS) else policy.onInfiniteOperation { delay(OFFSCREEN_POLL_MS) }
+}
+
+/**
+ * True while some of this node is on screen. `boundsInWindow` is clipped by every ancestor, so a
+ * Sprig scrolled out of a scroll container's viewport has empty bounds.
+ */
+internal fun LayoutCoordinates.isVisibleInWindow(): Boolean {
+    if (!isAttached) return false
+    val b = boundsInWindow()
+    return b.width > 0f && b.height > 0f
 }

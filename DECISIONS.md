@@ -675,7 +675,12 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     (`touch-action: none` in the design).
   - *The frame clock* uses `withInfiniteAnimationFrameNanos`, keyed on the lifecycle being at
     least STARTED, so it stops in the background and when Sprig leaves composition, and Compose
-    UI tests with auto-advance on are not held busy by it.
+    UI tests with auto-advance on are not held busy by it. Sprig stays composed when a scrolling
+    screen scrolls it away, so the loop also checks `boundsInWindow` (clipped by every ancestor)
+    and, while that is empty, stops taking frames and re-checks every 250ms instead. A poll,
+    because `onGloballyPositioned` is not a reliable signal for a layer-only scroll offset change.
+  - *Sprig is its own TalkBack stop.* Its semantics merge descendants, so inside a clickable card
+    (Home) a double tap hops Sprig rather than running the card's click.
   - *Share card.* Cream page, white card, a dawn panel Sprig stands in, ink headline in the
     display face. The recap's share subline is now "{done} of {total} habits"; "off apps" is gone.
     The "Time off apps" row on the Recap screen itself stays until the Recap story.

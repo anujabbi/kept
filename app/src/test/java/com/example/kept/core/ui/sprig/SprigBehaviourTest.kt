@@ -1,6 +1,7 @@
 package com.example.kept.core.ui.sprig
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -114,7 +115,8 @@ class SprigBehaviourTest {
     }
 
     @Test fun reduceMotionFreezesSway() {
-        val m = show(reduceMotion = true)
+        // Blink gaps are random; a fixed draw makes the second blink due 2s after the first.
+        val m = show(reduceMotion = true, motion = SprigMotion { 0f })
         frames(3_000)
         assertEquals("animation time frozen", 0f, m.t, 0f)
         rule.onNodeWithTag("sprig").performTouchInput { down(center); up() }
@@ -155,5 +157,31 @@ class SprigBehaviourTest {
         rule.runOnIdle { owner.registry.currentState = androidx.lifecycle.Lifecycle.State.RESUMED }
         frames(1_000)
         assertTrue("resumed", m.t > running + 0.5f)
+    }
+
+    @Test fun pausesWhenScrolledOutOfViewAndResumesWhenBack() {
+        val m = SprigMotion()
+        val scroll = androidx.compose.foundation.ScrollState(0)
+        rule.setContent {
+            KeptTheme(reduceMotion = false) {
+                androidx.compose.foundation.layout.Column(Modifier.size(400.dp, 500.dp).verticalScroll(scroll)) {
+                    androidx.compose.foundation.layout.Spacer(Modifier.size(100.dp))
+                    SprigView(SprigForm.BLOOM, SprigPose.IDLE, Modifier.size(200.dp), motion = m)
+                    androidx.compose.foundation.layout.Spacer(Modifier.size(400.dp, 2_000.dp))
+                }
+            }
+        }
+        frames(1_000)
+        assertTrue("runs while on screen", m.t > 0.5f)
+        rule.runOnIdle { scroll.dispatchRawDelta(1_500f) }
+        rule.waitForIdle() // lays out at the new scroll position, as the next vsync would
+        frames(100)
+        val away = m.t
+        frames(2_000)
+        assertEquals("paused while scrolled away", away, m.t, 0.05f)
+        rule.runOnIdle { scroll.dispatchRawDelta(-1_500f) }
+        rule.waitForIdle() // lays out at the new scroll position, as the next vsync would
+        frames(1_000)
+        assertTrue("resumed once back in view", m.t > away + 0.5f)
     }
 }
