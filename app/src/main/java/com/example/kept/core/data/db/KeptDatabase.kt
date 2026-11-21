@@ -59,6 +59,39 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
     }
 }
 
+/**
+ * v4 -> v5: weekly looks are removed (issue #125). `gallery.variantId` named the week's colour
+ * and accessory a form was reached in; nothing reads it any more. The table is recreated without
+ * it (no `DROP COLUMN` on minSdk 26) and every row keeps its id, form, date, streak and seen flag.
+ * The old `sqlite_sequence` value is carried across before the drop (which deletes it), so ids
+ * keep counting from the old sequence and a deleted id is never handed out again.
+ */
+val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS gallery_new (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `formId` INTEGER NOT NULL, " +
+                "`unlockedDate` TEXT NOT NULL, `streakAtUnlock` INTEGER NOT NULL, `seen` INTEGER NOT NULL)",
+        )
+        db.execSQL(
+            "INSERT INTO gallery_new (id, formId, unlockedDate, streakAtUnlock, seen) " +
+                "SELECT id, formId, unlockedDate, streakAtUnlock, seen FROM gallery",
+        )
+        // sqlite_sequence has no unique key on name, so replace the copy's row rather than upsert.
+        // The old seq is always >= max(id). With no old row (nothing ever inserted) none is needed.
+        db.execSQL(
+            "DELETE FROM sqlite_sequence WHERE name = 'gallery_new' " +
+                "AND EXISTS (SELECT 1 FROM sqlite_sequence WHERE name = 'gallery')",
+        )
+        db.execSQL("INSERT INTO sqlite_sequence (name, seq) SELECT 'gallery_new', seq FROM sqlite_sequence WHERE name = 'gallery'")
+        db.execSQL("DROP TABLE gallery")
+        db.execSQL("ALTER TABLE gallery_new RENAME TO gallery")
+    }
+}
+
+/** Every migration, in order. The app and the migration tests both use this list. */
+val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+
 @Database(
     entities = [
         HabitEntity::class,
@@ -69,7 +102,7 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
         ProtectionGapEntity::class,
         GalleryEntryEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)

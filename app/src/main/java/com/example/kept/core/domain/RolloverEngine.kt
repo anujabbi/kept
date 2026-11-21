@@ -45,7 +45,7 @@ object RolloverEngine {
         val streakEnd: Int,
     )
 
-    data class Unlock(val form: SprigForm, val variant: WeekVariant, val date: LocalDate, val streakAtUnlock: Int)
+    data class Unlock(val form: SprigForm, val date: LocalDate, val streakAtUnlock: Int)
 
     data class Output(
         val state: SprigState,
@@ -66,13 +66,12 @@ object RolloverEngine {
         val streakResult = StreakRules.apply(refilled.streakDays, refilled.shieldAvailable, outcome)
 
         val unlocks = mutableListOf<Unlock>()
-        val variant = Variants.forDate(input.date)
         val formAfter = SprigForm.forStreak(streakResult.streak)
         if (streakResult.counted) {
             // Any form whose threshold is crossed exactly today is a fresh unlock.
             SprigForm.entries
                 .filter { it.streakThreshold == streakResult.streak && it.streakThreshold > 0 }
-                .forEach { unlocks += Unlock(it, variant, input.date, streakResult.streak) }
+                .forEach { unlocks += Unlock(it, input.date, streakResult.streak) }
         }
 
         val newState = refilled.copy(

@@ -4,10 +4,12 @@ import androidx.room.testing.MigrationTestHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.example.kept.core.data.db.ALL_MIGRATIONS
 import com.example.kept.core.data.db.KeptDatabase
 import com.example.kept.core.data.db.MIGRATION_1_2
 import com.example.kept.core.data.db.MIGRATION_2_3
 import com.example.kept.core.data.db.MIGRATION_3_4
+import com.example.kept.core.data.db.MIGRATION_4_5
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -19,8 +21,8 @@ import org.junit.runner.RunWith
  * Verifies the Room migrations. `fallbackToDestructiveMigration` is gone (issue #5), so a user on
  * any shipped schema must be able to reach the current one without losing a row: 1 -> 2 (the
  * timer removal, issue #3), 2 -> 3 (the points removal, issue #8), 3 -> 4 (the buddy removal,
- * issue #13), and 1 -> 4 end to end, which is the path an installed-but-never-updated build
- * actually takes.
+ * issue #13), 4 -> 5 (the weekly looks removal, issue #125), and 1 -> 5 end to end, which is the
+ * path an installed-but-never-updated build actually takes.
  */
 @RunWith(AndroidJUnit4::class)
 class MigrationTest {
@@ -167,6 +169,53 @@ class MigrationTest {
         migrated.query("SELECT title FROM habits WHERE id = 1").use {
             assertTrue(it.moveToFirst())
             assertEquals("Read", it.getString(0))
+        }
+    }
+
+    @Test
+    fun migrate4To5_dropsVariantIdAndKeepsTheCollection() {
+        helper.createDatabase(dbName, 4).apply {
+            execSQL("INSERT INTO gallery (id, formId, variantId, unlockedDate, streakAtUnlock, seen) VALUES (1, 1, 3, '2026-09-01', 0, 1)")
+            execSQL("INSERT INTO gallery (id, formId, variantId, unlockedDate, streakAtUnlock, seen) VALUES (2, 3, 7, '2026-09-08', 7, 0)")
+            close()
+        }
+
+        val migrated = helper.runMigrationsAndValidate(dbName, 5, true, MIGRATION_4_5)
+
+        val rows = mutableListOf<String>()
+        migrated.query("SELECT id, formId, unlockedDate, streakAtUnlock, seen FROM gallery ORDER BY id").use {
+            while (it.moveToNext()) rows += "${it.getLong(0)} ${it.getInt(1)} ${it.getString(2)} ${it.getInt(3)} ${it.getInt(4)}"
+        }
+        assertEquals(listOf("1 1 2026-09-01 0 1", "2 3 2026-09-08 7 0"), rows)
+
+        val columnNames = mutableListOf<String>()
+        migrated.query("PRAGMA table_info(gallery)").use {
+            while (it.moveToNext()) columnNames += it.getString(it.getColumnIndexOrThrow("name"))
+        }
+        assertFalse(columnNames.contains("variantId"))
+    }
+
+    @Test
+    fun migrate1To5_runsEveryMigrationAndKeepsData() {
+        helper.createDatabase(dbName, 1).apply {
+            execSQL(
+                "INSERT INTO habits (id, title, iconKey, proofType, targetValue, unit, sortOrder, isActive, createdAt) " +
+                    "VALUES (1, 'Exercise', 'run', 'TIMER', 30, 'min', 0, 1, 0)",
+            )
+            execSQL("INSERT INTO gallery (id, formId, variantId, unlockedDate, streakAtUnlock, seen) VALUES (1, 2, 5, '2026-09-04', 3, 1)")
+            close()
+        }
+
+        val migrated = helper.runMigrationsAndValidate(dbName, 5, true, *ALL_MIGRATIONS)
+
+        migrated.query("SELECT proofType FROM habits WHERE id = 1").use {
+            assertTrue(it.moveToFirst())
+            assertEquals("MANUAL", it.getString(0))
+        }
+        migrated.query("SELECT formId, streakAtUnlock FROM gallery WHERE id = 1").use {
+            assertTrue(it.moveToFirst())
+            assertEquals(2, it.getInt(0))
+            assertEquals(3, it.getInt(1))
         }
     }
 }

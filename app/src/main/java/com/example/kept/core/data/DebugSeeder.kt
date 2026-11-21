@@ -11,7 +11,6 @@ import com.example.kept.core.domain.ProofType
 import com.example.kept.core.domain.SprigForm
 import com.example.kept.core.domain.SprigState
 import com.example.kept.core.domain.StreakRules
-import com.example.kept.core.domain.Variants
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -65,11 +64,11 @@ class DebugSeeder @Inject constructor(
             // Gallery unlocks as thresholds were crossed.
             if (!missed && SprigForm.entries.any { it.streakThreshold == streak && streak > 0 }) {
                 val form = SprigForm.forStreak(streak)
-                sprig.insertUnlock(form, Variants.forDate(date), date, streak, seen = true)
+                sprig.insertUnlock(form, date, streak, seen = true)
             }
         }
         // Base form is always in the gallery.
-        sprig.insertUnlock(SprigForm.SPRIG, Variants.forDate(today.minusDays(13)), today.minusDays(13), 0, seen = true)
+        sprig.insertUnlock(SprigForm.SPRIG, today.minusDays(13), 0, seen = true)
 
         // Today: neither habit done yet (both are manual tap-to-complete).
         val todayKey = today.toString()

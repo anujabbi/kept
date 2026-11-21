@@ -17,8 +17,6 @@ import com.example.kept.core.domain.GiveUpTime
 import com.example.kept.core.domain.LockPolicy
 import com.example.kept.core.domain.SprigForm
 import com.example.kept.core.domain.SprigState
-import com.example.kept.core.domain.Variants
-import com.example.kept.core.domain.WeekVariant
 import com.example.kept.core.lock.PermissionKind
 import com.example.kept.core.lock.Permissions
 import com.example.kept.core.lock.RequiredPermissions
@@ -41,7 +39,6 @@ data class HomeUiState(
     val lockActive: Boolean = false,
     /** True once today's give-up time has passed: ticks still work but no longer count (issue #7). */
     val pastDue: Boolean = false,
-    val variant: WeekVariant = Variants.table[0],
     val date: LocalDate = LocalDate.now(),
     val pendingRecapDate: String? = null,
     val unseenUnlock: GalleryCard? = null,
@@ -77,7 +74,7 @@ class HomeViewModel @Inject constructor(
         val pastDue = GiveUpTime.isPastDue(time.minuteOfDay(), settings.lockFromMinute, settings.dueMinute)
         HomeUiState(
             loaded = true, today = today, sprig = sprig, lock = lock, lockActive = active, pastDue = pastDue,
-            variant = Variants.forDate(date), date = date, pendingRecapDate = settings.pendingRecapDate,
+            date = date, pendingRecapDate = settings.pendingRecapDate,
             firstLanding = settings.firstLandingPending,
         )
     }
