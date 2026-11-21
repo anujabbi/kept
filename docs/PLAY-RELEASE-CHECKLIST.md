@@ -105,9 +105,14 @@ the repo. The assets are prepared in `docs/play/` (issue #161).
    `settings.gradle.kts` (the build reads `rootProject.file("keystore.properties")`), then build
    the signed bundle: `./gradlew :app:bundleRelease`. The bundle is
    `app/build/outputs/bundle/release/app-release.aab`.
-   - If Gradle logs "release signing is only partly configured", the bundle is **unsigned**. Fix
-     `keystore.properties` (or the `KEPT_KEY*` environment variables) and rebuild before
-     uploading; Play rejects an unsigned bundle.
+   - **Check the bundle is signed before uploading:**
+     `jarsigner -verify app/build/outputs/bundle/release/app-release.aab` must print
+     `jar verified.` Anything else (for example "jar is unsigned") means the build did not find
+     the keys: fix `keystore.properties` (or the `KEPT_KEY*` environment variables), rebuild and
+     check again. Play rejects an unsigned bundle.
+   - A missing or misplaced `keystore.properties` builds an unsigned bundle **silently**. Gradle's
+     "release signing is only partly configured" warning appears only when some keys are set,
+     so no warning does not mean the bundle is signed; `jarsigner -verify` is the check.
 3. Walk the minified build on a device first (§6).
 4. Play Console → Test and release → pick a track (internal testing first, then production) →
    Create new release → upload the `.aab`. Paste the release notes from
