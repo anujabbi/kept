@@ -1,42 +1,95 @@
 package com.example.kept.feature.recap
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.example.kept.core.data.DayRepository
-import com.example.kept.core.data.SprigRepository
 import com.example.kept.core.data.db.DayRecordEntity
+import com.example.kept.core.domain.RecapCopy
+import com.example.kept.core.domain.RecapMotion
+import com.example.kept.core.domain.RecapOutcome
+import com.example.kept.core.domain.RecapProgress
+import com.example.kept.core.domain.RecapSprig
 import com.example.kept.core.domain.SprigForm
 import com.example.kept.core.domain.SprigPose
-import com.example.kept.core.ui.KeptCard
-import com.example.kept.core.ui.KeptTheme
-import com.example.kept.core.ui.KeyValueRow
+import com.example.kept.core.ui.DaybreakColors
+import com.example.kept.core.ui.DaybreakType
+import com.example.kept.core.ui.Hill
+import com.example.kept.core.ui.LocalReduceMotion
 import com.example.kept.core.ui.PrimaryButton
 import com.example.kept.core.ui.SecondaryButton
+import com.example.kept.core.ui.Sky
+import com.example.kept.core.ui.SkyScaffold
+import com.example.kept.core.ui.fitLongestWord
 import com.example.kept.core.ui.sprig.ShareCard
+import com.example.kept.core.ui.sprig.SprigMotion
 import com.example.kept.core.ui.sprig.SprigSpec
 import com.example.kept.core.ui.sprig.SprigView
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -44,7 +97,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
 data class RecapUi(
@@ -52,107 +104,395 @@ data class RecapUi(
     val date: LocalDate = LocalDate.now(),
     /** Derived from this day and the one before it, see [RecapRules.streakReset] (issue #16). */
     val streakReset: Boolean = false,
-)
+) {
+    val outcome: RecapOutcome? get() = record?.let(RecapRules::outcome)
+}
 
 @HiltViewModel
 class RecapViewModel @Inject constructor(
     dayRepo: DayRepository,
-    saved: SavedStateHandle,
+    private val saved: SavedStateHandle,
 ) : ViewModel() {
     private val date: LocalDate = LocalDate.parse(saved.get<String>("date")!!)
     val state = combine(dayRepo.observe(date), dayRepo.observe(date.minusDays(1))) { r, previous ->
         RecapUi(r, date, RecapRules.streakReset(r, previous))
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RecapUi(date = date))
-}
 
-@Composable
-fun RecapScreen(date: String, onClose: () -> Unit, vm: RecapViewModel = hiltViewModel()) {
-    val s by vm.state.collectAsStateWithLifecycle()
-    RecapContent(s, onClose)
-}
+    /** The kept-day petals and bar grow play once per showing, not again after a rotation. */
+    val introPending: Boolean get() = saved.get<Boolean>(KEY_INTRO_PLAYED) != true
 
-/** The recap itself, without the ViewModel, so screenshot tests can render it. */
-@Composable
-internal fun RecapContent(s: RecapUi, onClose: () -> Unit) {
-    val c = KeptTheme.colors
-    val ctx = LocalContext.current
-    val r = s.record
-    val kept = r?.countedForStreak == true
-    // Hollow: the lock was off and the day was not also written off, so it cost nothing (issue #2).
-    val hollow = r != null && r.unprotected && !r.writtenOff
-    // Everything was ticked and nothing else went wrong, so the only thing that can have cost the
-    // day is the give-up time (issue #7).
-    val tooLate = r != null && !kept && !r.unprotected && !r.writtenOff && !r.shieldConsumed &&
-        r.habitsTotal > 0 && r.habitsDone >= r.habitsTotal
-    val form = SprigForm.fromId(r?.formId ?: 1)
-    val isToday = s.date == LocalDate.now()
+    fun introStarted() {
+        saved[KEY_INTRO_PLAYED] = true
+    }
 
-    Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Spacer(Modifier.height(14.dp))
-        Text(if (isToday) "Today, wrapped up" else s.date.format(DateTimeFormatter.ofPattern("EEEE d MMMM")) + ", wrapped up", style = MaterialTheme.typography.bodySmall, color = c.textMuted)
-        Spacer(Modifier.height(14.dp))
-
-        val bg = if (kept) c.teal50 else if (r?.shieldConsumed == true) c.blue50 else c.surface0
-        val fg = if (kept) c.teal900 else if (r?.shieldConsumed == true) c.blue800 else c.textPrimary
-        val sub = if (kept) c.teal600 else if (r?.shieldConsumed == true) c.blue400 else c.textSecondary
-        KeptCard(Modifier.fillMaxWidth(), background = bg, border = null, shape = RoundedCornerShape(16.dp), padding = androidx.compose.foundation.layout.PaddingValues(20.dp)) {
-            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                // A hollow day costs nothing, so Sprig does not wilt over it (issue #2).
-                SprigView(form, if (kept) SprigPose.CHEER else SprigPose.DROOP, Modifier.size(150.dp), wilted = !kept && r?.shieldConsumed != true && !hollow)
-                Spacer(Modifier.height(8.dp))
-                val headline = when {
-                    r == null -> "Nothing recorded"
-                    kept -> "The promise was kept"
-                    hollow -> "Lock was off"
-                    r.shieldConsumed -> "Shield used"
-                    r.writtenOff -> "Day written off"
-                    tooLate -> "Too late to count"
-                    else -> "The promise slipped"
-                }
-                Text(headline, style = MaterialTheme.typography.titleMedium, color = fg)
-                val detail = when {
-                    r == null -> ""
-                    kept -> "${form.displayName} · that's ${r.streakEnd} day${if (r.streakEnd == 1) "" else "s"} running."
-                    hollow -> "That one is on us. The day doesn't count, but your ${r.streakEnd}-day streak is safe."
-                    r.shieldConsumed -> "Your weekly shield kept the ${r.streakEnd}-day streak alive."
-                    tooLate -> "Everything got ticked, but after the give-up time. Late doesn't count."
-                    // Only claim a reset when this day actually took the streak to 0 (issue #16).
-                    s.streakReset -> "Streak reset. Sprig is back to Sprig. Today is a fresh start."
-                    else -> "Today is a fresh start."
-                }
-                Text(detail, style = MaterialTheme.typography.bodySmall, color = sub, textAlign = TextAlign.Center)
-            }
-        }
-        Spacer(Modifier.height(12.dp))
-
-        if (r != null) {
-            Column(Modifier.fillMaxWidth()) {
-                KeyValueRow("Habits done", "${r.habitsDone} of ${r.habitsTotal}")
-                KeyValueRow("Time off apps", formatMillis(r.lockedMillis))
-                KeyValueRow("Locks broken", "${r.breaksUsed}", valueColor = if (r.breaksUsed > 0) c.danger else c.textPrimary, divider = false)
-            }
-        }
-        Spacer(Modifier.height(18.dp))
-        SecondaryButton(
-            "Share",
-            onClick = {
-                ShareCard.share(
-                    ctx,
-                    ShareCard.Content(
-                        SprigSpec(form, if (kept) SprigPose.CHEER else SprigPose.IDLE),
-                        headline = if (kept) "Day ${r?.streakEnd ?: 0} kept" else "Back at it tomorrow",
-                        subline = "${r?.habitsDone ?: 0} of ${r?.habitsTotal ?: 0} habits",
-                    ),
-                )
-            },
-        )
-        Spacer(Modifier.height(8.dp))
-        PrimaryButton("Done", onClick = onClose)
-        Spacer(Modifier.height(20.dp))
+    companion object {
+        const val KEY_INTRO_PLAYED = "recap_intro_played"
     }
 }
 
-fun formatMillis(ms: Long): String {
-    val m = ms / 60_000
-    return if (m >= 60) "${m / 60}h ${m % 60}m" else "${m}m"
+@Composable
+fun RecapScreen(date: String, onClose: () -> Unit, onOpenSprigs: () -> Unit, vm: RecapViewModel = hiltViewModel()) {
+    val s by vm.state.collectAsStateWithLifecycle()
+    RecapContent(s, onClose, onOpenSprigs, playIntro = vm.introPending, onIntroStarted = vm::introStarted)
+}
+
+private val D = DaybreakColors
+
+/** `.grow`: `cubic-bezier(.3, 1.3, .5, 1)`. */
+private val GrowEasing = CubicBezierEasing(0.3f, 1.3f, 0.5f, 1f)
+
+/** `.knob`: `cubic-bezier(.3, 1.8, .5, 1)`. */
+private val PopEasing = CubicBezierEasing(0.3f, 1.8f, 0.5f, 1f)
+
+/** `petalFall`: `cubic-bezier(.2, .6, .4, 1)`. */
+private val PetalEasing = CubicBezierEasing(0.2f, 0.6f, 0.4f, 1f)
+
+/** The next form's silhouette (`filter: brightness(0) opacity(0.22)`). */
+private const val SILHOUETTE_ALPHA = 0.22f
+
+internal fun recapSky(o: RecapOutcome?): Color = when (o) {
+    RecapOutcome.KEPT -> Sky.gold
+    RecapOutcome.SHIELD -> Sky.tide
+    RecapOutcome.LOCK_OFF -> Sky.recapLockOff
+    RecapOutcome.TOO_LATE -> Sky.recapTooLate
+    RecapOutcome.SLIPPED, RecapOutcome.WRITTEN_OFF, null -> Sky.overcast
+}
+
+/**
+ * The recap in Daybreak (`A5-Recap*`, spec Recap), without the ViewModel so screenshot tests can
+ * render it. A 400dp sky in the outcome's colour with the headline, the line and Sprig in the
+ * outcome's pose; two stats; the progress card toward the next form; and the two buttons.
+ *
+ * On a kept day, when [playIntro] is set and reduce motion is off, 14 petals fall once, the bar
+ * grows from yesterday to today and the knob pops; [onIntroStarted] tells the ViewModel so a
+ * recreated screen does not replay it. The page scrolls only when it cannot fit (a small screen
+ * or a large font).
+ */
+@Composable
+internal fun RecapContent(
+    s: RecapUi,
+    onClose: () -> Unit,
+    onOpenSprigs: () -> Unit = {},
+    modifier: Modifier = Modifier,
+    playIntro: Boolean = false,
+    onIntroStarted: () -> Unit = {},
+    sprigMotion: SprigMotion = remember { SprigMotion() },
+) {
+    val ctx = LocalContext.current
+    val r = s.record
+    val outcome = s.outcome
+    val kept = outcome == RecapOutcome.KEPT
+    val streak = r?.streakEnd ?: 0
+    val progress = RecapProgress.of(streak, grows = kept)
+    val form = SprigForm.forStreak(streak)
+    val pose = outcome?.let(RecapCopy::pose) ?: SprigPose.IDLE
+
+    // Decided once the record has loaded: a later recomposition (the ViewModel now saying the
+    // intro has played) must not cancel the moment that is running.
+    val reduce = LocalReduceMotion.current
+    val play = remember(kept) { playIntro && kept && !reduce }
+    val clock = remember { Animatable(0f) }
+    LaunchedEffect(play) {
+        if (!play) return@LaunchedEffect
+        onIntroStarted()
+        clock.animateTo(RecapMotion.END_MS.toFloat(), tween(RecapMotion.END_MS, easing = LinearEasing))
+    }
+    val elapsed: () -> Long = { if (play) clock.value.toLong() else RecapMotion.END_MS.toLong() }
+    val petalsFalling by remember(play) { derivedStateOf { play && clock.value < RecapMotion.PETALS_END_MS } }
+
+    val density = LocalDensity.current
+    val inset = with(density) { WindowInsets.statusBars.getTop(this).toDp() }
+    var textPx by remember { mutableIntStateOf(0) }
+    var bodyPx by remember { mutableIntStateOf(0) }
+    var footerPx by remember { mutableIntStateOf(0) }
+    // Rounded up, so the page asks for at least the room it needs and never scrolls by a pixel.
+    fun dp(px: Int): Int = kotlin.math.ceil(with(density) { px.toDp() }.value).toInt()
+
+    BoxWithConstraints(modifier.fillMaxSize().testTag("recap_screen")) {
+        val width = maxWidth.value.toInt()
+        val compact = RecapSprig.compact((maxHeight - inset).value.toInt())
+        val below = Hill.RISE.value.toInt() + dp(bodyPx) + RecapSprig.MIN_GAP_DP + dp(footerPx)
+        val spot = RecapSprig.spot(width, (maxHeight - inset).value.toInt(), RecapSprig.TEXT_TOP_DP + dp(textPx), below, kept)
+        val skyHeight = inset + spot.crestDp.dp + Hill.RISE
+        val total = maxOf(maxHeight, skyHeight + dp(bodyPx + footerPx).dp + RecapSprig.MIN_GAP_DP.dp)
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).testTag("recap_page")) {
+            SkyScaffold(
+                sky = recapSky(outcome),
+                skyHeight = skyHeight,
+                modifier = Modifier.fillMaxWidth().height(total),
+                skyContent = {
+                    // Where the hill's crest is, for tests; takes no space and draws nothing.
+                    Box(Modifier.offset(y = inset + spot.crestDp.dp).size(0.dp).testTag("recap_crest"))
+                    Headline(
+                        outcome, streak, s.streakReset, (width - 2 * RecapSprig.TEXT_SIDE_DP).dp,
+                        Modifier.wrapContentHeight(Alignment.Top, unbounded = true)
+                            .padding(top = inset + RecapSprig.TEXT_TOP_DP.dp, start = RecapSprig.TEXT_SIDE_DP.dp)
+                            .onSizeChanged { textPx = it.height },
+                    )
+                    SprigView(
+                        form,
+                        pose,
+                        Modifier.offset(x = spot.sprigLeftDp.dp, y = inset + spot.sprigTopDp.dp).size(spot.sprigDp.dp).testTag("recap_sprig"),
+                        motion = sprigMotion,
+                    )
+                    if (petalsFalling) Petals(elapsed, Modifier.matchParentSize())
+                },
+            ) {
+                Column(Modifier.fillMaxWidth().wrapContentHeight(Alignment.Top, unbounded = true).onSizeChanged { bodyPx = it.height }) {
+                    if (r != null) {
+                        Stats(r, ((width - 48) / 2).dp)
+                        ProgressCard(progress, kept, elapsed, compact)
+                    }
+                }
+                Spacer(Modifier.height(RecapSprig.MIN_GAP_DP.dp))
+                Spacer(Modifier.weight(1f))
+                Footer(
+                    showSecond = r != null,
+                    secondLabel = if (kept) RecapCopy.SHARE else RecapCopy.SEE_SPRIGS,
+                    onSecond = {
+                        if (kept && r != null) {
+                            ShareCard.share(
+                                ctx,
+                                ShareCard.Content(
+                                    SprigSpec(form, SprigPose.CHEER),
+                                    headline = "Day ${r.streakEnd} kept",
+                                    subline = "${r.habitsDone} of ${r.habitsTotal} habits",
+                                ),
+                            )
+                        } else {
+                            onOpenSprigs()
+                        }
+                    },
+                    onDone = onClose,
+                    compact = compact,
+                    modifier = Modifier.wrapContentHeight(Alignment.Bottom, unbounded = true).onSizeChanged { footerPx = it.height },
+                )
+            }
+        }
+    }
+}
+
+/** The headline (52sp kept, 40sp otherwise, never split inside a word) and the line under it. */
+@Composable
+private fun Headline(outcome: RecapOutcome?, streak: Int, reset: Boolean, width: Dp, modifier: Modifier = Modifier) {
+    val kept = outcome == RecapOutcome.KEPT
+    val text = outcome?.let(RecapCopy::headline) ?: RecapCopy.NOTHING
+    val size = RecapSprig.headlineSp(kept)
+    val base = DaybreakType.display.copy(fontSize = size.sp, lineHeight = (size * 0.98).sp, letterSpacing = (-0.03).em)
+    Column(modifier.width(width)) {
+        Text(text, Modifier.testTag("recap_headline"), style = fitLongestWord(text, base, width), color = D.ink)
+        if (outcome != null) {
+            Text(
+                RecapCopy.line(outcome, streak, reset),
+                Modifier.padding(top = 10.dp).testTag("recap_line"),
+                style = DaybreakType.body.copy(fontSize = 18.sp, lineHeight = (18 * 1.35).sp, fontWeight = FontWeight.SemiBold),
+                color = D.inkSoft,
+            )
+        }
+    }
+}
+
+/** "{done} of {total}" habits done | "{n}" lock(s) broken. The values never wrap; they step down. */
+@Composable
+private fun Stats(r: DayRecordEntity, cellWidth: Dp) {
+    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(horizontal = 24.dp).testTag("recap_stats")) {
+        Stat(RecapCopy.done(r.habitsDone, r.habitsTotal), RecapCopy.HABITS_DONE, "recap_done", cellWidth, Modifier.weight(1f))
+        Stat(
+            "${r.breaksUsed}", RecapCopy.brokenLabel(r.breaksUsed), "recap_broken", cellWidth,
+            Modifier.weight(1f).drawBehind { drawRect(D.rowLine, size = Size(1.5.dp.toPx(), size.height)) },
+        )
+    }
+}
+
+@Composable
+private fun Stat(value: String, label: String, tag: String, cellWidth: Dp, modifier: Modifier) {
+    val w = cellWidth - 8.dp
+    val base = DaybreakType.display.copy(fontSize = 28.sp, lineHeight = (28 * 1.1).sp, letterSpacing = (-0.02).em)
+    // 4dp sides so a long label at a large font wraps before it touches the divider.
+    Column(modifier.padding(horizontal = 4.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(value, Modifier.testTag(tag), style = fitLongestWord(value, base, w), color = D.ink, maxLines = 1, textAlign = TextAlign.Center)
+        Text(
+            label,
+            Modifier.testTag("${tag}_label"),
+            style = DaybreakType.caption.copy(fontWeight = FontWeight.SemiBold),
+            color = D.muted,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+/**
+ * The progress card (`A5-Recap`): "{Next} in {n} days" and "Day {d} of {target}" over the current
+ * form, the bar and the next form's silhouette; at the final form, one line and no bar.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ProgressCard(progress: RecapProgress, kept: Boolean, elapsed: () -> Long, compact: Boolean) {
+    Column(
+        Modifier.padding(start = 20.dp, end = 20.dp, top = if (compact) RecapSprig.COMPACT_CARD_GAP_DP.dp else 24.dp).fillMaxWidth()
+            .background(D.purplePale, RoundedCornerShape(24.dp))
+            .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 18.dp)
+            .testTag("recap_progress"),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        val lineStyle = DaybreakType.rowTitle.copy(fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.ExtraBold)
+        when (progress) {
+            is RecapProgress.Final -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                MiniSprig(progress.form, silhouette = false, tag = "recap_from_sprig")
+                Text(RecapCopy.finalForm(progress.form), Modifier.weight(1f).testTag("recap_final"), style = lineStyle, color = D.ink)
+            }
+            is RecapProgress.Toward -> {
+                FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(RecapCopy.nextLine(progress.to, progress.daysLeft), Modifier.alignByBaseline().testTag("recap_next"), style = lineStyle, color = D.ink)
+                    Text(
+                        RecapCopy.dayCount(progress.day, progress.target),
+                        Modifier.alignByBaseline().testTag("recap_count"),
+                        style = DaybreakType.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = D.muted,
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    MiniSprig(progress.from, silhouette = false, tag = "recap_from_sprig")
+                    Bar(progress, kept, elapsed, Modifier.weight(1f))
+                    MiniSprig(progress.to, silhouette = true, tag = "recap_to_sprig")
+                }
+            }
+        }
+    }
+}
+
+/** A 48dp Sprig, drawn still, over its form's name; the next form is a silhouette in its outfit. */
+@Composable
+private fun MiniSprig(form: SprigForm, silhouette: Boolean, tag: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        SprigView(
+            form,
+            SprigPose.IDLE,
+            Modifier.size(48.dp).testTag(tag),
+            silhouetteAlpha = if (silhouette) SILHOUETTE_ALPHA else null,
+            animate = false,
+        )
+        Text(
+            form.displayName,
+            style = DaybreakType.smallLabel,
+            color = if (silhouette) D.muted else D.ink,
+            maxLines = 1,
+        )
+    }
+}
+
+private val BAR_HEIGHT = 16.dp
+private val FILL_MIN = 16.dp
+private val KNOB = 26.dp
+private val KNOB_RING = 4.dp
+
+/** The knob's right edge runs 6dp past the fill's (`right: -6px`), its top 5dp above the bar. */
+private val KNOB_PAST = 6.dp
+private val KNOB_ABOVE = 5.dp
+
+/**
+ * The bar: a 16dp `#DCD6FA` track, the purple fill (at least 16dp), a dot for each day inside the
+ * span (white once behind, faint purple ahead) and the white knob on today. The fill's width and
+ * the knob's scale are read in layout and draw, so the moment does not recompose the screen.
+ */
+@Composable
+private fun Bar(p: RecapProgress.Toward, kept: Boolean, elapsed: () -> Long, modifier: Modifier = Modifier) {
+    val fraction: () -> Float = {
+        if (!kept) p.toFraction
+        else p.fromFraction + (p.toFraction - p.fromFraction) * GrowEasing.transform(RecapMotion.growProgress(elapsed()))
+    }
+    Layout(
+        content = {
+            Box(Modifier.background(D.purple, RoundedCornerShape(8.dp)).testTag("recap_bar_fill"))
+            Canvas(Modifier) {
+                val r = 3.dp.toPx()
+                for (d in p.dots) {
+                    drawCircle(
+                        if (d.reached) Color.White.copy(alpha = 0.55f) else D.purple.copy(alpha = 0.25f),
+                        radius = r,
+                        center = Offset(size.width * d.fraction, size.height / 2),
+                    )
+                }
+            }
+            Box(
+                Modifier
+                    .graphicsLayer {
+                        val s = RecapMotion.knobScale(RecapMotion.popProgress(elapsed())) { PopEasing.transform(it) }
+                        scaleX = s; scaleY = s
+                    }
+                    .background(D.purple, CircleShape)
+                    .padding(KNOB_RING)
+                    .background(D.white, CircleShape)
+                    .testTag("recap_knob"),
+            )
+        },
+        modifier = modifier.height(BAR_HEIGHT).background(D.purpleTrack, RoundedCornerShape(8.dp)).testTag("recap_bar"),
+    ) { measurables, c ->
+        val w = c.maxWidth
+        val h = BAR_HEIGHT.roundToPx()
+        val fillW = maxOf(FILL_MIN.roundToPx(), (w * fraction()).toInt()).coerceAtMost(w)
+        val fill = measurables[0].measure(Constraints.fixed(fillW, h))
+        val dots = measurables[1].measure(Constraints.fixed(w, h))
+        val k = KNOB.roundToPx()
+        val knob = measurables[2].measure(Constraints.fixed(k, k))
+        layout(w, h) {
+            fill.place(0, 0)
+            dots.place(0, 0)
+            knob.place(fillW + KNOB_PAST.roundToPx() - k, -KNOB_ABOVE.roundToPx())
+        }
+    }
+}
+
+/** The 14 petals (`.petal`), each falling 380dp and turning 320° once, clipped to the sky. */
+@Composable
+private fun Petals(elapsed: () -> Long, modifier: Modifier = Modifier) {
+    Canvas(modifier.clipToBounds().testTag("recap_petals")) {
+        val ms = elapsed()
+        val w = RecapMotion.PETAL_W_DP.dp.toPx()
+        val h = RecapMotion.PETAL_H_DP.dp.toPx()
+        val big = CornerRadius(8.dp.toPx())
+        // `border-radius: 8px 8px 8px 2px`: the bottom-left corner is the sharp one.
+        val shape = Path().apply {
+            addRoundRect(RoundRect(0f, 0f, w, h, big, big, big, CornerRadius(2.dp.toPx())))
+        }
+        for (petal in RecapMotion.PETALS) {
+            val t = RecapMotion.petalProgress(petal, ms) ?: continue
+            val e = PetalEasing.transform(t)
+            val x = petal.xDp.dp.toPx()
+            val y = (RecapMotion.PETAL_TOP_DP + RecapMotion.PETAL_FALL_DP * e).dp.toPx()
+            translate(x, y) {
+                rotate(RecapMotion.PETAL_TURN_DEG * e, pivot = Offset(w / 2, h / 2)) {
+                    drawPath(shape, Color(petal.colour), alpha = RecapMotion.petalAlpha(t))
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Two buttons share a 360dp screen at 154dp each; Material's 24dp sides would wrap "Share this
+ * look" onto two lines, so the label gets 10dp sides instead (the button is still 56dp tall).
+ */
+private val BUTTON_PADDING = PaddingValues(horizontal = 10.dp, vertical = 8.dp)
+
+/** "Share this look" or "See my Sprigs", and "Done", side by side (`A5-Recap`). */
+@Composable
+private fun Footer(showSecond: Boolean, secondLabel: String, onSecond: () -> Unit, onDone: () -> Unit, compact: Boolean, modifier: Modifier = Modifier) {
+    Row(
+        modifier.fillMaxWidth().navigationBarsPadding()
+            .padding(start = 20.dp, end = 20.dp, bottom = if (compact) RecapSprig.COMPACT_FOOTER_DP.dp else 28.dp)
+            .height(IntrinsicSize.Min),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        if (showSecond) {
+            SecondaryButton(
+                secondLabel, onClick = onSecond, modifier = Modifier.weight(1f).fillMaxHeight().testTag("recap_second"),
+                contentPadding = BUTTON_PADDING,
+            )
+        }
+        PrimaryButton(
+            RecapCopy.DONE, onClick = onDone, modifier = Modifier.weight(1f).fillMaxHeight().testTag("recap_done_button"),
+            contentPadding = BUTTON_PADDING,
+        )
+    }
 }

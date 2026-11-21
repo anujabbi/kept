@@ -131,7 +131,18 @@ fun KeptApp(startDestination: String, pendingRoute: String?, consumeRoute: () ->
                         )
                     }
                     composable(Routes.RECAP, arguments = listOf(navArgument("date") { type = NavType.StringType })) {
-                        RecapScreen(date = it.arguments!!.getString("date")!!, onClose = { nav.popBackStack() })
+                        RecapScreen(
+                            date = it.arguments!!.getString("date")!!,
+                            onClose = { nav.popBackStack() },
+                            // "See my Sprigs" opens the Sprig tab as the tab bar would, leaving the recap.
+                            onOpenSprigs = {
+                                nav.navigate(Routes.GALLERY) {
+                                    popUpTo(Routes.HOME) { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            },
+                        )
                     }
                     composable(Routes.EXCEPTIONS) { ExceptionsScreen(onBack = { nav.popBackStack() }) }
                     composable(Routes.HABITS) { HabitsEditScreen(onBack = { nav.popBackStack() }) }

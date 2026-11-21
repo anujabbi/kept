@@ -63,10 +63,18 @@ fun KeptCard(
 
 /**
  * Daybreak primary button (`A18-Parts`): 56dp, fully round, ink fill, cream 17/700 text.
- * Disabled is a `#B9B4CC` fill with the same cream text.
+ * Disabled is a `#B9B4CC` fill with the same cream text. [contentPadding] narrows the sides for
+ * two buttons side by side on a narrow screen (Recap).
  */
 @Composable
-fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, textStyle: TextStyle = DaybreakType.button) {
+fun PrimaryButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    textStyle: TextStyle = DaybreakType.button,
+    contentPadding: PaddingValues = ButtonDefaults.ContentPadding,
+) {
     val d = DaybreakColors
     Button(
         onClick = onClick,
@@ -78,12 +86,20 @@ fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifi
             disabledContainerColor = d.disabled, disabledContentColor = d.cream,
         ),
         elevation = null,
+        contentPadding = contentPadding,
     ) { Text(text, style = textStyle, textAlign = TextAlign.Center) }
 }
 
 /** Daybreak secondary button (`A18-Parts`): 56dp, fully round, 2dp ink outline, ink text. */
 @Composable
-fun SecondaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, icon: ImageVector? = null) {
+fun SecondaryButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    icon: ImageVector? = null,
+    contentPadding: PaddingValues = ButtonDefaults.ContentPadding,
+) {
     val d = DaybreakColors
     OutlinedButton(
         onClick = onClick,
@@ -92,6 +108,7 @@ fun SecondaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modi
         shape = CircleShape,
         border = BorderStroke(2.dp, if (enabled) d.ink else d.disabled),
         colors = ButtonDefaults.outlinedButtonColors(contentColor = d.ink, disabledContentColor = d.disabled),
+        contentPadding = contentPadding,
     ) {
         if (icon != null) { Icon(icon, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)) }
         Text(text, style = DaybreakType.button, textAlign = TextAlign.Center)

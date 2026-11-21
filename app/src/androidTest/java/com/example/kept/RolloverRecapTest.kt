@@ -81,9 +81,9 @@ class RolloverRecapTest {
     private val day2: LocalDate get() = today.minusDays(2)
     private val day3: LocalDate get() = today.minusDays(1)
 
-    private val resetCopy = "Streak reset. Sprig is back to Sprig. Today is a fresh start."
-    private val freshStartCopy = "Today is a fresh start."
-    private val slippedHeadline = "The promise slipped"
+    private val resetCopy = "Streak reset. Tomorrow is fresh."
+    private val freshStartCopy = "Tomorrow is fresh."
+    private val slippedHeadline = "The promise slipped."
 
     @Before fun setUp() {
         hilt.inject()
@@ -166,6 +166,6 @@ class RolloverRecapTest {
     /** Builds the real view model by hand so [RecapScreen]'s `hiltViewModel()` default is never evaluated. */
     private fun showRecap(date: LocalDate) {
         val vm = RecapViewModel(dayRepo, SavedStateHandle(mapOf("date" to date.toString())))
-        compose.setContent { KeptTheme { RecapScreen(date.toString(), onClose = {}, vm = vm) } }
+        compose.setContent { KeptTheme { RecapScreen(date.toString(), onClose = {}, onOpenSprigs = {}, vm = vm) } }
     }
 }
