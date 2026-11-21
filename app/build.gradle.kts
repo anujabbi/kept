@@ -46,8 +46,8 @@ android {
         applicationId = "com.zenai.kept"
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
-        versionName = "1.2"
+        versionCode = 5
+        versionName = "2.0"
         testInstrumentationRunner = "com.example.kept.HiltTestRunner"
         buildConfigField("String", "POSTHOG_PROJECT_TOKEN", "\"$posthogProjectToken\"")
         buildConfigField("String", "POSTHOG_HOST", "\"$posthogHost\"")
