@@ -8,11 +8,12 @@ import org.junit.Assert.assertTrue
 
 /**
  * Every line of the text tagged [tag] ends between words, never inside one ("Instagra|m"), and
- * nothing is cut off. [at] names the case in the failure message.
+ * nothing is cut off. [at] names the case in the failure message. Pass [unmerged] for text
+ * inside a clickable row, whose semantics merge it into the row.
  */
-fun assertNoWordSplit(rule: ComposeContentTestRule, tag: String, at: String) {
+fun assertNoWordSplit(rule: ComposeContentTestRule, tag: String, at: String, unmerged: Boolean = false) {
     val result = mutableListOf<TextLayoutResult>()
-    rule.onNodeWithTag(tag).fetchSemanticsNode().config[SemanticsActions.GetTextLayoutResult].action!!.invoke(result)
+    rule.onNodeWithTag(tag, useUnmergedTree = unmerged).fetchSemanticsNode().config[SemanticsActions.GetTextLayoutResult].action!!.invoke(result)
     val r = result.single()
     val text = r.layoutInput.text.text
     val lines = (0 until r.lineCount).map { text.substring(r.getLineStart(it), r.getLineEnd(it)) }

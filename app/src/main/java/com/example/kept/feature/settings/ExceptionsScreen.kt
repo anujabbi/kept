@@ -29,19 +29,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -52,6 +47,8 @@ import com.example.kept.core.ui.DaybreakColors
 import com.example.kept.core.ui.DaybreakIcons
 import com.example.kept.core.ui.DaybreakType
 import com.example.kept.core.ui.KeptSwitch
+import com.example.kept.core.ui.cardSegment
+import com.example.kept.core.ui.switchState
 import com.example.kept.core.ui.PageHeader
 import com.example.kept.core.ui.PrimaryButton
 import com.example.kept.core.ui.StepPage
@@ -198,31 +195,10 @@ private fun SearchField(query: String, onQuery: (String) -> Unit) {
  */
 @Composable
 private fun AppRow(p: PickableApp, first: Boolean, last: Boolean, onToggle: (Boolean) -> Unit) {
-    val top = if (first) 22.dp else 0.dp
-    val bottom = if (last) 22.dp else 0.dp
-    val shape = RoundedCornerShape(topStart = top, topEnd = top, bottomStart = bottom, bottomEnd = bottom)
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(shape).background(D.white)
-            .drawWithContent {
-                drawContent()
-                val w = 1.5.dp.toPx()
-                val r = 22.dp.toPx()
-                // The card's outline, extended past this row's ends where the card goes on, then
-                // clipped to the row.
-                val extTop = if (first) 0f else r * 2
-                val extBottom = if (last) 0f else r * 2
-                clipRect {
-                    drawRoundRect(
-                        D.lineSoft,
-                        topLeft = Offset(w / 2, w / 2 - extTop),
-                        size = Size(size.width - w, size.height - w + extTop + extBottom),
-                        cornerRadius = CornerRadius(r - w / 2),
-                        style = Stroke(w),
-                    )
-                    if (!first) drawLine(D.lineSoft, Offset(0f, w / 2), Offset(size.width, w / 2), w)
-                }
-            }
+        Modifier.fillMaxWidth().heightIn(min = 56.dp).cardSegment(first, last)
             .toggleable(value = p.allowed, role = Role.Switch, onValueChange = onToggle)
+            .semantics { stateDescription = switchState(p.allowed) }
             .padding(horizontal = 14.dp, vertical = 8.dp)
             .testTag("exception_${p.app.packageName}"),
         verticalAlignment = Alignment.CenterVertically,

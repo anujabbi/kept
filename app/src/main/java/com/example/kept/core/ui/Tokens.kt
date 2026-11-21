@@ -72,6 +72,11 @@ object DaybreakColors {
     val requiredRing = Color(0xFFF5D9A8)
     /** The shield rule's icon tile (`A14-Onb-Ready`). */
     val shieldTile = Color(0xFFE3EEFB)
+    /** "Shield used" on a history row (`A15-History`); the same blue as the Tide pill. */
+    val shieldInk = tidePill
+    /** A day done too late in History: the dot's fill and ring (`A15-History`). */
+    val lateTint = Color(0xFFFBE6CC)
+    val lateRing = Color(0xFFD9A441)
 }
 
 /** The top band of each screen. See [SkyRamp] for which one a screen shows. */
