@@ -79,8 +79,11 @@ private val D = DaybreakColors
 @Composable
 fun HabitEditScreen(habitId: Long?, onClose: () -> Unit, vm: SettingsViewModel = hiltViewModel()) {
     val s by vm.state.collectAsStateWithLifecycle()
+    // Close once: a second tap on Remove while the page is leaving must not remove or pop again.
+    var closed by remember { mutableStateOf(false) }
+    val close = { if (!closed) { closed = true; onClose() } }
     if (habitId == null) {
-        HabitEditPage(HabitDraft(), onClose = onClose, onSave = { vm.addHabit(it); onClose() })
+        HabitEditPage(HabitDraft(), onClose = close, onSave = { vm.addHabit(it); close() })
         return
     }
     // The habits load after the first frame; wait for this one rather than open an empty form.
@@ -91,10 +94,10 @@ fun HabitEditScreen(habitId: Long?, onClose: () -> Unit, vm: SettingsViewModel =
     }
     HabitEditPage(
         HabitDraft.of(habit.title, habit.proofType, habit.targetValue, habit.unit),
-        onClose = onClose,
-        onSave = { vm.saveHabit(habit, it); onClose() },
+        onClose = close,
+        onSave = { vm.saveHabit(habit, it); close() },
         editing = true,
-        remove = RemoveHabit(HabitLimits.canRemove(s.habits.size)) { vm.requestRemoveHabit(habit.id, onRemoved = onClose) },
+        remove = RemoveHabit(HabitLimits.canRemove(s.habits.size)) { if (!closed) vm.requestRemoveHabit(habit.id, onRemoved = close) },
     )
     LockChangeConfirmDialog(vm)
 }
@@ -125,6 +128,11 @@ fun HabitEditPage(
     remove: RemoveHabit? = null,
 ) {
     var draft by rememberSaveable(stateSaver = DraftSaver) { mutableStateOf(initial) }
+    // Save and Close act once (review on #149): a second tap during the exit transition would
+    // add the habit twice and pop past the list. Remove may be answered by the lock-window
+    // confirm and cancelled, so it does not end the page here; the caller closes once removed.
+    var done by remember { mutableStateOf(false) }
+    fun finish(action: () -> Unit) { if (!done) { done = true; action() } }
     BoxWithConstraints(modifier.fillMaxSize().background(D.cream).imePadding()) {
         val width = maxWidth
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
@@ -132,7 +140,7 @@ fun HabitEditPage(
             Box(Modifier.padding(start = 10.dp, top = 22.dp, bottom = 2.dp)) {
                 Box(
                     Modifier.size(48.dp).clip(CircleShape)
-                        .clickable(role = Role.Button, onClick = onClose)
+                        .clickable(role = Role.Button, onClick = { finish(onClose) })
                         .semantics { contentDescription = HabitsCopy.CANCEL }
                         .testTag("page_back"),
                     contentAlignment = Alignment.Center,
@@ -178,10 +186,10 @@ fun HabitEditPage(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                PrimaryButton(HabitsCopy.SAVE, onClick = { onSave(draft) }, enabled = draft.canSave, modifier = Modifier.testTag("habit_save"))
+                PrimaryButton(HabitsCopy.SAVE, onClick = { finish { onSave(draft) } }, enabled = draft.canSave, modifier = Modifier.testTag("habit_save"))
                 if (remove != null) {
                     if (remove.allowed) {
-                        QuietButton(HabitsCopy.REMOVE, onClick = remove.onRemove, color = D.danger, modifier = Modifier.testTag("habit_remove"))
+                        QuietButton(HabitsCopy.REMOVE, onClick = { if (!done) remove.onRemove() }, color = D.danger, modifier = Modifier.testTag("habit_remove"))
                     } else {
                         Text(
                             HabitsCopy.KEEP_ONE,

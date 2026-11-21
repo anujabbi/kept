@@ -9,11 +9,14 @@ import com.example.kept.core.data.db.HabitEntryEntity
 import com.example.kept.core.data.prefs.KeptPreferences
 import com.example.kept.core.data.prefs.Settings
 import com.example.kept.core.domain.GiveUpTime
+import com.example.kept.core.domain.HabitLimits
 import com.example.kept.core.domain.ProofType
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -120,6 +123,19 @@ class HabitRepository @Inject constructor(
             ),
         )
     }
+
+    /** Serialises [addHabitWithinLimit], so two saves at once cannot both see room for one more. */
+    private val addLock = Mutex()
+
+    /**
+     * Adds a habit only while there are fewer than [HabitLimits.MAX_HABITS] (issue #134): the
+     * disabled "Add a habit" button is not the only guard, since two Add pages can be open at once.
+     * Returns the new id, or null when the limit is reached and nothing was added.
+     */
+    suspend fun addHabitWithinLimit(title: String, iconKey: String, proofType: ProofType, targetValue: Int, unit: String): Long? =
+        addLock.withLock {
+            if (!HabitLimits.canAdd(habitDao.active().size)) null else addHabit(title, iconKey, proofType, targetValue, unit)
+        }
 
     suspend fun updateHabit(habit: HabitEntity) = habitDao.update(habit)
     suspend fun removeHabit(id: Long) = habitDao.deactivate(id)

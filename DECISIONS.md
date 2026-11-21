@@ -1124,6 +1124,12 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     habit opens with the switch on and, if switched off, starts at 20 min rather than "1 photo".
   - *Writes outlive the page.* Add, edit and remove run on the application scope, because the
     page closes as soon as it saves and its ViewModel's scope would cancel the write.
+  - *Once only (review on #149).* Save and Close act once per page, and the edit screen closes
+    once, so a double tap cannot add twice or pop past Your habits. Remove can be tapped again
+    after a cancelled lock-window confirm. "Add a habit", a row and a close only navigate while
+    their page is on top. The 10-habit limit is also checked in the write
+    (`HabitRepository.addHabitWithinLimit`, under a lock), so two Add pages at 9 cannot save an
+    11th; at the limit nothing is inserted and `habit_added` is not sent.
   - *Fit.* "How much?" sits beside the stepper only when it fits on one line, else above it (the
     onboarding stepper rule); unit chips wrap, right-aligned. From font 1.5 the Your habits title
     scrolls with the list (the `StepPage` fallback), so a small screen keeps room for rows.

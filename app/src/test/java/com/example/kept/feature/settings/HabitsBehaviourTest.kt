@@ -186,11 +186,16 @@ class HabitsBehaviourTest {
     @Test fun the_icon_is_chosen_from_the_name() {
         showEditor()
         rule.onNodeWithTag("habit_name").performTextInput("Drink water")
-        rule.onNodeWithTag("habit_save").performClick()
-        assertEquals("water", saved!!.iconKey)
         rule.onNodeWithTag("habit_name").performTextReplacement("Call grandma")
         rule.onNodeWithTag("habit_save").performClick()
         assertEquals("the pencil", "write", saved!!.iconKey)
+    }
+
+    @Test fun a_known_name_gets_its_icon() {
+        showEditor()
+        rule.onNodeWithTag("habit_name").performTextInput("Drink water")
+        rule.onNodeWithTag("habit_save").performClick()
+        assertEquals("water", saved!!.iconKey)
     }
 
     @Test fun close_cancels_without_saving() {
@@ -199,6 +204,38 @@ class HabitsBehaviourTest {
         rule.onNodeWithTag("page_back").performClick()
         assertEquals(1, closed)
         assertNull(saved)
+    }
+
+    @Test fun a_double_tap_on_save_saves_once_and_closes_once() {
+        var saves = 0
+        var pops = 0
+        rule.setContent { Shot { HabitEditPage(HabitDraft(title = "Piano"), onClose = { pops++ }, onSave = { saves++; pops++ }) } }
+        rule.onNodeWithTag("habit_save").performClick()
+        rule.onNodeWithTag("habit_save").performClick()
+        rule.onNodeWithTag("page_back").performClick()
+        assertEquals("one save", 1, saves)
+        assertEquals("one pop", 1, pops)
+    }
+
+    @Test fun a_double_tap_on_close_closes_once_and_then_nothing_saves() {
+        showEditor(HabitDraft(title = "Piano"))
+        rule.onNodeWithTag("page_back").performClick()
+        rule.onNodeWithTag("page_back").performClick()
+        rule.onNodeWithTag("habit_save").performClick()
+        assertEquals(1, closed)
+        assertNull(saved)
+    }
+
+    @Test fun remove_can_be_asked_again_but_not_after_save() {
+        var removes = 0
+        showEditor(HabitsFixtures.EDIT, editing = true, remove = RemoveHabit(true) { removes++ })
+        // A cancelled lock-window confirm leaves the page open, so Remove still answers.
+        rule.onNodeWithTag("habit_remove").performClick()
+        rule.onNodeWithTag("habit_remove").performClick()
+        assertEquals(2, removes)
+        rule.onNodeWithTag("habit_save").performClick()
+        rule.onNodeWithTag("habit_remove").performClick()
+        assertEquals("nothing after the page has saved", 2, removes)
     }
 
     // Edit habit

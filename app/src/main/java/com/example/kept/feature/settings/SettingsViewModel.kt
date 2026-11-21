@@ -195,9 +195,11 @@ class SettingsViewModel @Inject constructor(
         if (!on) reminders.clear()
     }
 
+    /** At the limit nothing is added and nothing is reported (issue #134). */
     fun addHabit(title: String, iconKey: String, proof: ProofType, target: Int, unit: String) = appScope.launch {
-        habitsRepo.addHabit(title, iconKey, proof, target, unit)
-        analytics.capture("habit_added", mapOf("proof_type" to proof.name.lowercase()))
+        if (habitsRepo.addHabitWithinLimit(title, iconKey, proof, target, unit) != null) {
+            analytics.capture("habit_added", mapOf("proof_type" to proof.name.lowercase()))
+        }
     }
     /** Add a habit (issue #134): the icon is chosen from the name. */
     fun addHabit(d: HabitDraft) = addHabit(d.name, d.iconKey, d.proof, d.savedTarget, d.savedUnit)
