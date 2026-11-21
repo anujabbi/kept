@@ -11,6 +11,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -42,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -171,15 +173,22 @@ internal fun HomeContent(s: HomeUiState, actions: HomeActions, modifier: Modifie
     )
 
     val toggleShield = { shieldOpen = !shieldOpen }
-    Box(modifier.fillMaxSize()) {
+    BoxWithConstraints(modifier.fillMaxSize()) {
+        // Column and Sprig widths come from the real screen width, not the 390dp design.
+        val screen = maxWidth.value.toInt()
+        val compact = HomeSprig.compactWidths(screen)
+        val widths = when (layout) {
+            HomeLayout.ROOMY -> HomeWidths(textDp = HomeSprig.roomyTextDp(screen), sprigDp = HomeSprig.sizeDp(layout))
+            HomeLayout.COMPACT -> HomeWidths(textDp = compact.textDp, sprigDp = compact.sprigDp)
+        }
         SkyScaffold(
             sky = SkyRamp.homeSky(done, total),
             skyHeight = skyHeight,
             lightContent = light,
             skyContent = {
-                HomeSprigOnSky(s, layout, sprigTop)
+                HomeSprigOnSky(s, layout, sprigTop, widths.sprigDp.dp)
                 HeadlineBlock(
-                    s, layout, ink,
+                    s, layout, ink, widths.textDp.dp,
                     Modifier.wrapContentHeight(Alignment.Top, unbounded = true).padding(top = inset + textTop.dp)
                         .onSizeChanged { textHeightPx = it.height },
                 )
@@ -200,17 +209,19 @@ internal fun HomeContent(s: HomeUiState, actions: HomeActions, modifier: Modifie
     }
 }
 
+/** The headline column's width and Sprig's size for this screen. */
+private data class HomeWidths(val textDp: Int, val sprigDp: Int)
+
 private const val ROOMY_TEXT_TOP = 24
 private const val COMPACT_TEXT_TOP = 22
 
 @Composable
-private fun BoxScope.HomeSprigOnSky(s: HomeUiState, layout: HomeLayout, top: Dp) {
-    val size = HomeSprig.sizeDp(layout).dp
+private fun BoxScope.HomeSprigOnSky(s: HomeUiState, layout: HomeLayout, top: Dp, size: Dp) {
     // Only a day finished before the give-up time is worth cheering about (issue #7).
     val pose = SprigLook.pose(wilted = s.sprig.wilted, allDone = s.today.allDoneOnTime)
     val place = when (layout) {
         HomeLayout.ROOMY -> Modifier.align(Alignment.TopCenter)
-        HomeLayout.COMPACT -> Modifier.align(Alignment.TopEnd).padding(end = 14.dp)
+        HomeLayout.COMPACT -> Modifier.align(Alignment.TopEnd).padding(end = HomeSprig.COMPACT_SPRIG_END_DP.dp)
     }
     // Tapping hops (SprigView handles it); it opens nothing.
     SprigView(s.form, pose, place.offset(y = top).size(size).testTag("home_sprig"), wilted = s.sprig.wilted)
@@ -218,14 +229,13 @@ private fun BoxScope.HomeSprigOnSky(s: HomeUiState, layout: HomeLayout, top: Dp)
 
 /** The streak pill and the headline with its line. Roomy: pill top right; compact: top left. */
 @Composable
-private fun HeadlineBlock(s: HomeUiState, layout: HomeLayout, ink: Color, modifier: Modifier = Modifier) {
+private fun HeadlineBlock(s: HomeUiState, layout: HomeLayout, ink: Color, textWidth: Dp, modifier: Modifier = Modifier) {
     val total = s.today.total
     val done = s.today.done
     val headline = HomeCopy.headline(total, done, s.today.allDoneOnTime)
     val giveUp = (s.lock?.settings ?: Settings()).dueMinute.minuteOfDayLabel()
     val line = HomeCopy.line(total, done, giveUp, s.pastDue, s.lock?.breakActiveUntil != null)
     val roomy = layout == HomeLayout.ROOMY
-    val textWidth = if (roomy) 342.dp else 180.dp
     val base = if (roomy) DaybreakType.headline else DaybreakType.headline.copy(fontSize = 38.sp, lineHeight = 38.sp)
     val headStyle = fitLongestWord(headline, base, textWidth)
     Column(modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
@@ -236,7 +246,7 @@ private fun HeadlineBlock(s: HomeUiState, layout: HomeLayout, ink: Color, modifi
             Spacer(Modifier.height(8.dp))
             Text(
                 line,
-                Modifier.widthIn(max = if (roomy) 300.dp else textWidth).testTag("home_line"),
+                Modifier.widthIn(max = if (roomy) minOf(300.dp, textWidth) else textWidth).testTag("home_line"),
                 style = DaybreakType.body.copy(lineHeight = 20.sp),
                 color = ink,
             )
@@ -322,27 +332,56 @@ private fun RoomyPage(s: HomeUiState, actions: HomeActions, shieldOpen: Boolean,
     }
 }
 
-/** `A2-Home-6`: the sky, "Today", the week and the shield stay put; only the habit list scrolls. */
+/**
+ * `A2-Home-6`: the sky, "Today", the week and the shield stay put; only the habit list scrolls.
+ * The list always keeps at least [COMPACT_LIST_MIN] of height: on a small screen at a large font,
+ * where the fixed parts would squeeze it to nothing, the whole page below the hill scrolls
+ * instead, and the list keeps scrolling inside it.
+ */
 @Composable
 private fun CompactPage(s: HomeUiState, actions: HomeActions, shieldOpen: Boolean, onToggleShield: () -> Unit) {
-    Column(Modifier.fillMaxSize()) {
-        if (anyBanner(s)) {
-            Column(Modifier.padding(start = 20.dp, end = 20.dp, bottom = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { Banners(s, actions) }
-        }
-        TodayHeader(s, Modifier.padding(start = 24.dp, end = 24.dp, bottom = 10.dp))
-        Column(
-            Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())
-                .padding(start = 20.dp, end = 20.dp, bottom = 12.dp).testTag("home_habit_list"),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            s.today.habits.forEach { HomeHabitRow(it, roomy = false, actions) }
-        }
-        Box(Modifier.fillMaxWidth().height(1.5.dp).background(DaybreakColors.line))
-        Column(Modifier.padding(start = 24.dp, end = 24.dp, top = 14.dp, bottom = 2.dp)) {
-            Week(s, shieldOpen, onToggleShield, gapToShield = 10.dp)
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val viewport = constraints.maxHeight
+        Layout(
+            content = {
+                Column {
+                    if (anyBanner(s)) {
+                        Column(Modifier.padding(start = 20.dp, end = 20.dp, bottom = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { Banners(s, actions) }
+                    }
+                    TodayHeader(s, Modifier.padding(start = 24.dp, end = 24.dp, bottom = 10.dp))
+                }
+                Column(
+                    Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
+                        .padding(start = 20.dp, end = 20.dp, bottom = 12.dp).testTag("home_habit_list"),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    s.today.habits.forEach { HomeHabitRow(it, roomy = false, actions) }
+                }
+                Column {
+                    Box(Modifier.fillMaxWidth().height(1.5.dp).background(DaybreakColors.line))
+                    Column(Modifier.padding(start = 24.dp, end = 24.dp, top = 14.dp, bottom = 2.dp)) {
+                        Week(s, shieldOpen, onToggleShield, gapToShield = 10.dp)
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+        ) { measurables, c ->
+            val loose = c.copy(minHeight = 0, maxHeight = androidx.compose.ui.unit.Constraints.Infinity)
+            val top = measurables[0].measure(loose)
+            val bottom = measurables[2].measure(loose)
+            val listH = maxOf(viewport - top.height - bottom.height, COMPACT_LIST_MIN.roundToPx())
+            val list = measurables[1].measure(c.copy(minHeight = listH, maxHeight = listH))
+            layout(c.maxWidth, top.height + listH + bottom.height) {
+                top.place(0, 0)
+                list.place(0, top.height)
+                bottom.place(0, top.height + listH)
+            }
         }
     }
 }
+
+/** The least height the compact habit list keeps: about two rows. */
+private val COMPACT_LIST_MIN = 128.dp
 
 /**
  * A habit on Home: [DaybreakHabitRow] plus the camera for photo habits. The tick haptic for a

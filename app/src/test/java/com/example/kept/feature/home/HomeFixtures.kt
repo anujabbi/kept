@@ -4,6 +4,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableFloatState
+import androidx.compose.runtime.MutableState
+import androidx.compose.ui.test.junit4.ComposeContentTestRule
+import androidx.compose.ui.test.onNodeWithTag
+import org.junit.Assert.assertTrue
 import androidx.compose.ui.Modifier
 import com.example.kept.core.data.HabitToday
 import com.example.kept.core.data.LockState
@@ -110,5 +115,26 @@ internal fun HomeFrame(s: HomeUiState, actions: HomeActions = HomeActions()) {
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f)) { HomeContent(s, actions) }
         KeptTabBar(KeptTab.Today, onSelect = {})
+    }
+}
+
+/** The issue's Sprig states: 0/1, 0/3, 3/3, 0/6, 6/6, 0/10. */
+internal val SPRIG_STATES = listOf(1 to 0, 3 to 0, 3 to 3, 6 to 0, 6 to 6, 10 to 0)
+
+/**
+ * In every Sprig state at font 1.0 and 2.0, Sprig's box (its drawing can reach every edge of it)
+ * touches neither the headline, the line under it, nor the streak pill. [current] and [scale]
+ * drive a composition the caller has already set.
+ */
+internal fun assertSprigClearsText(rule: ComposeContentTestRule, current: MutableState<HomeUiState>, scale: MutableFloatState) {
+    for (f in listOf(1f, 2f)) for ((total, done) in SPRIG_STATES) {
+        scale.floatValue = f
+        current.value = HomeFixtures.state(total, done)
+        rule.waitForIdle()
+        val sprig = rule.onNodeWithTag("home_sprig").fetchSemanticsNode().boundsInRoot
+        for (tag in listOf("home_headline", "home_line", "home_streak")) {
+            val text = rule.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
+            assertTrue("$done/$total at $f: Sprig $sprig overlaps $tag $text", !sprig.overlaps(text))
+        }
     }
 }

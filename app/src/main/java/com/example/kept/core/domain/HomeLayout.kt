@@ -22,8 +22,40 @@ enum class HomeLayout {
  * to grow for large text moves Sprig with the hill instead of letting it sink behind it.
  */
 object HomeSprig {
-    /** Sprig's size per layout: 240 centred (`Main`), 180 on the right (`A2-Home-6`). */
+    /** Sprig's size per layout in the design: 240 centred (`Main`), 180 on the right (`A2-Home-6`). */
     fun sizeDp(layout: HomeLayout): Int = if (layout == HomeLayout.ROOMY) 240 else 180
+
+    /** Side padding of the headline column, and Sprig's gap to the right edge in compact. */
+    const val TEXT_SIDE_DP = 24
+    const val COMPACT_SPRIG_END_DP = 14
+
+    /** Space kept between the compact headline column and Sprig's box. */
+    const val COMPACT_GAP_DP = 4
+
+    /** The smallest compact Sprig, for narrow screens. */
+    const val COMPACT_SPRIG_MIN_DP = 150
+
+    /** The compact headline column's design width. */
+    const val COMPACT_TEXT_DP = 180
+
+    /** Widths in the compact layout for a screen [screenDp] wide. */
+    data class CompactWidths(val textDp: Int, val sprigDp: Int)
+
+    /**
+     * Compact: the headline column and Sprig share the row without touching. Sprig's drawing can
+     * reach the edge of its box (arms, Celestial's cape), so the column ends [COMPACT_GAP_DP]
+     * before the box rather than tucking under it. The column keeps its 180dp while there is room;
+     * on narrower screens Sprig gives way first (down to [COMPACT_SPRIG_MIN_DP]), then the column.
+     */
+    fun compactWidths(screenDp: Int): CompactWidths {
+        val room = screenDp - TEXT_SIDE_DP - COMPACT_SPRIG_END_DP - COMPACT_GAP_DP
+        val sprig = (room - COMPACT_TEXT_DP).coerceIn(COMPACT_SPRIG_MIN_DP, sizeDp(HomeLayout.COMPACT))
+        val text = (room - sprig).coerceAtMost(COMPACT_TEXT_DP)
+        return CompactWidths(text, sprig)
+    }
+
+    /** Roomy: the headline column spans the screen inside its side padding. */
+    fun roomyTextDp(screenDp: Int): Int = screenDp - 2 * TEXT_SIDE_DP
 
     /** The hill's crest in the design: `Main` puts the hill at 396; `A2-Home-6` at 260 − 48. */
     fun designCrestDp(layout: HomeLayout): Int = if (layout == HomeLayout.ROOMY) 396 else 212

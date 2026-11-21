@@ -86,4 +86,23 @@ class HomeLayoutTest {
             assertTrue("$done/$total body behind hill", top + size > crest)
         }
     }
+
+    @Test fun `compact widths never let the headline column reach Sprig`() {
+        for (w in 320..480) {
+            val (text, sprig) = HomeSprig.compactWidths(w)
+            val textEnd = HomeSprig.TEXT_SIDE_DP + text
+            val sprigStart = w - HomeSprig.COMPACT_SPRIG_END_DP - sprig
+            assertTrue("$w: text ends $textEnd, Sprig starts $sprigStart", textEnd + HomeSprig.COMPACT_GAP_DP <= sprigStart)
+            assertTrue("$w: text $text", text in 1..180)
+            assertTrue("$w: sprig $sprig", sprig in HomeSprig.COMPACT_SPRIG_MIN_DP..180)
+        }
+    }
+
+    @Test fun `compact widths keep the design where there is room and shrink Sprig first`() {
+        assertEquals(HomeSprig.CompactWidths(180, 180), HomeSprig.compactWidths(412))
+        assertEquals(HomeSprig.CompactWidths(180, 168), HomeSprig.compactWidths(390))
+        assertEquals(HomeSprig.CompactWidths(168, 150), HomeSprig.compactWidths(360))
+        assertEquals(312, HomeSprig.roomyTextDp(360))
+        assertEquals(364, HomeSprig.roomyTextDp(412))
+    }
 }

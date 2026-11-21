@@ -746,6 +746,14 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
   - *Dropped from the old Home:* the date header, the lock status box under the habits (its states
     now live in the headline line) and the "Hollow days are days the lock was off" sentence under
     the week; the dashed hollow dot remains and TalkBack reads it as "lock was off, doesn't count".
+  - *Narrow screens (review round 1).* Column widths come from the real screen width
+    (`HomeSprig.compactWidths`, `roomyTextDp`), not the 390dp design. Compact: the headline
+    column ends 4dp before Sprig's box (Sprig's arms and Celestial's cape can reach the box edge,
+    so there is no 8dp tuck as in `A2-Home-6`); it keeps 180dp while there is room, and Sprig
+    gives way first, down to 150dp: 180/180 at 412dp, 180/168 at 390dp, 168/150 at 360dp. Roomy:
+    the headline fits `width − 48`. The compact habit list always keeps 128dp (about two rows);
+    when the fixed parts leave less (360 × 640dp at font 2.0) the whole page below the hill
+    scrolls, with the list still scrolling inside it.
   - *Banners in the compact layout* sit with "Today" above the scrolling list, as the spec orders
     them; in the roomy layout everything below the hill scrolls together, which only matters at
     large font scales.

@@ -172,17 +172,7 @@ class HomeBehaviourTest {
     }
 
     @Test fun sprigNeverOverlapsTheHeadlineBlock() {
-        val states = listOf(HomeFixtures.state(1, 0), HomeFixtures.state(3, 0), HomeFixtures.state(3, 3), HomeFixtures.state(6, 0), HomeFixtures.state(6, 6), HomeFixtures.state(10, 0))
         showLive()
-        for (f in listOf(1f, 2f)) for (s in states) {
-            scale.floatValue = f
-            current.value = s
-            rule.waitForIdle()
-            val sprig = rule.onNodeWithTag("home_sprig").fetchSemanticsNode().boundsInRoot
-            for (tag in listOf("home_headline", "home_line")) {
-                val text = rule.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
-                assertTrue("${s.today.done}/${s.today.total} at $f: Sprig $sprig overlaps $tag $text", !sprig.overlaps(text))
-            }
-        }
+        assertSprigClearsText(rule, current, scale)
     }
 }
