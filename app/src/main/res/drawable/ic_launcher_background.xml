@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated from the Daybreak icon SVG (issue #155). See DECISIONS.md: the SVG's 108-unit
+     canvas is mapped onto the 72dp a launcher shows, so the gradient runs over y 18..90 (clamped
+     into the bleed) and the glow (cx 54, cy 62, r 34 in the SVG) is scaled by 2/3 about the centre. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:pathData="M0,0 H108 V108 H0 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="54"
+                android:startY="18"
+                android:endX="54"
+                android:endY="90"
+                android:tileMode="clamp">
+                <item android:offset="0" android:color="#FFE9A99A" />
+                <item android:offset="0.55" android:color="#FFFFD0A6" />
+                <item android:offset="1" android:color="#FFFFC23D" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path
+        android:pathData="M31.33,59.33 a22.67,22.67 0 1,0 45.33,0 a22.67,22.67 0 1,0 -45.33,0 Z"
+        android:fillColor="#FFF4E4"
+        android:fillAlpha="0.55" />
+</vector>

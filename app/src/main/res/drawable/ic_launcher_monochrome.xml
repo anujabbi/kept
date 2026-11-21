@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated from the Daybreak icon SVG (issue #155). See DECISIONS.md: the SVG's 108-unit
+     canvas is mapped onto the 72dp a launcher shows, so the outer group scales it by 2/3
+     about the centre. The inner group is the SVG's own translate(13.2 27) scale(0.68). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group android:pivotX="54" android:pivotY="54" android:scaleX="0.6667" android:scaleY="0.6667">
+        <group android:translateX="13.2" android:translateY="27" android:scaleX="0.68" android:scaleY="0.68">
+            <path
+                android:pathData="M18,92 L8,74"
+                android:strokeColor="#FF000000"
+                android:strokeWidth="12"
+                android:strokeLineCap="round" />
+            <path
+                android:pathData="M102,92 L112,74"
+                android:strokeColor="#FF000000"
+                android:strokeWidth="12"
+                android:strokeLineCap="round" />
+            <path
+                android:pathData="M60,38 C60,30 61,24 60,17"
+                android:strokeColor="#FF000000"
+                android:strokeWidth="3.4"
+                android:strokeLineCap="round" />
+            <path
+                android:pathData="M60,24 C50,24 44,18 44,10 C54,10 60,16 60,24 Z"
+                android:fillColor="#FF000000" />
+            <path
+                android:pathData="M60,20 C70,20 77,14 77,6 C66,6 60,12 60,20 Z"
+                android:fillColor="#FF000000" />
+            <path
+                android:pathData="M56,9 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0 Z"
+                android:fillColor="#FF000000" />
+            <path
+                android:pathData="M51,13 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0 Z"
+                android:fillColor="#FF000000" />
+            <path
+                android:pathData="M61,13 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0 Z"
+                android:fillColor="#FF000000" />
+            <path
+                android:pathData="M57.4,13 a2.6,2.6 0 1,0 5.2,0 a2.6,2.6 0 1,0 -5.2,0 Z"
+                android:fillColor="#FF000000" />
+            <path
+                android:pathData="M55.8,16.5 a2.2,2.2 0 1,0 4.4,0 a2.2,2.2 0 1,0 -4.4,0 Z"
+                android:fillColor="#FF000000" />
+            <path
+                android:pathData="M16,160 V84 C16,52 34,34 60,34 C86,34 104,52 104,84 V160 Z M40.41,72.94 L41.1,71.98 L41.77,71.16 L42.41,70.5 L43.02,69.98 L43.58,69.61 L44.1,69.37 L44.56,69.24 L45,69.2 L45.44,69.24 L45.9,69.37 L46.42,69.61 L46.98,69.98 L47.59,70.5 L48.23,71.16 L48.9,71.98 L49.59,72.94 A1.7,1.7 0 0,0 52.41,71.06 L51.6,69.92 L50.77,68.9 L49.91,68.02 L49.02,67.27 L48.08,66.65 L47.1,66.19 L46.06,65.9 L45,65.8 L43.94,65.9 L42.9,66.19 L41.92,66.65 L40.98,67.27 L40.09,68.02 L39.23,68.9 L38.4,69.92 L37.59,71.06 A1.7,1.7 0 0,0 40.41,72.94 Z M70.41,72.94 L71.1,71.98 L71.77,71.16 L72.41,70.5 L73.02,69.98 L73.58,69.61 L74.1,69.37 L74.56,69.24 L75,69.2 L75.44,69.24 L75.9,69.37 L76.42,69.61 L76.98,69.98 L77.59,70.5 L78.23,71.16 L78.9,71.98 L79.59,72.94 A1.7,1.7 0 0,0 82.41,71.06 L81.6,69.92 L80.77,68.9 L79.91,68.02 L79.02,67.27 L78.08,66.65 L77.1,66.19 L76.06,65.9 L75,65.8 L73.94,65.9 L72.9,66.19 L71.92,66.65 L70.98,67.27 L70.09,68.02 L69.23,68.9 L68.4,69.92 L67.59,71.06 A1.7,1.7 0 0,0 70.41,72.94 Z M53,79 Q60,91 67,79 Z"
+                android:fillColor="#FF000000"
+                android:fillType="evenOdd" />
+        </group>
+    </group>
+</vector>
