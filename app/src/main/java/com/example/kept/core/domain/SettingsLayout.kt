@@ -17,6 +17,11 @@ object SettingsCopy {
     const val GIVE_UP = "Give-up time"
     const val GIVE_UP_HINT = "After this, apps open and the day is missed"
 
+    /** The confirm when Set in "Lock apps from" would open apps early during a lock (issue #154). */
+    const val LOCK_FROM_WHILE_LOCKED = "Your apps are locked right now. Changing when the lock starts opens them early. Still change it?"
+    /** The confirm when Set in "Give-up time" would open apps early during a lock (issue #1). */
+    const val GIVE_UP_WHILE_LOCKED = "Your apps are locked right now. Changing the give-up time opens them early. Still change it?"
+
     const val GROUP_LOCK = "Lock"
     const val EXCEPTIONS = "Exceptions"
     const val EXCEPTIONS_HINT = "Apps that never lock"
@@ -81,6 +86,25 @@ object SettingsCopy {
         RecapOutcome.TOO_LATE -> "Too${NBSP}late"
         RecapOutcome.LOCK_OFF -> "Lock${NBSP}was${NBSP}off"
         RecapOutcome.WRITTEN_OFF -> "Written${NBSP}off"
+    }
+}
+
+/** Which lock window editor Set was tapped in. */
+enum class LockWindowField { LOCK_FROM, GIVE_UP }
+
+/**
+ * What Set in a lock window editor changes (issue #154): the new window and the confirm that
+ * editor shows during a lock. [of] is null when the picked time is the one already saved, so
+ * an unchanged Set saves nothing and asks nothing.
+ */
+data class LockWindowEdit(val from: Int, val due: Int, val confirm: String) {
+    companion object {
+        fun of(field: LockWindowField, picked: Int, from: Int, due: Int): LockWindowEdit? = when (field) {
+            LockWindowField.LOCK_FROM ->
+                if (picked == from) null else LockWindowEdit(picked, due, SettingsCopy.LOCK_FROM_WHILE_LOCKED)
+            LockWindowField.GIVE_UP ->
+                if (picked == due) null else LockWindowEdit(from, picked, SettingsCopy.GIVE_UP_WHILE_LOCKED)
+        }
     }
 }
 

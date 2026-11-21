@@ -1160,3 +1160,12 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
   out the eyes (as stroke outlines) and the mouth with `evenOdd`, and leaves out the blush. It
   fills the yellow flower centre and the small gap where the petal, stem and left leaf meet, so
   the silhouette has no speck there. minSdk is 26, so there are no legacy PNG mipmaps.
+
+- **Each lock window editor asks in its own words (issue #154).** During a lock, Set in "Lock apps
+  from" now asks "Your apps are locked right now. Changing when the lock starts opens them early.
+  Still change it?" (the planner's proposal, following the give-up copy's pattern; the owner may
+  reword it in `SettingsCopy.LOCK_FROM_WHILE_LOCKED`). The give-up time editor keeps its copy, now
+  `SettingsCopy.GIVE_UP_WHILE_LOCKED`. Set with the time already saved writes nothing, asks
+  nothing and sends no `settings_changed_during_lock`; the rule is `LockWindowEdit.of` in
+  `core/domain`, tested there rather than through `SettingsViewModel`, which has no JVM fakes for
+  its repositories. Both editors still report `setting=lock_window`.
