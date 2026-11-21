@@ -40,9 +40,12 @@ class RecapLayoutTest {
         assertEquals(RecapOutcome.SLIPPED, outcome(done = 0, total = 0))
     }
 
-    @Test fun `a shield beats written off and too late, as the recap always ordered them`() {
-        assertEquals(RecapOutcome.SHIELD, outcome(shield = true, writtenOff = true))
-        assertEquals(RecapOutcome.SHIELD, outcome(shield = true, done = 2))
+    @Test fun `a shield beats too late`() = assertEquals(RecapOutcome.SHIELD, outcome(shield = true, done = 2))
+
+    @Test fun `a written off day is never shield, even on a record from before issue 143`() {
+        // Older builds could spend the shield on a written-off day; the recap still says so.
+        assertEquals(RecapOutcome.WRITTEN_OFF, outcome(shield = true, writtenOff = true))
+        assertEquals(RecapOutcome.WRITTEN_OFF, outcome(shield = true, writtenOff = true, done = 2))
     }
 
     @Test fun `kept, shield and lock off keep the streak and the others reset it`() {

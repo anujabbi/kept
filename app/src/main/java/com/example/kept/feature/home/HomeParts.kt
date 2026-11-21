@@ -85,6 +85,8 @@ internal fun dayDot(isToday: Boolean, record: DayRecordEntity?, todayKept: Boole
     // Hollow, not grey: a day the lock was off is KEPT's failure, and it costs nothing (issue #2).
     record.unprotected && !record.writtenOff -> DayDot.UNPROTECTED
     record.countedForStreak -> DayDot.DONE
+    // The shield cannot save a written-off day (issue #143), whatever an older build recorded.
+    record.writtenOff -> DayDot.MISSED
     record.shieldConsumed -> DayDot.SHIELDED
     else -> DayDot.MISSED
 }

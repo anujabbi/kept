@@ -1136,3 +1136,14 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     The Your habits title is 40/800 (`StepPage` gained a `titleStyle`); its block keeps
     `StepPage`'s padding (2dp off the mock's `4 24 16`). The name field gets a 2dp purple border
     when focused (the mock's focus outline). Add a habit pads above the keyboard.
+
+- **A shield cannot save a written-off day (issue #143).** Owner's call, option 1: the break
+  screen and the spec's recap table were right. `StreakRules.apply` no longer spends the weekly
+  shield on a written-off day: the streak resets, the shield stays available for a later missed
+  day that week, and the Home shield chip keeps reading ready. The recap shows "Day written off."
+  with "Streak reset, and the shield could not save it.", History reads "Written off", the week
+  row shows a missed dot and the recap notification reads "Streak reset". The break screen copy is
+  unchanged. Records written by an older build can carry both `writtenOff` and `shieldConsumed`;
+  `RecapOutcome.of` now ranks written off above the shield and `dayDot` shows such a day as missed,
+  so no surface ever says the shield saved a written-off day. Those old rows keep their stored
+  streak; nothing is recomputed.

@@ -78,9 +78,17 @@ class StreakRulesTest {
         assertEquals(0, r.streak); assertFalse(r.hollow); assertTrue(r.reset)
     }
 
-    @Test fun `written off day does not count`() {
+    @Test fun `a written off day cannot be shielded - it resets the streak and keeps the shield`() {
+        // Issue #143 (owner, option 1): the break screen promises "your shield can't save it".
         val r = StreakRules.apply(3, true, StreakRules.DayOutcome(true, unprotected = false, writtenOff = true))
-        assertEquals(3, r.streak); assertTrue(r.shieldConsumed)
+        assertEquals(0, r.streak); assertFalse(r.counted); assertTrue(r.reset)
+        assertFalse(r.shieldConsumed); assertTrue(r.shieldAvailable)
+    }
+
+    @Test fun `a written off day with nothing done is not shielded either`() {
+        val r = StreakRules.apply(5, true, StreakRules.DayOutcome(false, unprotected = false, writtenOff = true))
+        assertEquals(0, r.streak); assertTrue(r.reset)
+        assertFalse(r.shieldConsumed); assertTrue(r.shieldAvailable)
     }
 
     @Test fun `shield is not wasted on a zero streak`() {
