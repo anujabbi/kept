@@ -27,7 +27,6 @@ import com.example.kept.core.ui.KeptTheme
 import com.example.kept.feature.celebration.CelebrationHost
 import com.example.kept.feature.celebration.SprigEvolvesScreen
 import com.example.kept.feature.gallery.GalleryScreen
-import com.example.kept.feature.gallery.RoadmapScreen
 import com.example.kept.feature.home.HomeScreen
 import com.example.kept.feature.onboarding.OnboardingScreen
 import com.example.kept.feature.recap.RecapScreen
@@ -46,7 +45,6 @@ object Routes {
     const val HABITS = "habits"
     const val PERMISSIONS = "permissions"
     const val REVEAL = "reveal/{galleryId}"
-    const val ROADMAP = "roadmap"
 
     fun recap(date: String) = "recap/$date"
     fun reveal(id: Long) = "reveal/$id"
@@ -68,7 +66,6 @@ fun screenNameFor(route: String?): String? = when (route) {
     Routes.HABITS -> Screens.HABITS
     Routes.PERMISSIONS -> Screens.PERMISSIONS
     Routes.REVEAL -> Screens.REVEAL
-    Routes.ROADMAP -> Screens.ROADMAP
     else -> null
 }
 
@@ -140,7 +137,7 @@ fun KeptApp(startDestination: String, pendingRoute: String?, consumeRoute: () ->
                             onOpenHabits = { nav.navigate(Routes.HABITS) },
                         )
                     }
-                    composable(Routes.GALLERY) { GalleryScreen(onOpenRoadmap = { nav.navigate(Routes.ROADMAP) }) }
+                    composable(Routes.GALLERY) { GalleryScreen() }
                     composable(Routes.SETTINGS) {
                         SettingsScreen(
                             onOpenExceptions = { nav.navigate(Routes.EXCEPTIONS) },
@@ -163,7 +160,6 @@ fun KeptApp(startDestination: String, pendingRoute: String?, consumeRoute: () ->
                         // "Sprig is now {Form}" (issue #130) replaces the old reveal, at the same moment.
                         SprigEvolvesScreen(onClose = { nav.popBackStack() })
                     }
-                    composable(Routes.ROADMAP) { RoadmapScreen(onBack = { nav.popBackStack() }) }
                 }
             }
             AnimatedVisibility(showBar, enter = fadeIn(), exit = fadeOut()) {

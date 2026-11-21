@@ -60,6 +60,10 @@ object DaybreakColors {
     val waitingInk = Color(0xFF6E6A88)
     /** The break screen's speech bubble shadow, `rgba(30,27,60,0.12)` (`A4-Break`). */
     val bubbleShadow = Color(0x1F1E1B3C)
+    /** The line under the form name on the Tide sky (`A6-Collection`). */
+    val tideInk = Color(0xFF2A3A5C)
+    /** Text of the "{Next} in {n} days" pill on the Tide sky (`A6-Collection`). */
+    val tidePill = Color(0xFF1F4F8A)
 }
 
 /** The top band of each screen. See [SkyRamp] for which one a screen shows. */
