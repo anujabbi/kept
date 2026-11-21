@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>KEPT onboarding, the rule</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
+<style>
+body{margin:0}
+a{color:#1E1B3C}a:hover{color:#5B4BD6}
+
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; overflow: hidden; display: flex; flex-direction: column; background: #FFF9F1; font-family: 'Bricolage Grotesque', system-ui, sans-serif; color: #1E1B3C">
+<div style="flex: none; display: flex; align-items: center; gap: 12px; padding: 24px 20px 4px 12px">
+<a href="A10-Onb-Habits.dc.html" aria-label="Back" style="display: flex; align-items: center; justify-content: center; flex: none; width: 44px; height: 44px; border-radius: 22px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.400" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+<div style="flex: 1; display: flex; gap: 6px" aria-label="Step 2 of 5"><span style="flex: 1; height: 6px; border-radius: 3px; background: #5B4BD6"></span><span style="flex: 1; height: 6px; border-radius: 3px; background: #5B4BD6"></span><span style="flex: 1; height: 6px; border-radius: 3px; background: #E6DCCE"></span><span style="flex: 1; height: 6px; border-radius: 3px; background: #E6DCCE"></span><span style="flex: 1; height: 6px; border-radius: 3px; background: #E6DCCE"></span></div>
+</div><div style="flex: none; padding: 6px 24px 18px"><h1 style="margin: 0; font-size: 34px; line-height: 1.02; font-weight: 800; letter-spacing: -0.02em">When does the lock run?</h1><p style="margin: 8px 0 0; font-size: 15px; line-height: 1.4; font-weight: 500; color: #5C5878">Pick the window. Apps lock at the start and open once your habits are done.</p></div>
+<div style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding: 0 20px 16px">
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 18px 16px; border-radius: 24px; background: #FFFFFF; border: 1.500px solid #F1E8DC">
+<div style="position: relative; height: 28px; border-radius: 14px; background: #F3EFFF; overflow: hidden">
+<div style="position: absolute; top: 0; bottom: 0; left: {{bandL}}%; width: {{bandW}}%; background: #2B2760; border-radius: 14px"></div>
+</div>
+<div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; color: #5C5878"><span>6 am</span><span>noon</span><span>6 pm</span><span>midnight</span></div>
+<p style="margin: 4px 0 0; font-size: 14px; line-height: 1.45; font-weight: 500; color: #3A3658">From <strong>{{fromLabel}}</strong>, everything but the essentials locks until your habits are done. If they are not done by <strong>{{toLabel}}</strong>, apps open and the day is missed.</p>
+</div>
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="2">
+<div style="display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 16px; border-radius: 22px; background: #FFFFFF; border: 1.500px solid #F1E8DC">
+<span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 16px; font-weight: 700">{{r.label}}</span><span style="font-size: 13px; font-weight: 500; color: #5C5878">{{r.hint}}</span></span>
+<div style="display: flex; align-items: center; height: 48px; border-radius: 24px; background: #F3EFFF">
+<button type="button" onClick="{{r.dec}}" aria-label="Earlier" style="width: 44px; height: 100%; border: 0; background: none; font: inherit; font-size: 22px; font-weight: 700; color: #5B4BD6; cursor: pointer">−</button>
+<span style="min-width: 76px; text-align: center; font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums">{{r.value}}</span>
+<button type="button" onClick="{{r.inc}}" aria-label="Later" style="width: 44px; height: 100%; border: 0; background: none; font: inherit; font-size: 22px; font-weight: 700; color: #5B4BD6; cursor: pointer">+</button>
+</div>
+</div>
+</sc-for>
+</div><div style="flex: none; display: flex; flex-direction: column; gap: 8px; padding: 12px 20px 28px; border-top: 1.500px solid #EFE4D6"><a href="A12-Exceptions.dc.html" style="display: flex; align-items: center; justify-content: center; width: 100%; height: 56px; border-radius: 28px; border: 0; background: #1E1B3C; color: #FFF9F1; font: inherit; font-size: 17px; font-weight: 700; text-decoration: none; cursor: pointer">Continue</a></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const st = this.state || {};
+    const from = st.from != null ? st.from : 14;
+    const to = st.to != null ? st.to : 42;
+    const lab = (h) => { const m = h * 30; let hr = Math.floor(m / 60) % 24; const mm = m % 60; const ap = hr < 12 ? 'am' : 'pm'; let h12 = hr % 12; if (h12 === 0) h12 = 12; return h12 + ':' + (mm < 10 ? '0' : '') + mm + ' ' + ap; };
+    const set = (o) => this.setState(Object.assign({}, st, o));
+    const pct = (h) => Math.max(0, Math.min(100, (h * 30 - 360) / (1440 - 360) * 100));
+    return {
+      fromLabel: lab(from), toLabel: lab(to),
+      bandL: pct(from).toFixed(1), bandW: (pct(to) - pct(from)).toFixed(1),
+      rows: [
+        { label: 'Lock apps from', hint: 'Most people pick when they wake up', value: lab(from), dec: () => set({ from: Math.max(12, from - 1) }), inc: () => set({ from: Math.min(to - 4, from + 1) }) },
+        { label: 'Give up at', hint: 'After this, the day is missed', value: lab(to), dec: () => set({ to: Math.max(from + 4, to - 1) }), inc: () => set({ to: Math.min(47, to + 1) }) }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

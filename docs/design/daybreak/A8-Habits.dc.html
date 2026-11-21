@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>KEPT your habits, Daybreak</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
+<style>
+body{margin:0}
+a{color:#1E1B3C}a:hover{color:#5B4BD6}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; overflow: hidden; display: flex; flex-direction: column; background: #FFF9F1; font-family: 'Bricolage Grotesque', system-ui, sans-serif; color: #1E1B3C">
+<div style="flex: none; display: flex; align-items: center; gap: 6px; padding: 24px 12px 4px">
+<a href="A7-Settings.dc.html" aria-label="Back to settings" style="display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 22px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.400" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+</div>
+<div style="flex: none; padding: 4px 24px 16px">
+<h1 style="margin: 0; font-size: 40px; line-height: 1; font-weight: 800; letter-spacing: -0.02em">Your habits</h1>
+<p style="margin: 8px 0 0; font-size: 15px; line-height: 1.4; font-weight: 500; color: #5C5878">Apps stay locked until every one is done. Two or three is plenty.</p>
+</div>
+<div style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 0 20px 16px">
+<sc-for list="{{habits}}" as="h" hint-placeholder-count="6">
+<a href="A9-Habit-edit.dc.html" style="flex: none; display: flex; align-items: center; gap: 14px; height: 64px; padding: 0 14px; border-radius: 20px; background: #FFFFFF; border: 1.500px solid #F1E8DC; text-decoration: none">
+<span style="display: flex; align-items: center; justify-content: center; flex: none; width: 40px; height: 40px; border-radius: 14px; background: #ECE9FF; color: #5B4BD6"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.200" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{h.icon}}"></path></svg></span>
+<span style="flex: 1; display: flex; flex-direction: column">
+<span style="font-size: 16px; font-weight: 700">{{h.title}}</span>
+<span style="font-size: 13px; font-weight: 500; color: #5C5878">{{h.detail}}</span>
+</span>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8D88A8" stroke-width="2.400" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+</a>
+</sc-for>
+</div>
+<div style="flex: none; display: flex; flex-direction: column; gap: 8px; padding: 12px 20px 28px; border-top: 1.500px solid #EFE4D6">
+<a href="A9-Habit-edit.dc.html" style="display: flex; align-items: center; justify-content: center; gap: 8px; height: 56px; border-radius: 28px; background: #1E1B3C; color: #FFF9F1; font-size: 17px; font-weight: 700; text-decoration: none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.600" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Add a habit</a>
+<p style="margin: 0; text-align: center; font-size: 13px; font-weight: 600; color: #5C5878">6 of 10 habits</p>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const I = {
+      run: 'M13 4a1.500 1.500 0 1 0 .010 0M7 21l3-6 3 2v4M10 15l1-5 4 2 3-1M11 10l-3 1-1 3',
+      book: 'M4 5c3-1 6-1 8 1v13c-2-2-5-2-8-1zM20 5c-3-1-6-1-8 1v13c2-2 5-2 8-1z',
+      music: 'M9 18V5l11-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM20 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z',
+      cap: 'M2 9l10-5 10 5-10 5zM6 11v5c3 2 9 2 12 0v-5',
+      broom: 'M14 3l-4 9M7 12h8l2 9H5z',
+      moon: 'M20 14A8 8 0 1 1 10 4a6 6 0 0 0 10 10z'
+    };
+    return {
+      habits: [
+        { title: 'Exercise', detail: '30 min, tap when done', icon: I.run },
+        { title: 'Read', detail: '10 pages, tap when done', icon: I.book },
+        { title: 'Practice guitar', detail: '20 min, tap when done', icon: I.music },
+        { title: 'Study', detail: '45 min, tap when done', icon: I.cap },
+        { title: 'Tidy room', detail: 'Photo check-in', icon: I.broom },
+        { title: 'Sleep by 11', detail: 'Tap when done', icon: I.moon }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

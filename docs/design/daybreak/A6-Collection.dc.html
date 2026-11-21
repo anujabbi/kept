@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>KEPT Sprig collection, Daybreak</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
+<style>
+body{margin:0}
+a{color:#5C5878}a:hover{color:#1E1B3C}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; overflow: hidden; display: flex; flex-direction: column; background: #FFF9F1; font-family: 'Bricolage Grotesque', system-ui, sans-serif; color: #1E1B3C">
+<div style="flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto">
+<div style="position: relative; height: 300px; overflow: hidden; background: #BFD9F2">
+<div style="position: absolute; left: 24px; top: 56px; width: 180px">
+<h1 style="margin: 0; font-size: 44px; line-height: 1; font-weight: 800; letter-spacing: -0.02em">Bloom</h1>
+<p style="margin: 8px 0 0; font-size: 16px; line-height: 1.35; font-weight: 600; color: #2A3A5C">Day 12 of your streak</p>
+<p style="margin: 14px 0 0; display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border-radius: 15px; background: rgba(255,255,255,0.55); font-size: 13px; font-weight: 700; color: #1F4F8A">Thicket in 2 days</p>
+</div>
+<div style="position: absolute; z-index: 0; isolation: isolate; left: 186px; top: 56px">
+<dc-import name="SprigA" pose="wave" stage="3" outfit="sweater" size="200" hint-size="200px,200px"></dc-import>
+</div>
+</div>
+<div style="position: relative; height: 52px; margin: -48px -60px -4px; background: #FFF9F1; border-radius: 50% 50% 0 0 / 48px 48px 0 0"></div>
+<div style="display: flex; justify-content: space-between; align-items: baseline; padding: 8px 24px 10px">
+<h2 style="margin: 0; font-size: 18px; font-weight: 700">Forms</h2>
+<p style="margin: 0; font-size: 14px; font-weight: 600; color: #5C5878">3 of 7 reached</p>
+</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 0 20px 28px">
+<sc-for list="{{forms}}" as="f" hint-placeholder-count="7">
+<div style="display: flex; flex-direction: column; align-items: center; gap: 2px; box-sizing: border-box; padding: 10px 6px 12px; border-radius: 22px; background: {{f.bg}}; border: 2px {{f.line}} {{f.stroke}}">
+<div style="filter: {{f.filter}}"><dc-import name="SprigA" pose="idle" stage="{{f.stage}}" outfit="{{f.outfit}}" size="72" hint-size="72px,72px"></dc-import></div>
+<span style="font-size: 15px; font-weight: 800; color: {{f.ink}}">{{f.name}}</span>
+<span style="font-size: 12px; font-weight: 600; color: #5C5878">{{f.note}}</span>
+</div>
+</sc-for>
+</div>
+</div>
+<nav aria-label="Main" style="flex: none; height: 74px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: center; background: #FFF9F1; border-top: 1.500px solid #EFE4D6; font-size: 13px; font-weight: 700; text-align: center">
+<a href="Main.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0; text-decoration: none"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.200" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="4"></circle><path d="M12 3v2M4.500 6.500l1.500 1.500M19.500 6.500L18 8M3 20h18"></path></svg>Today</a>
+<a href="A6-Collection.dc.html" aria-current="page" style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0; color: #5B4BD6; text-decoration: none"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.200" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21v-9M12 12c-4 0-6-2-6-6 4 0 6 2 6 6zM12 15c3.500 0 5.500-2 5.500-5.500-3.500 0-5.500 2-5.500 5.500z"></path></svg>Sprig</a>
+<a href="A7-Settings.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0; text-decoration: none"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.200" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"></path><circle cx="16" cy="7" r="2"></circle><circle cx="8" cy="17" r="2"></circle></svg>Settings</a>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const src = [
+      ['Sprig', 0, 'Day 0', 'none'], ['Bud', 1, 'Day 3', 'scarf'], ['Bloom', 3, 'Day 7', 'sweater'], ['Thicket', 3, 'Day 14', 'both'],
+      ['Grove', 3, 'Day 30', 'crown'], ['Ancient', 3, 'Day 60', 'sage'], ['Celestial', 3, 'Day 100', 'star']
+    ];
+    const forms = src.map((f, i) => {
+      const got = i <= 2, now = i === 2;
+      return {
+        name: f[0], stage: f[1], outfit: f[3],
+        note: now ? 'You are here' : got ? 'Reached' : f[2],
+        bg: now ? '#ECE9FF' : got ? '#FFFFFF' : 'transparent',
+        stroke: now ? '#5B4BD6' : got ? '#EADFD2' : '#CFC8E6',
+        line: got ? 'solid' : 'dashed',
+        ink: now ? '#5B4BD6' : got ? '#1E1B3C' : '#5C5878',
+        filter: got ? 'none' : 'brightness(0) opacity(0.16)'
+      };
+    });
+    return { forms: forms };
+  }
+}
+</script>
+</body>
+</html>

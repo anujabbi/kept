@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>KEPT lock screen, Daybreak</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
+<style>
+body{margin:0}
+a{color:#D8D3F5}a:hover{color:#FFC23D}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; overflow: hidden; display: flex; flex-direction: column; background: {{ground}}; transition: background 0.7s ease; font-family: 'Bricolage Grotesque', system-ui, sans-serif; color: {{ink}}">
+<div style="position: relative; flex: none; height: 280px; overflow: hidden; background: {{sky}}; transition: background 0.7s ease">
+<div style="position: absolute; left: 24px; top: 60px; width: 190px">
+<h1 style="margin: 0; font-size: 38px; line-height: 1; font-weight: 800; letter-spacing: -0.02em">{{headline}}</h1>
+<p style="margin: 8px 0 0; font-size: 15px; line-height: 1.35; font-weight: 500; color: {{soft}}">{{sub}}</p>
+</div>
+<div style="position: absolute; z-index: 0; isolation: isolate; left: 196px; top: {{sprigTop}}px; transition: top 0.8s cubic-bezier(0.3, 1.5, 0.5, 1)">
+<dc-import name="SprigA" outfit="sweater" pose="{{pose}}" stage="3" size="180" hint-size="180px,180px"></dc-import>
+</div>
+</div>
+<div style="position: relative; flex: none; height: 52px; margin: -48px -60px -4px; background: {{ground}}; transition: background 0.7s ease; border-radius: 50% 50% 0 0 / 48px 48px 0 0"></div>
+<div style="flex: none; display: flex; justify-content: space-between; align-items: baseline; padding: 2px 24px 10px">
+<h2 style="margin: 0; font-size: 18px; font-weight: 700">Today</h2>
+<p style="margin: 0; font-size: 14px; font-weight: 600; color: {{soft}}">{{count}}</p>
+</div>
+<div style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 0 20px 12px">
+<sc-for list="{{habits}}" as="h" hint-placeholder-count="6">
+<button type="button" onClick="{{h.toggle}}" aria-pressed="{{h.done}}" style="flex: none; display: flex; align-items: center; gap: 12px; width: 100%; height: 56px; padding: 0 14px; border-radius: 18px; border: 2px solid {{h.border}}; background: {{h.bg}}; font: inherit; color: inherit; text-align: left; cursor: pointer; transition: background 0.25s, border-color 0.25s">
+<span style="display: flex; align-items: center; justify-content: center; flex: none; width: 28px; height: 28px; border-radius: 14px; box-sizing: border-box; border: 2px solid {{h.ring}}; background: {{h.dot}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="{{h.tickInk}}" stroke-width="3.400" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="opacity: {{h.tick}}"><path d="M5 12.500l4.500 4.500L19 7.500"></path></svg></span>
+<span style="flex: 1; font-size: 16px; font-weight: 700; text-decoration: {{h.strike}}">{{h.title}}</span>
+<span style="font-size: 13px; font-weight: 500; color: {{soft}}">{{h.detail}}</span>
+</button>
+</sc-for>
+</div>
+<div style="flex: none; padding: 12px 20px 28px; border-top: 1.500px solid {{rule}}">
+<sc-if value="{{locked}}" hint-placeholder-val="{{ true }}">
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+<button type="button" style="display: flex; align-items: center; justify-content: center; gap: 8px; height: 56px; border-radius: 28px; border: 2px solid #FFF4E4; background: none; color: #FFF4E4; font: inherit; font-size: 16px; font-weight: 700; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.400" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.500 1.500a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"></path></svg>Phone</button>
+<a href="A4-Break.dc.html" style="display: flex; align-items: center; justify-content: center; height: 56px; border-radius: 28px; font-size: 16px; font-weight: 600; text-decoration: none">Break the lock</a>
+</div>
+</sc-if>
+<sc-if value="{{open}}" hint-placeholder-val="{{ false }}">
+<button type="button" style="width: 100%; height: 56px; border-radius: 28px; border: 0; background: #1E1B3C; color: #FFF9F1; font: inherit; font-size: 18px; font-weight: 700; cursor: pointer">Open Chrome</button>
+</sc-if>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"habitCount":{"editor":"int","min":1,"max":10,"default":6},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const st = this.state || {};
+    const done = st.done || { ex: true, rd: true };
+    const all10 = [
+      { id: 'ex', title: 'Exercise', detail: '30 min' },
+      { id: 'rd', title: 'Read', detail: '10 pages' },
+      { id: 'pr', title: 'Practice guitar', detail: '20 min' },
+      { id: 'st', title: 'Study', detail: '45 min' },
+      { id: 'td', title: 'Tidy room', detail: 'Photo' },
+      { id: 'sl', title: 'Sleep by 11', detail: 'Check in' },
+      { id: 'wa', title: 'Drink water', detail: '8 glasses' },
+      { id: 'dg', title: 'Walk the dog', detail: '20 min' },
+      { id: 'jn', title: 'Journal', detail: '5 min' },
+      { id: 'sr', title: 'Stretch', detail: '10 min' }
+    ];
+    const count = Math.max(1, Math.min(10, Number(this.props.habitCount ?? 6)));
+    const src = all10.slice(0, count);
+    const n = src.filter((x) => done[x.id]).length;
+    const total = src.length;
+    const left = total - n;
+    const all = left === 0;
+    const words = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'];
+    const night = ['#2B2760', '#332D6C', '#3E3478', '#4A3E86', '#5A4A9A'];
+    const habits = src.map((x) => {
+      const d = !!done[x.id];
+      return {
+        title: x.title, detail: d ? 'Done' : x.detail, done: d,
+        bg: all ? '#ECE9FF' : d ? '#3E3895' : 'transparent',
+        border: all ? '#B9B0F7' : d ? '#8B7CF6' : '#4A4590',
+        ring: all ? '#5B4BD6' : d ? '#FFC23D' : '#A9A3DC',
+        dot: all ? '#5B4BD6' : d ? '#FFC23D' : 'transparent',
+        tickInk: all ? '#FFFFFF' : '#1E1B3C',
+        tick: d ? 1 : 0,
+        strike: d ? 'line-through' : 'none',
+        toggle: () => this.setState({ done: Object.assign({}, done, { [x.id]: !d }) })
+      };
+    });
+    return {
+      habits: habits,
+      count: n + ' of ' + total,
+      locked: !all, open: all,
+      headline: all ? 'Chrome is open.' : 'Chrome can wait.',
+      sub: all ? 'Promise kept. Enjoy it.' : 'Finish your promised habits to unlock.',
+      sky: all ? '#FFC23D' : night[Math.round(n / total * 4)],
+      ground: all ? '#FFF9F1' : '#1B1842',
+      rule: all ? '#EFE4D6' : '#2E2A5E',
+      ink: all ? '#1E1B3C' : '#FFF4E4',
+      soft: all ? '#3A3658' : '#D8D3F5',
+      pose: all ? 'cheer' : 'guard',
+      sprigTop: all ? 80 : 116
+    };
+  }
+}
+</script>
+</body>
+</html>
