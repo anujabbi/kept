@@ -124,6 +124,40 @@ class RolloverEngineTest {
         assertTrue(out.summary.writtenOff)
     }
 
+    @Test fun `a written-off day does not spend the shield (issue 143)`() {
+        // The break screen said "your shield can't save it", so the engine must not spend it.
+        val d = LocalDate.of(2026, 9, 5)
+        val state = SprigState(streakDays = 8, shieldAvailable = true, shieldWeekKey = StreakRules.weekKey(d))
+        val out = RolloverEngine.rollover(state, day(d, done = 1, breaks = 4, writtenOff = true))
+        assertFalse(out.summary.shieldConsumed)
+        assertTrue(out.state.shieldAvailable)
+        assertTrue(out.summary.writtenOff)
+        assertTrue(out.summary.streakReset)
+        assertEquals(0, out.state.streakDays)
+        assertEquals(8, out.state.bestStreak)
+        assertEquals(
+            RecapOutcome.WRITTEN_OFF,
+            RecapOutcome.of(
+                out.summary.countedForStreak, out.summary.unprotected, out.summary.writtenOff,
+                out.summary.shieldConsumed, out.summary.habitsDone, out.summary.habitsTotal,
+            ),
+        )
+    }
+
+    @Test fun `the unspent shield still saves a later missed day that week (issue 143)`() {
+        // Thursday written off, Friday kept, Saturday missed: the shield is still there for Saturday.
+        val thu = LocalDate.of(2026, 9, 3)
+        var state = SprigState(streakDays = 8, shieldAvailable = true, shieldWeekKey = StreakRules.weekKey(thu))
+        state = RolloverEngine.rollover(state, day(thu, breaks = 4, writtenOff = true)).state
+        state = RolloverEngine.rollover(state, day(thu.plusDays(1))).state
+        assertEquals(1, state.streakDays)
+        val sat = RolloverEngine.rollover(state, day(thu.plusDays(2), done = 0))
+        assertTrue(sat.summary.shieldConsumed)
+        assertFalse(sat.summary.streakReset)
+        assertEquals(1, sat.state.streakDays)
+        assertFalse(sat.state.shieldAvailable)
+    }
+
     @Test fun `pending dates across a multi-day gap are processed in order`() {
         val last = LocalDate.of(2026, 9, 1)
         val yesterday = LocalDate.of(2026, 9, 4)

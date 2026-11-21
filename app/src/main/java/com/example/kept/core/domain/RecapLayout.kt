@@ -18,8 +18,10 @@ enum class RecapOutcome(val streakKept: Boolean) {
         /**
          * The outcome for a day record. The order is the one the recap always used: a counted day
          * is kept; a day the lock was off (and not also written off) cost nothing (issue #2); then
-         * the shield; then written off; then too late, which is everything ticked with nothing else
-         * gone wrong, so only the give-up time can have cost it (issue #7); anything else slipped.
+         * written off, which the shield cannot save (issue #143: a record from an older build may
+         * still carry the shield flag); then the shield; then too late, which is everything ticked
+         * with nothing else gone wrong, so only the give-up time can have cost it (issue #7);
+         * anything else slipped.
          */
         fun of(
             counted: Boolean,
@@ -31,8 +33,8 @@ enum class RecapOutcome(val streakKept: Boolean) {
         ): RecapOutcome = when {
             counted -> KEPT
             unprotected && !writtenOff -> LOCK_OFF
-            shieldConsumed -> SHIELD
             writtenOff -> WRITTEN_OFF
+            shieldConsumed -> SHIELD
             habitsTotal > 0 && habitsDone >= habitsTotal -> TOO_LATE
             else -> SLIPPED
         }

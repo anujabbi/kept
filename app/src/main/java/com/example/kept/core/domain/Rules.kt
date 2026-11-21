@@ -100,7 +100,9 @@ object StreakRules {
         if (outcome.hollow) {
             return Result(streak, shieldAvailable, shieldConsumed = false, counted = false, reset = false, hollow = true)
         }
-        if (shieldAvailable && streak > 0) {
+        // A written-off day cannot be shielded (issue #143): the break screen promised "your
+        // shield can't save it". The shield is left for a later missed day that week.
+        if (shieldAvailable && streak > 0 && !outcome.writtenOff) {
             return Result(streak, shieldAvailable = false, shieldConsumed = true, counted = false, reset = false)
         }
         return Result(0, shieldAvailable, shieldConsumed = false, counted = false, reset = streak > 0)
