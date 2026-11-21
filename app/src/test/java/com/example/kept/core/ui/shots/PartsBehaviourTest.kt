@@ -33,7 +33,7 @@ class PartsBehaviourTest {
 
     @get:Rule val rule = createComposeRule()
 
-    /** Every tappable node is at least 48 × 48dp to touch and has something TalkBack reads. */
+    /** Every tappable node is itself laid out at least 48 × 48dp and has something TalkBack reads. */
     private fun assertAccessible(content: @Composable () -> Unit) {
         rule.setContent { Shot(1f, content) }
         val density = rule.density.density
@@ -46,9 +46,12 @@ class PartsBehaviourTest {
                 c.getOrNull(SemanticsProperties.ContentDescription)?.joinToString(" "),
             ).joinToString(" ").trim()
             assertTrue("node ${node.id} has a TalkBack label", label.isNotEmpty())
-            val touch = node.touchBoundsInRoot
-            assertTrue("'$label' is ${touch.width / density}dp wide", touch.width / density >= 47.9f)
-            assertTrue("'$label' is ${touch.height / density}dp tall", touch.height / density >= 47.9f)
+            // The node's own laid-out size, not touchBoundsInRoot: Compose pads the touch bounds
+            // of every clickable node to 48dp, so those can never fail.
+            val w = node.size.width / density
+            val h = node.size.height / density
+            assertTrue("'$label' is ${w}dp wide", w >= 47.9f)
+            assertTrue("'$label' is ${h}dp tall", h >= 47.9f)
         }
     }
 

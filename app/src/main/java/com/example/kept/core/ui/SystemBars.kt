@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import java.util.WeakHashMap
@@ -28,7 +29,7 @@ fun ComponentActivity.enableDaybreakEdgeToEdge() {
 }
 
 /** Cream at 90%, behind three-button navigation only (gesture navigation draws no scrim). */
-private const val NAV_SCRIM = 0xE6FFF9F1.toInt()
+private val NAV_SCRIM = DaybreakColors.cream.copy(alpha = 0.9f).toArgb()
 
 /**
  * Asks for light (true) or dark (false) status bar icons while this is in composition. The

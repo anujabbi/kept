@@ -19,13 +19,13 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -57,6 +57,13 @@ import androidx.compose.ui.unit.dp
 // to touch and carries a TalkBack label.
 
 private val D = DaybreakColors
+
+/**
+ * The smallest a tappable node may be. Set on the clickable node itself (`sizeIn` before
+ * `clickable`), not through `minimumInteractiveComponentSize()`, which only pads the touch area
+ * around a smaller node.
+ */
+private val MIN_TOUCH = 48.dp
 
 /** A CSS `border: <width> dashed <color>` with rounded corners. */
 fun Modifier.dashedBorder(width: Dp, color: Color, radius: Dp, dash: Dp = 6.dp, gap: Dp = 5.dp): Modifier = drawBehind {
@@ -129,7 +136,7 @@ fun FirstLandingBanner(onGotIt: () -> Unit, modifier: Modifier = Modifier) {
         trailing = {
             // 32dp to see, 48dp to touch.
             Box(
-                Modifier.offset(y = (-8).dp).minimumInteractiveComponentSize()
+                Modifier.offset(y = (-8).dp).sizeIn(minWidth = MIN_TOUCH, minHeight = MIN_TOUCH)
                     .clickable(role = Role.Button, onClick = onGotIt),
                 contentAlignment = Alignment.Center,
             ) {
@@ -272,7 +279,7 @@ fun KeptSwitch(
     val track by animateColorAsState(if (checked) D.purple else D.ring, keptTween(200), label = "switch-track")
     val knob by animateDpAsState(if (checked) 23.dp else 3.dp, keptTween(200), label = "switch-knob")
     val toggle = if (onCheckedChange != null) {
-        Modifier.minimumInteractiveComponentSize()
+        Modifier.sizeIn(minWidth = MIN_TOUCH, minHeight = MIN_TOUCH)
             .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
             .then(if (label != null) Modifier.semantics { contentDescription = label } else Modifier)
     } else Modifier
@@ -296,7 +303,7 @@ fun KeptChip(
     role: Role = Role.RadioButton,
 ) {
     Box(
-        modifier.minimumInteractiveComponentSize().selectable(selected = selected, role = role, onClick = onClick),
+        modifier.sizeIn(minWidth = MIN_TOUCH, minHeight = MIN_TOUCH).selectable(selected = selected, role = role, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Box(
