@@ -22,7 +22,7 @@ app/src/main/java/com/example/kept/
   core/lock       ForegroundWatcherService (UsageStats poll), AllowlistResolver, Permissions
   core/work       RolloverWorker, WatchdogWorker, reminder alarm, WorkScheduler
   core/notify     notification channels
-  core/ui         theme tokens, components, Sprig canvas renderer, share card
+  core/ui         Daybreak tokens and theme, shared parts, sky scaffold, haptics, Sprig, share card
   feature/*       onboarding, home, lock, recap, gallery, settings
 ```
 
@@ -150,6 +150,21 @@ rendering with habits remaining; the break-lock countdown gating "Unlock anyway"
 honoured and the picker staying in sync; and the Room migrations (1 -> 2, 2 -> 3, 3 -> 4 and 1 -> 4
 end to end, validated against the exported schemas in `app/schemas`). There is no
 destructive-migration fallback, so a broken migration fails here.
+
+### Screenshot tests
+
+Screens and shared parts are also checked on the JVM with Roborazzi on Robolectric (no emulator).
+The golden PNGs live in `app/src/test/screenshots/`, so a PR diff shows every image that changed.
+
+```
+./gradlew recordRoborazziDebug   # render and overwrite the goldens after an intended change
+./gradlew verifyRoborazziDebug   # fail if a render differs from its golden
+```
+
+`testDebugUnitTest` runs the same tests without comparing images. Tests take a screen at
+412 x 915dp (`@Config(qualifiers = "w412dp-h915dp-420dpi")`, `sdk = [34]`) and at font scale 1.0 and
+2.0; see `app/src/test/java/com/example/kept/core/ui/shots/`. Robolectric downloads its Android
+runtime jars from Maven Central on first run.
 
 `scripts/verify.sh` drives the emulator end to end with adb (install, grant, seed, block Chrome,
 assert `LockActivity` is on top) and writes screenshots to `verification/`.

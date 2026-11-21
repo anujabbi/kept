@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -59,42 +60,53 @@ fun KeptCard(
     Column(m.padding(padding), content = content)
 }
 
+/**
+ * Daybreak primary button (`A18-Parts`): 56dp, fully round, ink fill, cream 17/700 text.
+ * Disabled is a `#B9B4CC` fill with the same cream text.
+ */
 @Composable
 fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
-    val c = KeptTheme.colors
+    val d = DaybreakColors
     Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.fillMaxWidth().height(50.dp),
-        shape = RoundedCornerShape(10.dp),
+        modifier = modifier.fillMaxWidth().heightIn(min = 56.dp),
+        shape = CircleShape,
         colors = ButtonDefaults.buttonColors(
-            containerColor = c.ink, contentColor = c.onInk,
-            disabledContainerColor = c.surface0, disabledContentColor = c.textMuted,
+            containerColor = d.ink, contentColor = d.cream,
+            disabledContainerColor = d.disabled, disabledContentColor = d.cream,
         ),
         elevation = null,
-    ) { Text(text, style = MaterialTheme.typography.labelLarge) }
+    ) { Text(text, style = DaybreakType.button, textAlign = TextAlign.Center) }
 }
 
+/** Daybreak secondary button (`A18-Parts`): 56dp, fully round, 2dp ink outline, ink text. */
 @Composable
 fun SecondaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, icon: ImageVector? = null) {
-    val c = KeptTheme.colors
+    val d = DaybreakColors
     OutlinedButton(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.fillMaxWidth().height(50.dp),
-        shape = RoundedCornerShape(10.dp),
-        border = BorderStroke(1.dp, c.borderStrong),
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = c.textPrimary, disabledContentColor = c.textMuted),
+        modifier = modifier.fillMaxWidth().heightIn(min = 56.dp),
+        shape = CircleShape,
+        border = BorderStroke(2.dp, if (enabled) d.ink else d.disabled),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = d.ink, disabledContentColor = d.disabled),
     ) {
         if (icon != null) { Icon(icon, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)) }
-        Text(text, style = MaterialTheme.typography.labelLarge)
+        Text(text, style = DaybreakType.button, textAlign = TextAlign.Center)
     }
 }
 
+/** Daybreak quiet button (`A18-Parts`): text only, 16/700, muted by default, 48dp tall. */
 @Composable
-fun QuietButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, color: Color = KeptTheme.colors.textSecondary, enabled: Boolean = true) {
-    TextButton(onClick = onClick, modifier = modifier, enabled = enabled, colors = ButtonDefaults.textButtonColors(contentColor = color, disabledContentColor = KeptTheme.colors.textMuted)) {
-        Text(text, style = MaterialTheme.typography.bodySmall)
+fun QuietButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, color: Color = DaybreakColors.muted, enabled: Boolean = true) {
+    TextButton(
+        onClick = onClick,
+        modifier = modifier.heightIn(min = 48.dp),
+        enabled = enabled,
+        colors = ButtonDefaults.textButtonColors(contentColor = color, disabledContentColor = DaybreakColors.disabled),
+    ) {
+        Text(text, style = DaybreakType.rowTitle, textAlign = TextAlign.Center)
     }
 }
 
@@ -198,7 +210,7 @@ fun Selectable(
     val c = KeptTheme.colors
     val border by animateColorAsState(if (selected) c.blue400 else c.border, label = "sel")
     Row(
-        modifier.fillMaxWidth().clip(shape).background(if (selected) c.blue50.copy(alpha = if (c.isDark) 0.4f else 0.35f) else c.surface2)
+        modifier.fillMaxWidth().clip(shape).background(if (selected) c.blue50.copy(alpha = 0.35f) else c.surface2)
             .border(if (selected) 2.dp else 1.dp, border, shape).clickable(onClick = onClick).padding(padding),
         verticalAlignment = Alignment.CenterVertically,
         content = content,

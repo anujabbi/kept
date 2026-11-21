@@ -123,7 +123,7 @@ private fun CelebrationOverlay(s: CelebrationUiState, onDismiss: () -> Unit) {
                 Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(16.dp))
-                    .background(Color.White.copy(alpha = if (c.isDark) 0.08f else 0.72f))
+                    .background(Color.White.copy(alpha = 0.72f))
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {

@@ -4,44 +4,15 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.Spa
-import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.rounded.Spa
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.runtime.remember
 import androidx.navigation.NavController
-import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -50,6 +21,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.kept.core.analytics.Analytics
 import com.example.kept.core.analytics.Screens
+import com.example.kept.core.ui.KeptTab
+import com.example.kept.core.ui.KeptTabBar
 import com.example.kept.core.ui.KeptTheme
 import com.example.kept.feature.celebration.CelebrationHost
 import com.example.kept.feature.gallery.EvolutionRevealScreen
@@ -99,12 +72,11 @@ fun screenNameFor(route: String?): String? = when (route) {
     else -> null
 }
 
-private data class Tab(val route: String, val label: String, val icon: ImageVector, val selectedIcon: ImageVector)
-
-private val tabs = listOf(
-    Tab(Routes.HOME, "Today", Icons.Outlined.Home, Icons.Rounded.Home),
-    Tab(Routes.GALLERY, "Sprig", Icons.Outlined.Spa, Icons.Rounded.Spa),
-    Tab(Routes.SETTINGS, "Settings", Icons.Outlined.Settings, Icons.Rounded.Settings),
+/** The three tabs and the route each one opens. */
+private val tabRoutes = mapOf(
+    KeptTab.Today to Routes.HOME,
+    KeptTab.Sprig to Routes.GALLERY,
+    KeptTab.Settings to Routes.SETTINGS,
 )
 
 @Composable
@@ -113,7 +85,7 @@ fun KeptApp(startDestination: String, pendingRoute: String?, consumeRoute: () ->
     val c = KeptTheme.colors
     val backStack by nav.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
-    val showBar = currentRoute in tabs.map { it.route }
+    val showBar = currentRoute in tabRoutes.values
 
     // One listener for the whole graph, so a new destination cannot be added without a screen view.
     DisposableEffect(nav, analytics) {
@@ -172,44 +144,21 @@ fun KeptApp(startDestination: String, pendingRoute: String?, consumeRoute: () ->
                 }
             }
             AnimatedVisibility(showBar, enter = fadeIn(), exit = fadeOut()) {
-                BottomBar(nav, currentRoute)
+                KeptTabBar(
+                    selected = tabRoutes.entries.firstOrNull { it.value == currentRoute }?.key,
+                    onSelect = { tab ->
+                        nav.navigate(tabRoutes.getValue(tab)) {
+                            popUpTo(Routes.HOME) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                )
             }
         }
         // Above the nav graph and the bottom bar: the celebration is a full-screen moment, and it
         // must be able to cover whichever tab is open when the day is finished (issue #9). Kept out
         // of HomeScreen, which is long enough already.
         if (currentRoute != Routes.ONBOARDING) CelebrationHost()
-    }
-}
-
-@Composable
-private fun BottomBar(nav: NavHostController, currentRoute: String?) {
-    val c = KeptTheme.colors
-    Column(Modifier.fillMaxWidth().background(c.surface2)) {
-        Box(Modifier.fillMaxWidth().height(1.dp).background(c.border))
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp).windowInsetsPadding(WindowInsets.navigationBars),
-            horizontalArrangement = Arrangement.SpaceAround,
-        ) {
-            tabs.forEach { t ->
-                val selected = t.route == currentRoute
-                Column(
-                    Modifier.weight(1f).clip(RoundedCornerShape(12.dp))
-                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
-                            if (!selected) nav.navigate(t.route) {
-                                popUpTo(Routes.HOME) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        }
-                        .padding(vertical = 6.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Icon(if (selected) t.selectedIcon else t.icon, t.label, Modifier.size(24.dp), tint = if (selected) c.purple600 else c.textMuted)
-                    Spacer(Modifier.height(2.dp))
-                    Text(t.label, style = MaterialTheme.typography.labelSmall, color = if (selected) c.purple600 else c.textMuted)
-                }
-            }
-        }
     }
 }
