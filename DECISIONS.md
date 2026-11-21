@@ -1030,7 +1030,9 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     9:30 pm, give-up up to 11:30 pm, give-up at least 2 hours after start, 30 minute steps. A
     stored window outside those (one that runs past midnight) is shown brought inside the bar;
     a button stops (and is shown disabled) where its rule stops it. The − / + targets are 48dp
-    wide, not the design's 44, for the touch-target rule.
+    wide, not the design's 44, for the touch-target rule. A row keeps its stepper beside the text only
+    when the whole label fits on one line there; otherwise the stepper goes under the text
+    (QA on PR #147). At 360dp that is already the case at font 1.0.
   - *Welcome geometry from the screen.* The hill uses the spec's 48dp radius (the mock drew
     64). The crest sits 58dp above the button block, as in the mock; Sprig is as large as fits
     between the text and the hill (350dp at most, 20dp in from each side), its bottom 10dp

@@ -38,12 +38,14 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 /**
  * What onboarding does when touched (#132). The steps are driven through [OnboardingFlow], the
  * same transitions [OnboardingViewModel] applies.
  */
 @RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [34], application = android.app.Application::class, qualifiers = "w412dp-h915dp-420dpi")
 class OnboardingBehaviourTest {
 

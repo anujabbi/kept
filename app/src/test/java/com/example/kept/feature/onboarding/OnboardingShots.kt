@@ -161,6 +161,11 @@ class OnboardingShots(private val rule: ComposeContentTestRule, private val pref
                 val labels = rule.onNodeWithTag("lock_bar_labels").onChildren().fetchSemanticsNodes().map { it.positionInRoot.x / d to (it.positionInRoot.x + it.size.width) / d }
                 assertTrue("$at: four bar labels", labels.size == 4)
                 labels.zipWithNext().forEach { (a, b) -> assertTrue("$at: bar labels touch ($a, $b)", b.first - a.second >= 7.5f) }
+                for (row in listOf("lock_from", "give_up")) {
+                    rule.onNodeWithTag("page_body").performScrollToNode(hasTestTag("${row}_label"))
+                    rule.waitForIdle()
+                    assertTrue("$at: the $row label wraps beside its stepper", layout("${row}_label").lineCount == 1)
+                }
                 for (v in listOf("lock_from_value", "give_up_value")) {
                     rule.onNodeWithTag("page_body").performScrollToNode(hasTestTag(v))
                     rule.waitForIdle()

@@ -417,11 +417,15 @@ private fun StepperRow(
         }
         val valueW = with(density) { measurer.measure(value, valueStyle, softWrap = false, maxLines = 1).size.width.toDp() }
         val stepperW = 48.dp * 2 + maxOf(76.dp, valueW + 8.dp)
-        val wordW = maxOf(widest(label, DaybreakType.rowTitle), widest(hint, DaybreakType.caption))
-        val side = wordW + 12.dp + stepperW <= inner
+        // Side by side only when the whole label fits on one line beside the stepper (and no word
+        // of the hint is wider than that room); otherwise the stepper goes under the text (QA on
+        // PR #147: at 412dp and font 2.0 the label wrapped a word per line beside it).
+        val labelW = with(density) { measurer.measure(label, DaybreakType.rowTitle, softWrap = false, maxLines = 1).size.width.toDp() }
+        val textW = maxOf(labelW, widest(hint, DaybreakType.caption))
+        val side = textW + 12.dp + stepperW <= inner
         val text: @Composable (Modifier) -> Unit = { m ->
             Column(m) {
-                Text(label, style = DaybreakType.rowTitle, color = D.ink)
+                Text(label, Modifier.testTag("${tag}_label"), style = DaybreakType.rowTitle, color = D.ink)
                 Text(hint, style = DaybreakType.caption, color = D.muted)
             }
         }
