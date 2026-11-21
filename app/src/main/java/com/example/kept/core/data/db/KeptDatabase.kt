@@ -63,6 +63,8 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
  * v4 -> v5: weekly looks are removed (issue #125). `gallery.variantId` named the week's colour
  * and accessory a form was reached in; nothing reads it any more. The table is recreated without
  * it (no `DROP COLUMN` on minSdk 26) and every row keeps its id, form, date, streak and seen flag.
+ * The old `sqlite_sequence` value is carried across before the drop (which deletes it), so ids
+ * keep counting from the old sequence and a deleted id is never handed out again.
  */
 val MIGRATION_4_5 = object : Migration(4, 5) {
     override fun migrate(db: SupportSQLiteDatabase) {
@@ -75,6 +77,13 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
             "INSERT INTO gallery_new (id, formId, unlockedDate, streakAtUnlock, seen) " +
                 "SELECT id, formId, unlockedDate, streakAtUnlock, seen FROM gallery",
         )
+        // sqlite_sequence has no unique key on name, so replace the copy's row rather than upsert.
+        // The old seq is always >= max(id). With no old row (nothing ever inserted) none is needed.
+        db.execSQL(
+            "DELETE FROM sqlite_sequence WHERE name = 'gallery_new' " +
+                "AND EXISTS (SELECT 1 FROM sqlite_sequence WHERE name = 'gallery')",
+        )
+        db.execSQL("INSERT INTO sqlite_sequence (name, seq) SELECT 'gallery_new', seq FROM sqlite_sequence WHERE name = 'gallery'")
         db.execSQL("DROP TABLE gallery")
         db.execSQL("ALTER TABLE gallery_new RENAME TO gallery")
     }

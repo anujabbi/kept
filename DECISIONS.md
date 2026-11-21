@@ -690,13 +690,20 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
   with every use; nothing is kept behind a flag, so bringing looks back later is a new story.
   - *Room, v4 -> v5.* `gallery.variantId` is dropped by `MIGRATION_4_5`, which rebuilds the table
     (no `DROP COLUMN` on minSdk 26) and copies id, form, date, streak and seen across, rather than
-    keeping a dead column that new rows would still have to fill. `AUTOINCREMENT` survives, so a
-    new unlock never reuses an old id. The migrations now live in one list, `ALL_MIGRATIONS`,
+    keeping a dead column that new rows would still have to fill. `AUTOINCREMENT` survives, and
+    the old `sqlite_sequence` value is copied to the new table before the drop (which deletes
+    it), so a new unlock never reuses an id, even one whose row was deleted. Tested with a gap:
+    sequence 5, max id 3, next id 6. The migrations now live in one list, `ALL_MIGRATIONS`,
     which `AppModule` and the tests share.
   - *Migration test on the JVM.* `GalleryMigrationTest` (Robolectric) builds the v4 and v1
     databases from the exported schema JSON and opens them with Room, which validates every table
     against the entities. `MigrationTestHelper` is not used there because Robolectric cannot see
     test assets; `androidTest/MigrationTest` keeps using it and gains 4 -> 5 and 1 -> 5 cases.
+  - *Copy guard.* `NoWeeklyLookCopyTest` scans every string literal and string resource for a
+    variant name or a weekly-look phrase ("week's look", "looks collected", "Looks you
+    collected", "look, only this week", "{name} look ·"). It does not ban the word "look" alone:
+    the spec's Recap button "Share this look" (Sprig's appearance) stays, by orchestrator decision
+    on PR #138, so the Recap story can build it as specified.
   - *Copy that named a look, interim until the Collection story re-lays it out:* the Collection
     subtitle is "{n} of 7 forms collected"; the "This week's look" row on the Now card is gone; a
     collected card's caption is just its date; the share sheet reads "Reached at a {n}-day streak"

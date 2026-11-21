@@ -127,13 +127,43 @@ class GalleryMigrationTest {
         db.query("SELECT streakEnd FROM day_records WHERE date = '2026-09-08'").use { assertTrue(it.moveToFirst()); assertEquals(7, it.getInt(0)) }
     }
 
+    /**
+     * The release database has handed out ids up to 5 but rows 4 and 5 are gone, so its sequence
+     * (5) is ahead of max(id) (3). After the upgrade the next unlock must get 6, not reuse 4.
+     */
     @Test
     fun newUnlocksAfterTheMigrationNeverReuseAnOldId() = runTest {
         createReleaseDatabase()
+        SQLiteDatabase.openDatabase(context.getDatabasePath(dbName).path, null, SQLiteDatabase.OPEN_READWRITE).apply {
+            execSQL("INSERT INTO gallery (id, formId, variantId, unlockedDate, streakAtUnlock, seen) VALUES (4, 4, 1, '2026-09-15', 14, 1)")
+            execSQL("INSERT INTO gallery (id, formId, variantId, unlockedDate, streakAtUnlock, seen) VALUES (5, 5, 2, '2026-10-06', 30, 1)")
+            execSQL("DELETE FROM gallery WHERE id IN (4, 5)")
+            close()
+        }
+
+        val db = open(MIGRATION_4_5)
+
+        db.query("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'gallery'").use {
+            assertTrue(it.moveToFirst())
+            assertTrue(it.getString(0), it.getString(0).contains("AUTOINCREMENT"))
+        }
+        db.query("SELECT seq FROM sqlite_sequence WHERE name = 'gallery'").use {
+            assertTrue(it.moveToFirst())
+            assertEquals(5L, it.getLong(0))
+            assertFalse("one sequence row only", it.moveToNext())
+        }
+        val id = room!!.galleryDao().insert(GalleryEntryEntity(formId = 4, unlockedDate = "2026-11-21", streakAtUnlock = 14))
+        assertEquals(6L, id)
+    }
+
+    /** A release database with an empty collection still upgrades, and ids start at 1. */
+    @Test
+    fun anEmptyCollectionUpgradesAndStartsAtOne() = runTest {
+        createDatabase(4) {}
         open(MIGRATION_4_5)
 
-        val id = room!!.galleryDao().insert(GalleryEntryEntity(formId = 4, unlockedDate = "2026-09-22", streakAtUnlock = 14))
-        assertEquals(4L, id)
+        val id = room!!.galleryDao().insert(GalleryEntryEntity(formId = 1, unlockedDate = "2026-11-21", streakAtUnlock = 0))
+        assertEquals(1L, id)
     }
 
     /** First launch after the update: the collection still lists every form reached, newest first. */
