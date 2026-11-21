@@ -66,6 +66,7 @@ fun KeptCard(
  * Disabled is a `#B9B4CC` fill with the same cream text. [contentPadding] narrows the sides for
  * two buttons side by side on a narrow screen (Recap). [containerColor] is ink except where a
  * design dims the button while it stays enabled (onboarding's "Continue without the lock").
+ * [icon] sits 8dp before the text at 18dp ("Add a habit", `A8-Habits`).
  */
 @Composable
 fun PrimaryButton(
@@ -76,6 +77,7 @@ fun PrimaryButton(
     textStyle: TextStyle = DaybreakType.button,
     contentPadding: PaddingValues = ButtonDefaults.ContentPadding,
     containerColor: Color = DaybreakColors.ink,
+    icon: ImageVector? = null,
 ) {
     val d = DaybreakColors
     Button(
@@ -89,7 +91,10 @@ fun PrimaryButton(
         ),
         elevation = null,
         contentPadding = contentPadding,
-    ) { Text(text, style = textStyle, textAlign = TextAlign.Center) }
+    ) {
+        if (icon != null) { Icon(icon, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)) }
+        Text(text, style = textStyle, textAlign = TextAlign.Center)
+    }
 }
 
 /** Daybreak secondary button (`A18-Parts`): 56dp, fully round, 2dp ink outline, ink text. */

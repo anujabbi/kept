@@ -49,6 +49,9 @@ object DaybreakIcons {
     /** The back arrow in a page header (`A10`–`A14`). */
     val Back: ImageVector = stroke("Back", 2.4f, "M15 5l-7 7 7 7")
 
+    /** Add a habit's close button, "Cancel" (`A9-Habit-edit`). */
+    val Close: ImageVector = stroke("Close", 2.4f, "M6 6l12 12M18 6L6 18")
+
     /** A Settings row's chevron (`A7-Settings`). */
     val Chevron: ImageVector = stroke("Chevron", 2.4f, "M9 5l7 7-7 7")
 
@@ -68,6 +71,11 @@ object DaybreakIcons {
         "study" to stroke("Study", 2.2f, "M2 9l10-5 10 5-10 5zM6 11v5c3 2 9 2 12 0v-5"),
         "tidy" to stroke("Tidy", 2.2f, "M14 3l-4 9M7 12h8l2 9H5z"),
         "sleep" to stroke("Sleep", 2.2f, "M20 14A8 8 0 1 1 10 4a6 6 0 0 0 10 10z"),
+        // Not in the design source; drawn in the same 24-unit line style for the icon picked
+        // from a habit's name (issue #134). The pencil is the fallback.
+        "write" to stroke("Pencil", 2.2f, "M4 20l1-4L16 5l3 3L8 19z", "M14 7l3 3"),
+        "water" to stroke("Glass", 2.2f, "M6 4h12l-1.5 16h-9z", "M6.5 9h11"),
+        "gym" to stroke("Dumbbell", 2.2f, "M7 7v10M17 7v10M4 10v4M20 10v4M7 12h10"),
     )
 
     /**

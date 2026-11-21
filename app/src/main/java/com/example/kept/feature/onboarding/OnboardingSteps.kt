@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import com.example.kept.core.domain.HabitDraft
 import com.example.kept.core.domain.HabitLimits
 import com.example.kept.core.domain.LockWindowRules
 import com.example.kept.core.domain.OnboardingCopy
@@ -81,7 +82,7 @@ import com.example.kept.core.ui.StepPage
 import com.example.kept.core.ui.dashedBorder
 import com.example.kept.core.ui.fitLongestWord
 import com.example.kept.core.ui.sprig.SprigView
-import com.example.kept.feature.settings.HabitEditor
+import com.example.kept.feature.settings.HabitEditPage
 import kotlin.math.ceil
 
 private val D = DaybreakColors
@@ -282,21 +283,17 @@ private fun AddOwnRow(onClick: () -> Unit) {
 }
 
 /**
- * "Add your own" opens Add a habit: the app's existing habit editor (its Daybreak redesign is
- * #134) on its own page with a back arrow. Saving adds the habit to the picks, picked.
+ * "Add your own" opens Add a habit (`A9-Habit-edit`), the same page as Settings' Add a habit.
+ * Saving adds the habit to the picks, picked.
  */
 @Composable
 internal fun AddHabitPage(onBack: () -> Unit, onSave: (HabitTemplate) -> Unit) {
-    StepPage(
-        header = PageHeader.Back(onBack),
-        title = OnboardingCopy.ADD_A_HABIT,
-        line = null,
+    HabitEditPage(
+        HabitDraft(),
+        onClose = onBack,
+        onSave = { d -> onSave(HabitTemplate(d.name, d.iconKey, d.proof, d.savedTarget, d.savedUnit)) },
         modifier = Modifier.testTag("onboarding_add_habit"),
-    ) {
-        item {
-            HabitEditor(onCancel = onBack) { title, icon, proof, target, unit -> onSave(HabitTemplate(title, icon, proof, target, unit)) }
-        }
-    }
+    )
 }
 
 // ---------------------------------------------------------------------------------------------

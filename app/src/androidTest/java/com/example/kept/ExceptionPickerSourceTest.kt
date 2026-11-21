@@ -10,6 +10,7 @@ import com.example.kept.core.data.SprigRepository
 import com.example.kept.core.data.TimeSource
 import com.example.kept.core.data.db.KeptDatabase
 import com.example.kept.core.data.prefs.KeptPreferences
+import com.example.kept.core.di.ApplicationScope
 import com.example.kept.core.domain.Allowlist
 import com.example.kept.core.lock.AllowlistResolver
 import com.example.kept.core.lock.InstalledApp
@@ -23,6 +24,7 @@ import com.example.kept.feature.settings.orderForPicker
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -57,6 +59,7 @@ class ExceptionPickerSourceTest {
     @Inject lateinit var dayRepo: DayRepository
     @Inject lateinit var appsSource: InstalledAppsSource
     @Inject lateinit var allowlist: AllowlistResolver
+    @Inject @ApplicationScope lateinit var appScope: CoroutineScope
     @Inject lateinit var scheduler: WorkScheduler
     @Inject lateinit var reminders: ReminderPoster
     @Inject lateinit var time: TimeSource
@@ -71,6 +74,7 @@ class ExceptionPickerSourceTest {
         ctx, prefs, habitsRepo, lockRepo, sprigRepo, dayRepo, appsSource, allowlist, scheduler, reminders, time, permissions,
         // Nothing reported: this test only cares where the picker reads its exempt set from.
         NoOpAnalytics(),
+        appScope,
     )
 
     /** Any launchable app on this device that the user is actually allowed to exempt. */

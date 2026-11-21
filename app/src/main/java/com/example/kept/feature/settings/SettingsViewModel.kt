@@ -15,6 +15,8 @@ import com.example.kept.core.data.db.HabitEntity
 import com.example.kept.core.data.prefs.KeptPreferences
 import com.example.kept.core.data.prefs.Settings
 import com.example.kept.core.domain.Allowlist
+import com.example.kept.core.domain.HabitDraft
+import com.example.kept.core.domain.HabitsCopy
 import com.example.kept.core.domain.ProofType
 import com.example.kept.core.domain.SprigState
 import com.example.kept.core.lock.AllowlistResolver
@@ -25,8 +27,10 @@ import com.example.kept.core.lock.PermissionKind
 import com.example.kept.core.lock.Permissions
 import com.example.kept.core.notify.ReminderPoster
 import com.example.kept.core.work.WorkScheduler
+import com.example.kept.core.di.ApplicationScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -67,6 +71,15 @@ fun orderForPicker(apps: List<PickableApp>, query: String): List<PickableApp> =
     apps.filter { query.isBlank() || it.app.label.contains(query.trim(), ignoreCase = true) }
         .sortedWith(compareByDescending<PickableApp> { it.allowed }.thenBy { it.app.label.lowercase() })
 
+/** [h] with what Edit habit changed (issue #134). Its id, order and history stay. */
+fun editedHabit(h: HabitEntity, d: HabitDraft): HabitEntity = h.copy(
+    title = d.name,
+    iconKey = if (d.name == h.title) h.iconKey else d.iconKey,
+    proofType = d.proof,
+    targetValue = d.savedTarget,
+    unit = d.savedUnit,
+)
+
 /** A lock-affecting settings change (issue #1), snake_case matching the PostHog `setting` property. */
 enum class LockAffectingSetting(val eventValue: String) {
     LOCK_WINDOW("lock_window"),
@@ -92,6 +105,8 @@ class SettingsViewModel @Inject constructor(
     private val time: TimeSource,
     val permissions: Permissions,
     private val analytics: Analytics,
+    /** Habit writes outlive the page: Add and Edit habit close as soon as they save (issue #134). */
+    @ApplicationScope private val appScope: CoroutineScope,
 ) : ViewModel() {
 
     val state: StateFlow<SettingsUi> = combine(
@@ -180,21 +195,27 @@ class SettingsViewModel @Inject constructor(
         if (!on) reminders.clear()
     }
 
-    fun addHabit(title: String, iconKey: String, proof: ProofType, target: Int, unit: String) = viewModelScope.launch {
+    fun addHabit(title: String, iconKey: String, proof: ProofType, target: Int, unit: String) = appScope.launch {
         habitsRepo.addHabit(title, iconKey, proof, target, unit)
         analytics.capture("habit_added", mapOf("proof_type" to proof.name.lowercase()))
     }
-    fun updateHabit(h: HabitEntity) = viewModelScope.launch { habitsRepo.updateHabit(h) }
-    fun removeHabit(id: Long) = viewModelScope.launch {
+    /** Add a habit (issue #134): the icon is chosen from the name. */
+    fun addHabit(d: HabitDraft) = addHabit(d.name, d.iconKey, d.proof, d.savedTarget, d.savedUnit)
+
+    fun updateHabit(h: HabitEntity) = appScope.launch { habitsRepo.updateHabit(h) }
+
+    /** Edit habit (issue #134). A renamed habit gets the icon for its new name; otherwise it keeps its own. */
+    fun saveHabit(h: HabitEntity, d: HabitDraft) = updateHabit(editedHabit(h, d))
+    fun removeHabit(id: Long) = appScope.launch {
         habitsRepo.removeHabit(id)
         analytics.capture("habit_removed")
     }
 
     /** Removing the last undone habit opens apps early during an active lock (issue #1). */
-    fun requestRemoveHabit(id: Long) = guard(
+    fun requestRemoveHabit(id: Long, onRemoved: () -> Unit = {}) = guard(
         LockAffectingSetting.HABIT_REMOVED,
-        "Your apps are locked right now. Removing this habit opens them early. Still remove it?",
-    ) { removeHabit(id) }
+        HabitsCopy.REMOVE_WHILE_LOCKED,
+    ) { removeHabit(id); onRemoved() }
 
     /**
      * Runs [action] immediately unless a lock is active right now, in which case it is held until

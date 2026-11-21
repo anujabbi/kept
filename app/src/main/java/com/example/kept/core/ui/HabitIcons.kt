@@ -33,6 +33,9 @@ object HabitIcons {
     )
 
     fun of(key: String): ImageVector = all.firstOrNull { it.first == key }?.second ?: Icons.Outlined.Star
+
+    /** The Daybreak line icon for [key] where the design draws one, else the icon above. */
+    fun daybreak(key: String): ImageVector = DaybreakIcons.habit(key) ?: of(key)
 }
 
 data class HabitTemplate(val title: String, val iconKey: String, val proofType: ProofType, val targetValue: Int, val unit: String) {
