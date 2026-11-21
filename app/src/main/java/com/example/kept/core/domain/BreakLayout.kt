@@ -66,7 +66,7 @@ sealed interface BreakCosts {
     companion object {
         /**
          * [level] and [streakDays] are Sprig's now, [breaksLeft] the breaks left this week before
-         * this one, [overCap] whether this break is past the weekly cap (`LockState.nextBreakOverCap`).
+         * this one (the row shows one fewer: what is left after it), [overCap] whether this break is past the weekly cap (`LockState.nextBreakOverCap`).
          */
         fun of(level: Int, streakDays: Int, breaksLeft: Int, overCap: Boolean): BreakCosts =
             if (overCap) {
@@ -76,7 +76,8 @@ sealed interface BreakCosts {
                     listOfNotNull(
                         Row(Kind.WILT, BreakCopy.wilt(level)),
                         if (streakDays > 0) Row(Kind.STREAK, BreakCopy.streakStays(streakDays)) else null,
-                        Row(Kind.BREAKS, BreakCopy.breaksLeft(breaksLeft)),
+                        // A cost: how many are left once this break is taken.
+                        Row(Kind.BREAKS, BreakCopy.breaksLeft((breaksLeft - 1).coerceAtLeast(0))),
                     ),
                 )
             }

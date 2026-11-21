@@ -62,7 +62,8 @@ class BreakLayoutTest {
     }
 
     @Test fun normalBreakListsTheThreeCostsWithRealValues() {
-        val c = BreakCosts.of(level = 4, streakDays = 12, breaksLeft = 2, overCap = false) as BreakCosts.Normal
+        // The first break of the week: 3 left before it, 2 once it is taken (the design's sample).
+        val c = BreakCosts.of(level = 4, streakDays = 12, breaksLeft = 3, overCap = false) as BreakCosts.Normal
         assertEquals(
             listOf(
                 BreakCosts.Row(BreakCosts.Kind.WILT, "Sprig drops a level and wilts until tomorrow."),
@@ -71,8 +72,16 @@ class BreakLayoutTest {
             ),
             c.rows,
         )
-        val one = BreakCosts.of(level = 2, streakDays = 1, breaksLeft = 1, overCap = false) as BreakCosts.Normal
-        assertEquals(listOf("Sprig drops a level and wilts until tomorrow.", "Your 1 day streak stays.", "1 of 3 breaks left this week."), one.rows.map { it.text })
+        // The third break: after it none are left, and the next one is the last resort.
+        val third = BreakCosts.of(level = 2, streakDays = 1, breaksLeft = 1, overCap = false) as BreakCosts.Normal
+        assertEquals(listOf("Sprig drops a level and wilts until tomorrow.", "Your 1 day streak stays.", "0 of 3 breaks left this week."), third.rows.map { it.text })
+        assertEquals("1 of 3 breaks left this week.", (BreakCosts.of(4, 12, 2, overCap = false) as BreakCosts.Normal).rows.last().text)
+    }
+
+    @Test fun theLastResortHasItsOwnCopyAndNoBreaksRow() {
+        val c = BreakCosts.of(level = 4, streakDays = 12, breaksLeft = 0, overCap = true)
+        assertTrue(c is BreakCosts.LastResort)
+        assertTrue("no \"of 3\" in the last resort", !(c as BreakCosts.LastResort).line.contains("of 3") && !c.callout.contains("of 3"))
     }
 
     @Test fun theFourthBreakIsTheLastResort() {
@@ -89,7 +98,7 @@ class BreakLayoutTest {
     @Test fun gapsTheDesignDoesNotDraw() {
         // Sprig at the floor level cannot drop one; no streak, no streak row (DECISIONS.md, #128).
         val c = BreakCosts.of(level = LevelRules.FLOOR, streakDays = 0, breaksLeft = 3, overCap = false) as BreakCosts.Normal
-        assertEquals(listOf("Sprig wilts until tomorrow.", "3 of 3 breaks left this week."), c.rows.map { it.text })
+        assertEquals(listOf("Sprig wilts until tomorrow.", "2 of 3 breaks left this week."), c.rows.map { it.text })
         assertEquals(
             "Today is written off. It won't count toward your streak, and your shield can't save it.",
             (BreakCosts.of(1, 0, 0, overCap = true) as BreakCosts.LastResort).line,

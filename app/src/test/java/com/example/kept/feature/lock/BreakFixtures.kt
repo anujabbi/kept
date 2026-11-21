@@ -22,7 +22,7 @@ import org.junit.Assert.assertTrue
 /** Break states shaped like `A4-Break`: Bloom (the sweater), a 12 day streak, level 4. */
 internal object BreakFixtures {
     /** [breaksUsed] this week before this one; 3 makes this the fourth, the last resort. */
-    fun state(breaksUsed: Int = 1, streak: Int = 12, level: Int = 4, breakMinutes: Int = 30): LockUi = LockUi(
+    fun state(breaksUsed: Int = 0, streak: Int = 12, level: Int = 4, breakMinutes: Int = 30): LockUi = LockUi(
         loaded = true,
         lock = LockState(
             Settings(onboardingDone = true, breakDurationMin = breakMinutes), HomeFixtures.habits(2, 0, 0),

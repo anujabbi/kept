@@ -847,7 +847,7 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
   - *Real values the design does not draw.* At level 1 Sprig cannot drop a level, so the first row
     reads "Sprig wilts until tomorrow."; with no streak the "Your {n} day streak stays." row is left
     out, and the last-resort line says "your streak" instead of "your 0 day streak". "{left} of 3
-    breaks left this week." counts the breaks left before this one, as the old screen did.
+    breaks left this week." counts the breaks left after this one (see the review line below).
   - *Sprig* wears the user's form's outfit (the design hard-codes Bloom's sweater). It is drawn at its
     full colour and drained by the countdown (`SprigView(saturation =)`, a colour matrix like the
     wilted look), rather than shown already wilted as before. The fade animates linearly over each
@@ -868,3 +868,11 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     in their own colours; the ticket's dashed perforation is drawn as its three dashes.
   - *Removed:* the old break screen's paragraph, the "Unlocking in" card and its monospace clock, and
     the old `screen_break` golden in `SprigOnScreensScreenshotTest`.
+  - *Review of PR #141.* A new showing of the lock screen (`LockViewModel.onShown`, the watcher
+    raising it again after the user left a break screen with Home) closes any break left open
+    from the earlier showing, without a "lock_break_cancelled" event (the user did not cancel), so
+    it opens on the lock screen and a new break waits its own full minute. The "{left} of 3 breaks
+    left this week." row now shows the count after this break (`breaksLeft - 1`, at least 0): it
+    sits under "What it costs", so it says what the user ends up with ("2 of 3" on the first break
+    of the week, as in the design; "0 of 3" on the third). This was the orchestrator's call on the
+    review thread; the first version counted the breaks left before this one.

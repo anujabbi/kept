@@ -144,7 +144,7 @@ class BreakBehaviourTest {
         rule.onNodeWithText("What it costs").assertExists()
         rule.onNodeWithText("Sprig drops a level and wilts until tomorrow.").assertExists()
         rule.onNodeWithText("Your 7 day streak stays.").assertExists()
-        rule.onNodeWithText("1 of 3 breaks left this week.").assertExists()
+        rule.onNodeWithText("0 of 3 breaks left this week.").assertExists()
         rule.onNodeWithTag("break_last_resort").assertDoesNotExist()
 
         state.value = BreakFixtures.state(breaksUsed = 3, streak = 7)

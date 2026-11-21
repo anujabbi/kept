@@ -92,4 +92,40 @@ class BreakActivityRecreateTest {
         awaitTag("break_screen")
         compose.onNodeWithTag("break_countdown").assertTextEquals("1:00")
     }
+
+    /**
+     * Break, then Home, then a blocked app a while later: the watcher raises the screen again
+     * (`onNewIntent`, a new showing). It opens on the lock screen, not on the old break at 0:00, and
+     * a break taken now waits its own minute (review of PR #141).
+     */
+    @Test fun aNewShowingOpensOnTheLockScreenNotAnOldBreak() {
+        val scenario = ActivityScenario.launch<LockActivity>(intent())
+        awaitTag("break_lock")
+        compose.onNodeWithTag("break_lock").performClick()
+        awaitTag("break_screen")
+        waitSeconds(70)
+        compose.onNodeWithTag("unlock_anyway").assertIsEnabled()
+
+        scenario.onActivity { newIntent(it, intent("com.instagram.android", "Instagram")) }
+        awaitTag("lock_screen")
+        compose.onNodeWithTag("break_screen").assertDoesNotExist()
+        compose.onNodeWithTag("lock_headline").assertTextEquals("Instagram can wait.")
+
+        compose.onNodeWithTag("break_lock").performClick()
+        awaitTag("break_screen")
+        compose.onNodeWithTag("break_countdown").assertTextEquals("1:00")
+        compose.onNodeWithTag("unlock_anyway").assertIsNotEnabled()
+    }
+
+    private fun intent(pkg: String = "com.android.chrome", label: String = "Chrome") =
+        Intent(ApplicationProvider.getApplicationContext(), LockActivity::class.java)
+            .putExtra(LockActivity.EXTRA_PKG, pkg).putExtra(LockActivity.EXTRA_LABEL, label)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+    /** What the system does when the watcher raises the single-task lock screen again. */
+    private fun newIntent(activity: LockActivity, i: Intent) {
+        val m = android.app.Activity::class.java.getDeclaredMethod("onNewIntent", Intent::class.java)
+        m.isAccessible = true
+        m.invoke(activity, i)
+    }
 }

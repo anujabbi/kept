@@ -118,10 +118,16 @@ class LockViewModel @Inject constructor(
         private set
     private val showingFlow = MutableStateFlow(0)
 
-    /** The lock screen was raised again (`LockActivity.onNewIntent`): recompute everything for it. */
+    /**
+     * The lock screen was raised again (`LockActivity.onNewIntent`): recompute everything for it.
+     * A break screen left open on an earlier showing (break, then Home) is closed without a
+     * "lock_break_cancelled" event, so the new showing starts on the lock screen and a break taken
+     * from it waits its own full minute (review of PR #141).
+     */
     fun onShown() {
         showing += 1
         showingFlow.value = showing
+        breakTimer.cancel()
     }
 
     /** The current state as it may be shown: anything from an earlier showing reads as not loaded yet. */
