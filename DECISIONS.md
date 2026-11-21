@@ -1148,6 +1148,19 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
   so no surface ever says the shield saved a written-off day. Those old rows keep their stored
   streak; nothing is recomputed.
 
+- **The Daybreak launcher icon maps the SVG's canvas onto the visible 72dp (issue #155).** The
+  issue's SVG is drawn on a 108-unit canvas, and the approved preview shows all 108 units under
+  the mask. A launcher shows only the inner 72dp of a 108dp adaptive icon. Taken literally, the
+  raised arms would be cut off and the blush would run about 4dp past the 66dp safe zone. Each
+  layer therefore wraps the SVG in one outer group that scales by 2/3 about the centre. The
+  inner group keeps the SVG's own `translate(13.2 27) scale(0.68)`. The gradient runs over the
+  visible 18–90dp and clamps across the 18dp bleed. The result looks like the approved preview,
+  and every face and flower pixel sits within 33dp of the centre (`LauncherIconTest`). The
+  512px Play icon is the SVG rendered full-bleed, as the issue asks. The monochrome layer cuts
+  out the eyes (as stroke outlines) and the mouth with `evenOdd`, and leaves out the blush. It
+  fills the yellow flower centre and the small gap where the petal, stem and left leaf meet, so
+  the silhouette has no speck there. minSdk is 26, so there are no legacy PNG mipmaps.
+
 - **Each lock window editor asks in its own words (issue #154).** During a lock, Set in "Lock apps
   from" now asks "Your apps are locked right now. Changing when the lock starts opens them early.
   Still change it?" (the planner's proposal, following the give-up copy's pattern; the owner may
