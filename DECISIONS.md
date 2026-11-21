@@ -943,7 +943,11 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     `SavedStateHandle`; a new showing of the lock screen (`onShown`) takes a moment left up down.
     A rotation keeps the moment on screen and shows its end state instead of playing it again.
     While the tick that may finish the day is in flight, the moment stands in for the open state,
-    so the gold open state does not flash for a frame before the moment covers it.
+    so the gold open state does not flash for a frame before the moment covers it. That stand-in
+    only applies while today's moment can still play: a day re-finished after an undo, or one
+    already celebrated in KEPT, goes straight to the open state with no moment at all (review of
+    PR #144). A tap to carry on that lands while that tick is still in flight counts: the moment
+    is not raised again when the claim comes back.
   - *Reduce motion* shows the end state: no petals, no pop, no ring. The ring fades to nothing at
     the end of its animation in both files, so the evolution's "gold ring" is part of the motion;
     the static gold glow under Sprig stays (it sits behind Sprig's body, as in the design).

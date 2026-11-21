@@ -160,10 +160,12 @@ class LockViewModel @Inject constructor(
     private suspend fun afterTick(event: HabitEvent.Completed?) {
         val claimed = event != null && MomentRules.finishedInTime(event.allDoneNow, event.beforeDue) && actions.claimMoment()
         viewModelScope.launch {
-            if (claimed) {
+            // Carried on while the tick was still in flight: the moment has been seen; do not raise it again.
+            if (claimed && !carriedOnEarly) {
                 saved[KEY_MOMENT] = true
                 analytics.screen(Screens.CELEBRATION)
             }
+            carriedOnEarly = false
             finishing = false
         }
     }
@@ -171,13 +173,16 @@ class LockViewModel @Inject constructor(
     /**
      * The last habit left is being ticked: the day may be about to finish. Until [afterTick] knows,
      * the moment stands in for the open state, so the gold open state does not flash up for a
-     * frame before the moment covers it.
+     * frame before the moment covers it. Only when today's moment can still play: once it has
+     * played (here or in KEPT), a re-finished day goes straight to the open state (review of PR #144).
      */
     var finishing by mutableStateOf(false)
         private set
 
     private fun beforeTick() {
-        if (shown(state.value).remaining <= 1) {
+        val now = shown(state.value)
+        val shownDate = now.lock?.settings?.celebrationShownDate
+        if (now.remaining <= 1 && MomentRules.mayPlay(shownDate, time.todayKey())) {
             saved[KEY_MOMENT_INTRO_PLAYED] = false
             finishing = true
         }
@@ -198,8 +203,13 @@ class LockViewModel @Inject constructor(
 
     /** "Tap to carry on" (or Back): the gold open state with "Open {App}" shows. */
     fun carryOn() {
+        if (finishing) carriedOnEarly = true
+        finishing = false
         saved[KEY_MOMENT] = false
     }
+
+    /** "Tap to carry on" came while the finishing tick was still in flight ([finishing]). */
+    private var carriedOnEarly = false
 
     /**
      * `LockActivity` is its own surface: no NavController reaches it, so the two screens it can

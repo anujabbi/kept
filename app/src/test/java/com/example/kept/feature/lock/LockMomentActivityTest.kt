@@ -6,7 +6,9 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
@@ -25,6 +27,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -121,6 +124,50 @@ open class LockMomentActivityTest {
         compose.onAllNodes(hasTestTag("celebration")).fetchSemanticsNodes().let { assertEquals("gone", 0, it.size) }
         if (fontScale == 1f) shot("then_open_font1.0")
         RuntimeEnvironment.setFontScale(1f)
+    }
+
+    /**
+     * Ticks the last habit with the frame clock in hand and checks every frame, until the open state
+     * has shown and settled, that the "Promise kept" moment never appears, not even for a frame
+     * while the tick is in flight (review of PR #144).
+     */
+    private fun tickAndNeverCelebrate(what: String) {
+        compose.mainClock.autoAdvance = false
+        compose.onNodeWithTag("lock_habit_$habitId").performClick()
+        var openFrames = 0
+        var frames = 0
+        while (openFrames < 30) {
+            compose.mainClock.advanceTimeByFrame()
+            Thread.sleep(5)
+            assertEquals("$what: frame $frames shows the moment", 0, compose.onAllNodes(hasTestTag("celebration")).fetchSemanticsNodes().size)
+            if (compose.onAllNodes(hasTestTag("lock_open_app")).fetchSemanticsNodes().isNotEmpty()) openFrames++
+            frames++
+            check(frames < 3_000) { "$what: the open state never showed" }
+        }
+        compose.mainClock.autoAdvance = true
+        compose.onNodeWithTag("lock_open_app").assertTextEquals("Open Chrome")
+    }
+
+    @Test fun finishedAgainOnTheLockScreenAfterAnUndoDoesNotCelebrateAgain() {
+        finishOnTheLockScreen()
+        compose.onNodeWithTag("celebration").performClick()
+        awaitTag("lock_open_app")
+        // Hold to undo in the open state: back to locked.
+        compose.onNodeWithTag("lock_habit_$habitId").performTouchInput { longClick() }
+        compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("lock_open_app")).fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithTag("lock_headline").assertTextEquals("Chrome can wait.")
+        tickAndNeverCelebrate("re-finished on the lock screen")
+    }
+
+    @Test fun aDayCelebratedInKeptThenUndoneDoesNotCelebrateOnTheLockScreen() {
+        runBlocking {
+            actions.complete(habitId)
+            assertTrue("KEPT showed it", actions.claimMoment())
+            actions.undo(habitId)
+        }
+        ActivityScenario.launch<LockActivity>(lockIntent())
+        awaitTag("lock_habit_$habitId")
+        tickAndNeverCelebrate("celebrated in KEPT, finished on the lock screen")
     }
 
     @Test fun keptDoesNotShowItAgainTheSameDay() {
