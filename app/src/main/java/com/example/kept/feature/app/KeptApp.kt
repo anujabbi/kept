@@ -25,7 +25,7 @@ import com.example.kept.core.ui.KeptTab
 import com.example.kept.core.ui.KeptTabBar
 import com.example.kept.core.ui.KeptTheme
 import com.example.kept.feature.celebration.CelebrationHost
-import com.example.kept.feature.gallery.EvolutionRevealScreen
+import com.example.kept.feature.celebration.SprigEvolvesScreen
 import com.example.kept.feature.gallery.GalleryScreen
 import com.example.kept.feature.gallery.RoadmapScreen
 import com.example.kept.feature.home.HomeScreen
@@ -160,7 +160,8 @@ fun KeptApp(startDestination: String, pendingRoute: String?, consumeRoute: () ->
                     composable(Routes.HABITS) { HabitsEditScreen(onBack = { nav.popBackStack() }) }
                     composable(Routes.PERMISSIONS) { PermissionsScreen(onBack = { nav.popBackStack() }) }
                     composable(Routes.REVEAL, arguments = listOf(navArgument("galleryId") { type = NavType.LongType })) {
-                        EvolutionRevealScreen(galleryId = it.arguments!!.getLong("galleryId"), onClose = { nav.popBackStack() })
+                        // "Sprig is now {Form}" (issue #130) replaces the old reveal, at the same moment.
+                        SprigEvolvesScreen(onClose = { nav.popBackStack() })
                     }
                     composable(Routes.ROADMAP) { RoadmapScreen(onBack = { nav.popBackStack() }) }
                 }

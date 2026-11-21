@@ -217,43 +217,26 @@ object RecapMotion {
     const val POP_DELAY_MS = 2000
     const val POP_SCALE = 1.35f
 
-    /** `.petal`: 2.6s each, falling 380dp and turning 320°, 10 × 16dp. */
-    const val PETAL_MS = 2600
-    const val PETAL_COUNT = 14
-    const val PETAL_FALL_DP = 380f
-    const val PETAL_TURN_DEG = 320f
-    const val PETAL_TOP_DP = -24f
-    const val PETAL_W_DP = 10f
-    const val PETAL_H_DP = 16f
+    /**
+     * `.petal`: 14 petals, 2.6s each, falling 380dp and turning 320°, fading out from 80%. The
+     * script: `x = 12 + (i × 53) % 360`, colour `i % 5`, delay `((i × 37) % 11) / 10` s.
+     */
+    val SHOWER = PetalShower.of(
+        count = 14, x0 = 12, xStep = 53, xMod = 360, delayStep = 37, delayMod = 11,
+        durationMs = 2600, fallDp = 380f, turnDeg = 320f, fadeOutFrom = 0.8f,
+    )
 
-    /** `#FF8FB0 #FFFFFF #8B7CF6 #2FA866 #FFF4C2`, as ARGB. */
-    val PETAL_COLOURS = longArrayOf(0xFFFF8FB0, 0xFFFFFFFF, 0xFF8B7CF6, 0xFF2FA866, 0xFFFFF4C2)
-
-    data class Petal(val xDp: Float, val colour: Long, val delayMs: Int)
-
-    /** The design's script: `x = 12 + (i × 53) % 360`, colour `i % 5`, delay `((i × 37) % 11) / 10` s. */
-    val PETALS: List<Petal> = (0 until PETAL_COUNT).map { i ->
-        Petal(12f + (i * 53) % 360, PETAL_COLOURS[i % 5], ((i * 37) % 11) * 100)
-    }
+    val PETALS: List<PetalShower.Petal> get() = SHOWER.petals
 
     /** When the last petal has fallen. */
-    val PETALS_END_MS: Int = PETALS.maxOf { it.delayMs } + PETAL_MS
+    val PETALS_END_MS: Int = SHOWER.endMs
 
     /** Everything is over by then. */
     val END_MS: Int = maxOf(PETALS_END_MS, POP_DELAY_MS + POP_MS, GROW_DELAY_MS + GROW_MS)
 
-    /** A petal's progress through its own fall, 0 to 1, or null before it starts or after it ends. */
-    fun petalProgress(p: Petal, ms: Long): Float? {
-        val t = (ms - p.delayMs).toFloat() / PETAL_MS
-        return if (t < 0f || t > 1f) null else t
-    }
+    fun petalProgress(p: PetalShower.Petal, ms: Long): Float? = SHOWER.progress(p, ms)
 
-    /** `petalFall` opacity: 0 → 1 over the first 10%, 1 to 80%, then back to 0. */
-    fun petalAlpha(t: Float): Float = when {
-        t <= 0.1f -> t / 0.1f
-        t <= 0.8f -> 1f
-        else -> ((1f - t) / 0.2f).coerceAtLeast(0f)
-    }
+    fun petalAlpha(t: Float): Float = SHOWER.alpha(t)
 
     /** The grow's linear progress, 0 to 1 (ease it in the UI). */
     fun growProgress(ms: Long): Float = ((ms - GROW_DELAY_MS).toFloat() / GROW_MS).coerceIn(0f, 1f)

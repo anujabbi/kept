@@ -14,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.kept.core.ui.KeptTheme
+import com.example.kept.core.ui.PromiseKeptMoment
 import dagger.hilt.android.AndroidEntryPoint
 
 /**
@@ -39,6 +40,9 @@ class LockActivity : ComponentActivity() {
             val s = vm.shown(live)
             // The break screen's state lives in the ViewModel, so a rotation keeps it and its countdown.
             val breaking = vm.breakTimer.breaking
+            // A day finished here in time plays "Promise kept" first; carrying on shows the open state.
+            val momentUp by vm.moment.collectAsStateWithLifecycle()
+            val moment = (momentUp || vm.finishing) && s.open && !breaking
 
             // This activity is its own surface, so the screens it shows report themselves. The break
             // screen reports itself once, when it opens (`LockViewModel.startBreak`).
@@ -53,7 +57,13 @@ class LockActivity : ComponentActivity() {
                 if (s.shouldDismiss) goHome()
             }
 
-            BackHandler { if (breaking) vm.cancelBreak() else goHome() }
+            BackHandler {
+                when {
+                    breaking -> vm.cancelBreak()
+                    moment -> vm.carryOn()
+                    else -> goHome()
+                }
+            }
 
             KeptTheme {
                 if (breaking) {
@@ -64,6 +74,14 @@ class LockActivity : ComponentActivity() {
                         onConfirm = { vm.breakLock { goHome() } },
                         playIntro = !vm.breakTimer.introPlayed,
                         onIntroStarted = { vm.breakTimer.markIntroPlayed() },
+                    )
+                } else if (moment) {
+                    PromiseKeptMoment(
+                        form = s.sprig.form,
+                        streakDays = s.sprig.streakDays,
+                        onCarryOn = { vm.carryOn() },
+                        playIntro = vm.momentIntroPending,
+                        onIntroStarted = { vm.momentIntroStarted() },
                     )
                 } else {
                     LockScreen(

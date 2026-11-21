@@ -38,6 +38,11 @@ data class Settings(
      */
     val celebrationPendingDate: String? = null,
     /**
+     * ISO date the "Promise kept" moment last played, in KEPT or on the lock screen (issue #130).
+     * It plays once per day across both: see `MomentRules`.
+     */
+    val celebrationShownDate: String? = null,
+    /**
      * "Send anonymous usage data" (issue #10). On by default; off calls `PostHog.optOut()` and
      * mutes the wrapper. Stored here rather than read back from the SDK so the Settings switch has
      * a flow to follow and so the preference survives a build with no project token.
@@ -66,6 +71,7 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
         val HEARTBEAT = longPreferencesKey("service_heartbeat")
         val PENDING_RECAP = stringPreferencesKey("pending_recap_date")
         val PENDING_CELEBRATION = stringPreferencesKey("pending_celebration_date")
+        val SHOWN_CELEBRATION = stringPreferencesKey("shown_celebration_date")
         val ANALYTICS = booleanPreferencesKey("analytics_enabled")
         val FIRST_LANDING_PENDING = booleanPreferencesKey("first_landing_pending")
 
@@ -91,6 +97,7 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
         lastServiceHeartbeat = this[K.HEARTBEAT] ?: 0L,
         pendingRecapDate = this[K.PENDING_RECAP],
         celebrationPendingDate = this[K.PENDING_CELEBRATION],
+        celebrationShownDate = this[K.SHOWN_CELEBRATION],
         analyticsEnabled = this[K.ANALYTICS] ?: true,
         firstLandingPending = this[K.FIRST_LANDING_PENDING] ?: false,
     )
@@ -126,6 +133,7 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
             p[K.HEARTBEAT] = n.lastServiceHeartbeat
             if (n.pendingRecapDate == null) p.remove(K.PENDING_RECAP) else p[K.PENDING_RECAP] = n.pendingRecapDate
             if (n.celebrationPendingDate == null) p.remove(K.PENDING_CELEBRATION) else p[K.PENDING_CELEBRATION] = n.celebrationPendingDate
+            if (n.celebrationShownDate == null) p.remove(K.SHOWN_CELEBRATION) else p[K.SHOWN_CELEBRATION] = n.celebrationShownDate
             p[K.ANALYTICS] = n.analyticsEnabled
             p[K.FIRST_LANDING_PENDING] = n.firstLandingPending
         }

@@ -1,9 +1,5 @@
 package com.example.kept.feature.gallery
 
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,7 +10,6 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -34,20 +29,16 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
@@ -62,7 +53,6 @@ import com.example.kept.core.ui.KeptTheme
 import com.example.kept.core.ui.Pill
 import com.example.kept.core.ui.PrimaryButton
 import com.example.kept.core.ui.ScreenTitle
-import com.example.kept.core.ui.SecondaryButton
 import com.example.kept.core.ui.SectionLabel
 import com.example.kept.core.ui.sprig.ShareCard
 import com.example.kept.core.ui.sprig.SprigSpec
@@ -72,7 +62,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
@@ -172,48 +161,6 @@ fun FormCard(form: SprigForm, unlocked: Boolean, caption: String, onClick: () ->
         Spacer(Modifier.height(6.dp))
         Text(form.displayName, style = MaterialTheme.typography.titleSmall, color = if (unlocked) c.textPrimary else c.textMuted)
         Text(caption, style = MaterialTheme.typography.labelMedium, color = c.textMuted)
-    }
-}
-
-/** Full-screen reveal shown once when a form is unlocked. */
-@HiltViewModel
-class RevealViewModel @Inject constructor(private val repo: SprigRepository, saved: SavedStateHandle) : ViewModel() {
-    private val id: Long = saved.get<Long>("galleryId") ?: 0
-    val card = repo.gallery.map { list -> list.firstOrNull { it.id == id } }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
-    fun seen() = viewModelScope.launch { repo.markSeen(id) }
-}
-
-@Composable
-fun EvolutionRevealScreen(galleryId: Long, onClose: () -> Unit, vm: RevealViewModel = hiltViewModel()) {
-    val card by vm.card.collectAsStateWithLifecycle()
-    val c = KeptTheme.colors
-    val ctx = LocalContext.current
-    var revealed by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { vm.seen(); kotlinx.coroutines.delay(250); revealed = true }
-    val scale by animateFloatAsState(if (revealed) 1f else 0.4f, spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessLow), label = "reveal")
-    val alpha by animateFloatAsState(if (revealed) 1f else 0f, tween(500), label = "alpha")
-    val card0 = card ?: return
-
-    Column(Modifier.fillMaxSize().background(c.purple50).statusBarsPadding().navigationBarsPadding().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Spacer(Modifier.weight(1f))
-        Pill("New form", background = c.purple100, foreground = c.purple900)
-        Spacer(Modifier.height(18.dp))
-        SprigView(card0.form, SprigPose.CHEER, Modifier.size(240.dp).scale(scale))
-        Spacer(Modifier.height(18.dp))
-        Column(Modifier.alpha(alpha), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Sprig became ${card0.form.displayName}", style = MaterialTheme.typography.headlineMedium, color = c.purple900, textAlign = TextAlign.Center)
-            Spacer(Modifier.height(6.dp))
-            Text(card0.form.tagline, style = MaterialTheme.typography.bodyLarge, color = c.purple600, textAlign = TextAlign.Center)
-            Spacer(Modifier.height(4.dp))
-            Text("It's yours to keep.", style = MaterialTheme.typography.bodySmall, color = c.textSecondary, textAlign = TextAlign.Center)
-        }
-        Spacer(Modifier.weight(1f))
-        PrimaryButton("Show it off", onClick = {
-            ShareCard.share(ctx, ShareCard.Content(SprigSpec(card0.form, SprigPose.CHEER), "Sprig became ${card0.form.displayName}", "${card0.streakAtUnlock} days kept"))
-        })
-        Spacer(Modifier.height(8.dp))
-        SecondaryButton("Keep going", onClick = onClose)
     }
 }
 

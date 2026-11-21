@@ -771,21 +771,20 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
 - **Lock screen in Daybreak (issue #127).** Built from `A3-Lock`; the pure rules are
   `core/domain/LockLayout.kt` (`LockMode`, `LockCopy`, `LockSprig`). Where the issue or the design
   leaves something open:
-  - *Finishing the day on the lock screen: the open state is today's "Promise kept" moment.*
-    Decided by the orchestrator on the owner's behalf (option (c) of the review on PR #140),
-    pending the owner's review. Since issue #9 the lock screen went to Home when the last habit was
-    ticked, so the celebration showed at once. Now a day finished in time turns the lock screen into
-    its gold open state ("{App} is open.", "Promise kept. Enjoy it.", Sprig cheering), and
-    "Open {App}" launches the locked app. That screen is the day's moment: a tick from the lock
-    screen (`HabitActions.complete(momentShown = true)`) that finishes the day in time leaves no
-    `celebrationPendingDate`, so KEPT does not celebrate the same day again later. The day still
-    counts in full: `day_completed` is reported and the level is granted. No "Apps are open.
-    Promise kept." notification is posted, because the lock screen is in the foreground when the
-    day finishes, as before. A day finished in KEPT keeps the #9 behaviour. Undoing and finishing
-    again in KEPT celebrates there. A day that ends up all ticked but after the give-up time has
-    nothing to celebrate, so the screen dismisses to the launcher, as it does for a break, an
-    exception or the window ending. Undoing a tick in the open state (hold) takes the screen back
-    to locked.
+  - *Finishing the day on the lock screen.* The interim choice here (the gold open state stood in
+    for the "Promise kept" moment, so no full-screen moment ever showed for that day) was replaced
+    by the **owner's decision of 2026-11-21 (issue #130): the full-screen celebration also plays
+    when the day is finished on the lock screen.** A day finished in time on the lock screen now
+    plays the same full-screen "Promise kept" moment inside `LockActivity`; tapping to carry on
+    reveals the gold open state ("{App} is open.", "Promise kept. Enjoy it.", "Open {App}"). The
+    moment plays once per day across KEPT and the lock screen (`HabitActions.claimMoment`, see
+    #130 below), so KEPT does not show it again later. A tick from the lock screen still leaves no
+    `celebrationPendingDate` (`complete(momentShown = true)`). The day counts in full:
+    `day_completed` is reported and the level is granted. No "Apps are open. Promise kept."
+    notification is posted, because the lock screen is in the foreground when the day finishes. A
+    day that ends up all ticked but after the give-up time has nothing to celebrate, so the screen
+    dismisses to the launcher, as it does for a break, an exception or the window ending. Undoing a
+    tick in the open state (hold) takes the screen back to locked.
   - *A lock screen left in its open state does not flash stale.* If the user leaves the gold
     screen with Home instead of "Open {App}", the activity stays in its task. When the watcher
     raises it again (`onNewIntent`), maybe the next day, `LockViewModel.onShown()` counts a new
@@ -923,3 +922,47 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     two share a baseline with at least 12dp between them, or the count goes under the line. The two
     stat values take one size (the one that fits the wider value), so their labels start level when
     "locks broken" wraps at large fonts.
+- **Promise kept and Sprig evolves in Daybreak (issue #130).** Built from `A16-Celebrate` and
+  `A17-Evolve`; the pure rules are `core/domain/Moments.kt` (`MomentRules`, `CelebrationCopy`,
+  `EvolveCopy`, `MomentMotion`, `MomentFit`). Where the build departs from or fills gaps in the
+  design:
+  - *Once per day, strictly.* A new setting, `celebrationShownDate`, records the day the moment
+    last played on either surface. Whoever shows it first (KEPT's `CelebrationViewModel.begin` or
+    the lock screen after the finishing tick) claims it with `HabitActions.claimMoment`; nobody
+    else shows it that day. This is stricter than before for KEPT alone: finishing, undoing and
+    finishing again in KEPT no longer celebrates twice. The issue says "It plays once per day".
+  - *It no longer leaves on its own.* The #9 overlay disappeared after 2.6s; the design's copy is
+    "Tap to carry on" and the petals run for 4s, so it now waits for a tap (anywhere, Sprig
+    included: the tap is read before Sprig, so Sprig still hops under the finger) or Back. It also
+    no longer lists the habits (not in the design).
+  - *"Day {n}"* is `streakDays + 1` (the streak counts today at rollover), so a first kept day reads
+    "Day 1 of your streak." The #9 overlay dropped the sentence at a streak of 0; the design always
+    shows it.
+  - *Per-showing state.* KEPT: whether the moment is up and whether its motion has played are in
+    `CelebrationViewModel`'s `SavedStateHandle`. Lock screen: the same, in `LockViewModel`'s
+    `SavedStateHandle`; a new showing of the lock screen (`onShown`) takes a moment left up down.
+    A rotation keeps the moment on screen and shows its end state instead of playing it again.
+    While the tick that may finish the day is in flight, the moment stands in for the open state,
+    so the gold open state does not flash for a frame before the moment covers it.
+  - *Reduce motion* shows the end state: no petals, no pop, no ring. The ring fades to nothing at
+    the end of its animation in both files, so the evolution's "gold ring" is part of the motion;
+    the static gold glow under Sprig stays (it sits behind Sprig's body, as in the design).
+  - *Fit.* Sprig keeps the design's 260 / 280dp when the screen allows and shrinks to the room the
+    text leaves (down to 110dp, still interactive) on a short screen or at a large font; past that
+    the page scrolls. "Promise kept"'s block is centred as in the design but never runs into "Tap
+    to carry on". The evolution's buttons use 10dp side padding (as the recap's) and its top 72dp
+    is measured below the status bar. Petals are drawn behind the text and Sprig.
+  - *Petals.* The recap's petal drawing moved to `core/ui/Petals.kt` with its maths in
+    `core/domain/PetalShower.kt`; the recap and both moments use it with their own script values
+    (the moments: 18 petals, 2.8s, 860dp, 360°, fading out from 85%).
+  - *Outfit names.* The evolution uses the issue's shorter descriptions (`EvolveCopy.outfit`: "a red
+    scarf", "round glasses and a beard", "a starry cape and a halo"); `SprigOutfit.description` is
+    unchanged.
+  - *Share* uses the existing share card with "Sprig is now {Form}" and "{n} days kept". The
+    evolution keeps the old reveal's route and trigger (`Routes.REVEAL`, an unseen gallery entry
+    found by Home) and marks the entry seen as it opens.
+  - *TalkBack.* Each moment is a pane titled with its headline, and the headline is a polite live
+    region, so it is announced when it appears. "Tap to carry on" is a button, and the whole gold
+    pane has a "Carry on" click action.
+  - *Removed:* `Confetti.kt`, the teal overlay and the old `EvolutionRevealScreen` ("New form",
+    "Sprig became {Form}", "Show it off", "Keep going").
