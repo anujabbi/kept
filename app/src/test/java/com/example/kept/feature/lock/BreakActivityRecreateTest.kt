@@ -13,11 +13,15 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import com.example.kept.core.data.HabitRepository
 import com.example.kept.core.data.prefs.KeptPreferences
+import com.example.kept.core.di.ApplicationScope
+import com.example.kept.core.di.drainAndCancel
 import com.example.kept.core.domain.ProofType
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.HiltTestApplication
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.runBlocking
+import org.junit.After
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -46,6 +50,10 @@ class BreakActivityRecreateTest {
 
     @Inject lateinit var prefs: KeptPreferences
     @Inject lateinit var habits: HabitRepository
+    @Inject @ApplicationScope lateinit var appScope: CoroutineScope
+
+    /** No tick's write may land in the next test: the preferences outlive it (issue #146). */
+    @After fun drainAppScope() = appScope.drainAndCancel()
 
     @Before fun setUp() {
         hilt.inject()
