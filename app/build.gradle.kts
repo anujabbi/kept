@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
+    alias(libs.plugins.roborazzi)
 }
 
 val posthogProperties = Properties().apply {
@@ -94,10 +95,17 @@ android {
     }
     testOptions {
         unitTests.isReturnDefaultValues = true
+        // Robolectric screenshot tests (Roborazzi) need the merged resources: fonts, strings.
+        unitTests.isIncludeAndroidResources = true
     }
     sourceSets {
         getByName("androidTest").assets.srcDirs("$projectDir/schemas")
     }
+}
+
+// Screenshot goldens live with the tests so a PR diff shows every changed image.
+roborazzi {
+    outputDir.set(file("src/test/screenshots"))
 }
 
 ksp {
@@ -144,6 +152,12 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.turbine)
     testImplementation(libs.coroutines.test)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.roborazzi)
+    testImplementation(libs.roborazzi.compose)
+    testImplementation(libs.roborazzi.junit.rule)
+    testImplementation(platform(libs.compose.bom))
+    testImplementation(libs.compose.ui.test.junit4)
 
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)

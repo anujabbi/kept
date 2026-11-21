@@ -73,6 +73,7 @@ import com.example.kept.core.ui.KeptCard
 import com.example.kept.core.ui.KeptTheme
 import com.example.kept.core.ui.Pill
 import com.example.kept.core.ui.QuietButton
+import com.example.kept.core.ui.rememberHaptics
 import com.example.kept.core.ui.SectionLabel
 import com.example.kept.core.ui.ThinProgress
 import com.example.kept.core.ui.WeekDots
@@ -283,7 +284,7 @@ private fun SprigPanel(s: HomeUiState, onOpenRoadmap: () -> Unit) {
                 val prev = s.form.streakThreshold
                 val next = s.nextForm!!.streakThreshold
                 val frac = ((s.sprig.streakDays - prev).toFloat() / (next - prev).toFloat()).coerceIn(0.02f, 1f)
-                ThinProgress(frac, Modifier.fillMaxWidth(0.6f), color = if (allDone) c.teal600 else c.purple400, track = Color.White.copy(alpha = if (c.isDark) 0.08f else 0.6f), height = 4.dp)
+                ThinProgress(frac, Modifier.fillMaxWidth(0.6f), color = if (allDone) c.teal600 else c.purple400, track = Color.White.copy(alpha = 0.6f), height = 4.dp)
             }
         }
     }
@@ -300,10 +301,14 @@ fun HabitRow(
 ) {
     val c = KeptTheme.colors
     val ctx = LocalContext.current
+    val haptics = rememberHaptics()
     var pendingPhoto by remember { mutableStateOf<File?>(null) }
     val takePicture = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
         val f = pendingPhoto
-        if (ok && f != null) onPhoto(f.absolutePath)
+        if (ok && f != null) {
+            haptics.habitTicked()
+            onPhoto(f.absolutePath)
+        }
         pendingPhoto = null
     }
     val cameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -317,7 +322,10 @@ fun HabitRow(
     val onClick: () -> Unit = {
         when {
             h.isDone -> Unit
-            h.habit.proofType == ProofType.MANUAL -> onComplete()
+            h.habit.proofType == ProofType.MANUAL -> {
+                haptics.habitTicked()
+                onComplete()
+            }
             h.habit.proofType == ProofType.PHOTO -> cameraPermission.launch(android.Manifest.permission.CAMERA)
         }
     }

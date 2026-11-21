@@ -619,3 +619,30 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
   notifications is missing it says reminders, the recap and the "Lock is off" warning will not
   arrive, since claiming nothing locks there would be false. Home's card now names the missing
   permission(s) instead of "A required permission". Covered by `RequiredPermissionsTest`.
+
+- **Daybreak foundation (issue #123).**
+  - *Screenshot tests run on the JVM.* The design and agent sessions have no emulator, so visual
+    checks are Roborazzi 1.36 on Robolectric 4.14 (native graphics, `sdk = [34]` because 4.14 has
+    no API 36 runtime), with goldens committed in `app/src/test/screenshots/`. They complement the
+    device walk; they do not replace it for haptics, TalkBack speech or system UI.
+  - *Fonts are static cuts of the variable font.* `google/fonts` ships only
+    `BricolageGrotesque[opsz,wdth,wght].ttf`, so the bundled 500/600/700/800 TTFs were instanced
+    from it with fontTools at width 100 and optical size 14 (`bricolage_grotesque_*`), plus one
+    ExtraBold at optical size 40 (`bricolage_grotesque_display_extrabold`) for the display,
+    headline, page title and timer roles. This keeps the browser's automatic optical sizing close
+    enough without shipping the 400KB variable file. Regular (400) is not bundled; Material styles
+    that asked for it now use Medium (500), the spec's body weight.
+  - *Old colour names stay as aliases.* `KeptColors` keeps its field names (`surface1`,
+    `textSecondary`, `purple600`…) but every one now points at the closest Daybreak token
+    (`DaybreakColors`), so existing screens pick up the new palette without being re-laid out.
+    Teal has no Daybreak equivalent and maps to the green tokens; `pink100` (confetti only) is
+    Sprig's flower pink until the Sprig story. The aliases go as each later story moves its screen
+    onto `DaybreakColors`. The existing Primary/Secondary/Quiet buttons were restyled in place for
+    the same reason.
+  - *Tokens beyond the spec table.* The design source uses a few colours the spec's table does
+    not list (banner text colours, the chip ink `#3A2FA0`, the late-row ground `#F6F2EC`, sky text
+    `#FFF4E4`, the lock-off and too-late recap skies); they are named tokens too.
+  - *Status bar icons from the sky.* `SkyScaffold` sets light icons on skies darker than
+    luminance 0.2, which matches the Home ramp's halfway rule at every step (`SkyRampTest`);
+    callers on a ramp pass `SkyRamp.homeTextIsLight`/`lockTextIsLight` explicitly. The newest
+    screen's request wins, so navigation transitions do not leave the wrong icons behind.
