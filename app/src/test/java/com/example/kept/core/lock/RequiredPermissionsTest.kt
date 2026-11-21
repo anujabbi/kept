@@ -61,6 +61,17 @@ class RequiredPermissionsTest {
         assertEquals("usage access, display over other apps and notifications", RequiredPermissions.names(m))
     }
 
+    /** Onboarding step 4's tags (#132): "On" once granted, else by what the permission is for. */
+    @Test fun `each card's tag`() {
+        for (k in RequiredPermissions.onboardingGate) {
+            assertEquals("Required", RequiredPermissions.tag(k, granted = false))
+            assertEquals("On", RequiredPermissions.tag(k, granted = true))
+        }
+        assertEquals("Recommended", RequiredPermissions.tag(PermissionKind.BATTERY, granted = false))
+        assertEquals("For photo habits", RequiredPermissions.tag(PermissionKind.CAMERA, granted = false))
+        assertEquals("On", RequiredPermissions.tag(PermissionKind.CAMERA, granted = true))
+    }
+
     @Test fun `the lock gate is usage access and overlay only`() {
         // Decision (issue #40): a denied notification permission is not a protection gap, the
         // foreground service still enforces the lock without its visible notification.

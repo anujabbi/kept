@@ -64,6 +64,14 @@ object DaybreakColors {
     val tideInk = Color(0xFF2A3A5C)
     /** Text of the "{Next} in {n} days" pill on the Tide sky (`A6-Collection`). */
     val tidePill = Color(0xFF1F4F8A)
+    /** "Always open" chips and the "On" permission tag (`A12-Exceptions`, `A13-Permissions`). */
+    val openTint = Color(0xFFEAF5EE)
+    /** Text of those chips and tags, and "Stays open" under an excepted app. */
+    val openInk = Color(0xFF1F6B3F)
+    /** Border of a permission card that is required and not granted (`A13-Permissions`). */
+    val requiredRing = Color(0xFFF5D9A8)
+    /** The shield rule's icon tile (`A14-Onb-Ready`). */
+    val shieldTile = Color(0xFFE3EEFB)
 }
 
 /** The top band of each screen. See [SkyRamp] for which one a screen shows. */

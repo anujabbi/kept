@@ -4,10 +4,11 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.kept.core.data.HabitRepository
@@ -40,35 +41,46 @@ class OnboardingFlowTest {
 
     @Test fun onboarding_completes_and_persists() {
         ActivityScenario.launch(MainActivity::class.java).use {
-            compose.waitUntil(10_000) { compose.onAllNodes(androidx.compose.ui.test.hasTestTag("onboarding_habits")).fetchSemanticsNodes().isNotEmpty() }
+            // Welcome first (#132), then step 1.
+            compose.waitUntil(10_000) { compose.onAllNodes(androidx.compose.ui.test.hasTestTag("onboarding_welcome")).fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithText("Habits first. Phone after.").assertIsDisplayed()
+            compose.onNodeWithTag("welcome_start").performClick()
+            compose.waitUntil(5_000) { compose.onAllNodes(androidx.compose.ui.test.hasTestTag("onboarding_habits")).fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText("Exercise").assertIsDisplayed()
+            compose.onNodeWithContentDescription("Step 1 of 5").assertExists()
             // Past the old cap of four (issue #38): tick every template, six in all, and the
-            // Custom row must still be offered because the cap is now ten.
-            listOf("Practice", "Study", "Tidy room", "Sleep by 11").forEach { compose.onNodeWithText(it).performScrollTo().performClick() }
-            compose.onNodeWithText("Custom").performScrollTo().assertIsDisplayed()
+            // "Add your own" row must still be offered because the cap is now ten.
+            listOf("Practice", "Study", "Tidy room", "Sleep by 11").forEach {
+                compose.onNodeWithTag("page_body").performScrollToNode(androidx.compose.ui.test.hasTestTag("onboarding_habit_$it"))
+                compose.onNodeWithTag("onboarding_habit_$it").performClick()
+            }
+            compose.onNodeWithTag("page_body").performScrollToNode(androidx.compose.ui.test.hasTestTag("onboarding_add_own"))
+            compose.onNodeWithTag("onboarding_add_own").assertIsDisplayed()
             compose.onNodeWithTag("onboarding_habit_limit").assertDoesNotExist()
-            compose.onNodeWithText("1 of 4").assertIsDisplayed()
-            compose.onNodeWithTag("onboarding_next").performClick()          // habits -> exceptions
+            compose.onNodeWithTag("onboarding_habit_count").assertTextEquals("6 habits picked")
+            compose.onNodeWithTag("onboarding_next").performClick()          // habits -> lock window
+            compose.waitUntil(5_000) { compose.onAllNodes(androidx.compose.ui.test.hasTestTag("onboarding_lock_window")).fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithTag("lock_from_value").assertTextEquals("7:00\u00A0am")
+            compose.onNodeWithTag("onboarding_next").performClick()          // lock window -> exceptions
             compose.waitUntil(5_000) { compose.onAllNodes(androidx.compose.ui.test.hasTestTag("onboarding_exceptions")).fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithTag("onboarding_next").performClick()          // exceptions -> permissions
             compose.waitUntil(5_000) { compose.onAllNodes(androidx.compose.ui.test.hasTestTag("onboarding_permissions")).fetchSemanticsNodes().isNotEmpty() }
             // A fresh emulator denies usage access, overlay and POST_NOTIFICATIONS alike, so the
             // three-permission gate (issue #40) holds the button back and the line names all three.
-            compose.onNodeWithTag("onboarding_next").performScrollTo().assertTextEquals("Continue without the lock")
-            compose.onNodeWithTag("onboarding_permissions_warning").performScrollTo()
+            compose.onNodeWithTag("onboarding_next").assertTextEquals("Continue without the lock")
+            compose.onNodeWithTag("onboarding_permissions_warning")
                 .assert(androidx.compose.ui.test.hasText("notifications", substring = true))
                 .assert(androidx.compose.ui.test.hasText("usage access", substring = true))
-            // The permissions step is a scrolling column and its copy is long enough to push the
-            // button below the fold on a short screen; scroll to it rather than clicking blind.
-            compose.onNodeWithTag("onboarding_next").performScrollTo().performClick() // permissions -> meet sprig
+            // The button sits in a fixed footer (#132), so it is always on screen.
+            compose.onNodeWithTag("onboarding_next").performClick()          // permissions -> how Sprig works
             compose.waitUntil(5_000) { compose.onAllNodes(androidx.compose.ui.test.hasTestTag("onboarding_sprig")).fetchSemanticsNodes().isNotEmpty() }
-            compose.onNodeWithText("4 of 4").assertIsDisplayed()
-            compose.onNodeWithTag("onboarding_finish").performScrollTo().performClick()
+            compose.onNodeWithContentDescription("Step 5 of 5").assertExists()
+            compose.onNodeWithTag("onboarding_finish").performClick()
             compose.waitUntil(10_000) { compose.onAllNodesWithText("Today").fetchSemanticsNodes().isNotEmpty() }
 
             val settings = runBlocking { prefs.currentSettings() }
             assertTrue(settings.onboardingDone)
-            // No rule step any more (issue #37): the lock window and break length are the defaults.
+            // The lock window step was not touched (#132), so the window and break length are the defaults.
             assertEquals(7 * 60, settings.lockFromMinute)
             assertEquals(21 * 60, settings.dueMinute)
             assertEquals(30, settings.breakDurationMin)

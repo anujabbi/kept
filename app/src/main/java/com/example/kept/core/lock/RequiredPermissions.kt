@@ -48,6 +48,17 @@ object RequiredPermissions {
             "Without notifications there are no reminders, no daily recap, and no warning if the lock stops. You can grant it later in Settings."
     }
 
+    /**
+     * The tag beside a permission card's name (spec, Onboarding step 4): "On" once granted, else
+     * "Required" for the onboarding gate, "For photo habits" for the camera, "Recommended" for the rest.
+     */
+    fun tag(kind: PermissionKind, granted: Boolean): String = when {
+        granted -> "On"
+        kind in onboardingGate -> "Required"
+        kind == PermissionKind.CAMERA -> "For photo habits"
+        else -> "Recommended"
+    }
+
     /** Body of Home's "Lock is off" card; [missing] is non-empty and drawn from [lockGate]. */
     fun lockOffBody(missing: List<PermissionKind>): String {
         val plural = missing.size > 1

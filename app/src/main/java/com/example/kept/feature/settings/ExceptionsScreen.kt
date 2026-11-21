@@ -1,118 +1,250 @@
 package com.example.kept.feature.settings
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.kept.core.ui.InfoBox
-import com.example.kept.core.ui.KeptCard
-import com.example.kept.core.ui.KeptTheme
-import com.example.kept.core.ui.Pill
-import com.example.kept.core.ui.SectionLabel
+import com.example.kept.core.domain.OnboardingCopy
+import com.example.kept.core.ui.DaybreakColors
+import com.example.kept.core.ui.DaybreakIcons
+import com.example.kept.core.ui.DaybreakType
+import com.example.kept.core.ui.KeptSwitch
+import com.example.kept.core.ui.PageHeader
+import com.example.kept.core.ui.PrimaryButton
+import com.example.kept.core.ui.StepPage
 
-@OptIn(ExperimentalLayoutApi::class)
+private val D = DaybreakColors
+
+/** Which page a shared body is drawn for: an onboarding step, or its Settings page. */
+enum class BodyMode { ONBOARDING, SETTINGS }
+
+/** "What stays open?" is onboarding step 3. */
+const val EXCEPTIONS_STEP = 3
+
+/** Settings → What stays open (`A12-Exceptions-settings`): the shared body in settings mode. */
 @Composable
-fun ExceptionsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel(), embedded: Boolean = false) {
+fun ExceptionsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel()) =
+    ExceptionsBody(BodyMode.SETTINGS, onBack = onBack, vm = vm)
+
+/**
+ * "What stays open?" (`A12-Exceptions`, prop `mode`): the device's always-open apps as chips,
+ * then a search field and every app the person may except, each a row with a switch. Reads and
+ * writes the real exceptions through [SettingsViewModel]; adding one during an active lock
+ * still asks first ([LockChangeConfirmDialog]).
+ */
+@Composable
+fun ExceptionsBody(mode: BodyMode, onBack: () -> Unit, onContinue: () -> Unit = {}, vm: SettingsViewModel = hiltViewModel()) {
     val apps by vm.apps.collectAsStateWithLifecycle()
     val hard by vm.hardAllowlistLabels.collectAsStateWithLifecycle()
-    val c = KeptTheme.colors
-    var query by remember { mutableStateOf("") }
+    var query by rememberSaveable { mutableStateOf("") }
     LaunchedEffect(Unit) { vm.loadApps() }
-
-    val list = apps ?: emptyList()
-    val allowedCount = list.count { it.allowed }
-    val filtered = orderForPicker(list, query)
-
-    LazyColumn(Modifier.fillMaxSize().then(if (embedded) Modifier else Modifier.statusBarsPadding()), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 8.dp)) {
-        item {
-            if (!embedded) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back", tint = c.textSecondary) }
-                    Column {
-                        Text("What stays open", style = MaterialTheme.typography.titleLarge, color = c.textPrimary)
-                        Text(if (allowedCount == 0) "Everything locks until habits are done" else "$allowedCount exception${if (allowedCount == 1) "" else "s"}", style = MaterialTheme.typography.bodySmall, color = c.textSecondary)
-                    }
-                }
-                Spacer(Modifier.height(10.dp))
-            }
-            SectionLabel("Always available")
-            Spacer(Modifier.height(8.dp))
-            KeptCard(background = c.surface1, border = null) {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    val labels = if (hard.isEmpty()) listOf("Phone", "Messages", "Maps", "Camera", "Settings", "Clock") else hard
-                    labels.take(14).forEach { Pill(it, background = c.surface2, foreground = c.textPrimary) }
-                    if (labels.size > 14) Pill("+${labels.size - 14} more", background = c.surface2, foreground = c.textMuted)
-                }
-                Spacer(Modifier.height(8.dp))
-                Text("These can't be locked, by design. Emergency calls always work.", style = MaterialTheme.typography.bodySmall, color = c.textMuted)
-            }
-            Spacer(Modifier.height(18.dp))
-            SectionLabel("Your exceptions", trailing = "Keep this list short")
-            Spacer(Modifier.height(8.dp))
-            OutlinedTextField(
-                value = query, onValueChange = { query = it }, modifier = Modifier.fillMaxWidth(), singleLine = true,
-                placeholder = { Text("Search apps") },
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = c.blue400, unfocusedBorderColor = c.border),
-            )
-            Spacer(Modifier.height(8.dp))
-            if (apps == null) InfoBox("Loading your apps…")
-        }
-        items(filtered, key = { it.app.packageName }) { p ->
-            Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                AppIcon(p.app.packageName)
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(p.app.label, style = MaterialTheme.typography.bodyMedium, color = c.textPrimary)
-                    Text(if (p.allowed) "Stays open" else "Locked", style = MaterialTheme.typography.bodySmall, color = if (p.allowed) c.teal600 else c.textMuted)
-                }
-                Switch(checked = p.allowed, onCheckedChange = { vm.requestToggleException(p.app, it) }, colors = SwitchDefaults.colors(checkedTrackColor = c.teal600))
-            }
-        }
-        item { Spacer(Modifier.height(24.dp)) }
-    }
-
+    ExceptionsContent(
+        mode = mode,
+        alwaysOpen = hard,
+        apps = apps,
+        query = query,
+        onQuery = { query = it },
+        onToggle = { p, allow -> vm.requestToggleException(p.app, allow) },
+        onBack = onBack,
+        onContinue = onContinue,
+    )
     LockChangeConfirmDialog(vm)
 }
 
+/** [ExceptionsBody] without the ViewModel, so tests can render it. [apps] is null while loading. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AppIcon(pkg: String) {
-    val ctx = androidx.compose.ui.platform.LocalContext.current
-    val bmp: androidx.compose.ui.graphics.ImageBitmap? = remember(pkg) {
+internal fun ExceptionsContent(
+    mode: BodyMode,
+    alwaysOpen: List<String>,
+    apps: List<PickableApp>?,
+    query: String,
+    onQuery: (String) -> Unit,
+    onToggle: (PickableApp, Boolean) -> Unit,
+    onBack: () -> Unit,
+    onContinue: () -> Unit,
+) {
+    val list = apps ?: emptyList()
+    val open = list.count { it.allowed }
+    val rows = orderForPicker(list, query)
+    val onboarding = mode == BodyMode.ONBOARDING
+    StepPage(
+        header = if (onboarding) PageHeader.Progress(EXCEPTIONS_STEP, OnboardingCopy.STEPS, onBack) else PageHeader.Back(onBack),
+        title = OnboardingCopy.EXCEPTIONS_TITLE,
+        line = OnboardingCopy.EXCEPTIONS_LINE,
+        modifier = Modifier.testTag(if (onboarding) "onboarding_exceptions" else "settings_exceptions"),
+        footer = if (onboarding) {
+            { PrimaryButton(OnboardingCopy.CONTINUE, onClick = onContinue, modifier = Modifier.testTag("onboarding_next")) }
+        } else null,
+        bodySpacing = 0.dp,
+    ) {
+        item(key = "always") {
+            Column(Modifier.padding(bottom = 18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(OnboardingCopy.ALWAYS_OPEN, Modifier.padding(horizontal = 4.dp), style = DaybreakType.body, fontWeight = FontWeight.Bold, color = D.muted)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    val labels = alwaysOpen.ifEmpty { OnboardingCopy.ALWAYS_OPEN_DEFAULT }
+                    labels.take(MAX_CHIPS).forEach { AlwaysOpenChip(it) }
+                    if (labels.size > MAX_CHIPS) AlwaysOpenChip("+${labels.size - MAX_CHIPS} more")
+                }
+            }
+        }
+        item(key = "exceptions_head") {
+            Column(Modifier.padding(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(
+                    Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Text(OnboardingCopy.YOUR_EXCEPTIONS, style = DaybreakType.body, fontWeight = FontWeight.Bold, color = D.muted)
+                    Text(OnboardingCopy.appsOpen(open), Modifier.testTag("exceptions_count"), style = DaybreakType.caption, fontWeight = FontWeight.SemiBold, color = D.muted)
+                }
+                SearchField(query, onQuery)
+                if (apps == null) Text("Loading your apps…", Modifier.padding(horizontal = 4.dp, vertical = 8.dp), style = DaybreakType.caption, color = D.muted)
+            }
+        }
+        items(rows, key = { it.app.packageName }) { p ->
+            AppRow(p, first = p === rows.first(), last = p === rows.last(), onToggle = { onToggle(p, it) })
+        }
+    }
+}
+
+private const val MAX_CHIPS = 14
+
+/** 32dp, radius 16, green tint, `#1F6B3F` 13/700. */
+@Composable
+private fun AlwaysOpenChip(label: String) {
+    Box(
+        Modifier.heightIn(min = 32.dp).clip(RoundedCornerShape(16.dp)).background(D.openTint).padding(horizontal = 12.dp, vertical = 6.dp),
+        contentAlignment = Alignment.Center,
+    ) { Text(label, style = DaybreakType.caption, fontWeight = FontWeight.Bold, color = D.openInk, maxLines = 1) }
+}
+
+/** 48dp, radius 16, white with a 1.5dp `#E6DCCE` border, a faint magnifier and "Search apps". */
+@Composable
+private fun SearchField(query: String, onQuery: (String) -> Unit) {
+    val shape = RoundedCornerShape(16.dp)
+    val style = DaybreakType.body.copy(color = D.ink)
+    BasicTextField(
+        value = query,
+        onValueChange = onQuery,
+        singleLine = true,
+        textStyle = style,
+        cursorBrush = SolidColor(D.purple),
+        modifier = Modifier.fillMaxWidth().testTag("exceptions_search").semantics { contentDescription = OnboardingCopy.SEARCH_APPS },
+        decorationBox = { inner ->
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(shape).background(D.white).border(1.5.dp, D.field, shape).padding(horizontal = 14.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Icon(DaybreakIcons.Search, null, Modifier.size(18.dp), tint = D.faint)
+                Box(Modifier.weight(1f)) {
+                    if (query.isEmpty()) Text(OnboardingCopy.SEARCH_APPS, style = style, color = D.faint, maxLines = 1)
+                    inner()
+                }
+            }
+        },
+    )
+}
+
+/**
+ * One app (`A12`): 56dp, its icon on a 32dp radius-10 tile (the initial on purple when the
+ * device has no icon for it), name 16/700, "Stays open" in green or "Locks" in muted, and the
+ * switch. The whole row is the switch. Rows share one white radius-22 card with 1.5dp rules
+ * between them; each row draws its own part of the card so the list stays lazy.
+ */
+@Composable
+private fun AppRow(p: PickableApp, first: Boolean, last: Boolean, onToggle: (Boolean) -> Unit) {
+    val top = if (first) 22.dp else 0.dp
+    val bottom = if (last) 22.dp else 0.dp
+    val shape = RoundedCornerShape(topStart = top, topEnd = top, bottomStart = bottom, bottomEnd = bottom)
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(shape).background(D.white)
+            .drawWithContent {
+                drawContent()
+                val w = 1.5.dp.toPx()
+                val r = 22.dp.toPx()
+                // The card's outline, extended past this row's ends where the card goes on, then
+                // clipped to the row.
+                val extTop = if (first) 0f else r * 2
+                val extBottom = if (last) 0f else r * 2
+                clipRect {
+                    drawRoundRect(
+                        D.lineSoft,
+                        topLeft = Offset(w / 2, w / 2 - extTop),
+                        size = Size(size.width - w, size.height - w + extTop + extBottom),
+                        cornerRadius = CornerRadius(r - w / 2),
+                        style = Stroke(w),
+                    )
+                    if (!first) drawLine(D.lineSoft, Offset(0f, w / 2), Offset(size.width, w / 2), w)
+                }
+            }
+            .toggleable(value = p.allowed, role = Role.Switch, onValueChange = onToggle)
+            .padding(horizontal = 14.dp, vertical = 8.dp)
+            .testTag("exception_${p.app.packageName}"),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        AppTile(p.app.packageName, p.app.label)
+        Column(Modifier.weight(1f)) {
+            Text(p.app.label, style = DaybreakType.rowTitle, color = D.ink)
+            Text(
+                if (p.allowed) OnboardingCopy.STAYS_OPEN else OnboardingCopy.LOCKS,
+                style = DaybreakType.smallLabel, fontWeight = FontWeight.SemiBold,
+                color = if (p.allowed) D.openInk else D.muted,
+            )
+        }
+        KeptSwitch(p.allowed, onCheckedChange = null)
+    }
+}
+
+@Composable
+private fun AppTile(pkg: String, label: String) {
+    val ctx = LocalContext.current
+    val bmp = remember(pkg) {
         runCatching { ctx.packageManager.getApplicationIcon(pkg) }.getOrNull()?.let { d ->
             val b = android.graphics.Bitmap.createBitmap(96, 96, android.graphics.Bitmap.Config.ARGB_8888)
             val cv = android.graphics.Canvas(b)
@@ -121,5 +253,12 @@ private fun AppIcon(pkg: String) {
             b.asImageBitmap()
         }
     }
-    if (bmp != null) Image(bmp, null, Modifier.size(36.dp)) else Box(Modifier.size(36.dp))
+    val shape = RoundedCornerShape(10.dp)
+    if (bmp != null) {
+        Image(bmp, null, Modifier.size(32.dp).clip(shape))
+    } else {
+        Box(Modifier.size(32.dp).clip(shape).background(D.purple), contentAlignment = Alignment.Center) {
+            Text(label.take(1).uppercase(), style = DaybreakType.bodySmall.copy(fontSize = 14.sp, lineHeight = 16.sp), fontWeight = FontWeight.ExtraBold, color = D.white, maxLines = 1)
+        }
+    }
 }
