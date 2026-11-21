@@ -753,7 +753,14 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     gives way first, down to 150dp: 180/180 at 412dp, 180/168 at 390dp, 168/150 at 360dp. Roomy:
     the headline fits `width − 48`. The compact habit list always keeps 128dp (about two rows);
     when the fixed parts leave less (360 × 640dp at font 2.0) the whole page below the hill
-    scrolls, with the list still scrolling inside it.
+    scrolls, with the list still scrolling inside it. A compact Sprig drawn under 180dp keeps
+    the 180dp design's bottom edge (its top moves down by the difference), so its lower body
+    stays behind the hill at 360 and 390dp (QA on #126).
+  - *Roomy page end.* The page starts 14dp above the sky's bottom edge (`Main`'s "Today" at
+    434); it is drawn 14dp taller rather than offset, so it still reaches the tab bar, and it has
+    no bottom padding because the shield button's 48dp touch area already leaves 10dp under its
+    text. With 1 to 3 habits at 412 × 915dp and font 1.0, "Shield ready" is fully on screen.
+  - *"9:00 pm" never splits:* the line puts a no-break space between the time and am/pm.
   - *Banners in the compact layout* sit with "Today" above the scrolling list, as the spec orders
     them; in the roomy layout everything below the hill scrolls together, which only matters at
     large font scales.

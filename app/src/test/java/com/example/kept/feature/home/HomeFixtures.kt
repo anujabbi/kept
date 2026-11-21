@@ -8,6 +8,7 @@ import androidx.compose.runtime.MutableFloatState
 import androidx.compose.runtime.MutableState
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onRoot
 import org.junit.Assert.assertTrue
 import androidx.compose.ui.Modifier
 import com.example.kept.core.data.HabitToday
@@ -136,5 +137,39 @@ internal fun assertSprigClearsText(rule: ComposeContentTestRule, current: Mutabl
             val text = rule.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
             assertTrue("$done/$total at $f: Sprig $sprig overlaps $tag $text", !sprig.overlaps(text))
         }
+    }
+}
+
+/** Every state where Sprig stands highest or lowest, both layouts. */
+internal val HILL_STATES = SPRIG_STATES + listOf(1 to 1, 2 to 2, 4 to 4, 9 to 10, 10 to 10, 4 to 0, 2 to 0)
+
+/**
+ * Sprig's box bottom (its drawing is clipped there) is below the hill at both of its lower
+ * corners, so its lower body is always behind the hill and never floats above it. The hill is
+ * the foundation's ellipse: `(-60, crest, width + 60, crest + 96)`.
+ */
+internal fun assertSprigSitsBehindHill(rule: ComposeContentTestRule, current: MutableState<HomeUiState>, scale: MutableFloatState) {
+    val d = rule.density.density
+    for (f in listOf(1f, 2f)) for ((total, done) in HILL_STATES) {
+        scale.floatValue = f
+        current.value = HomeFixtures.state(total, done)
+        rule.waitForIdle()
+        val width = rule.onRoot().fetchSemanticsNode().size.width / d
+        val crest = rule.onNodeWithTag("home_crest", useUnmergedTree = true).fetchSemanticsNode().positionInRoot.y / d
+        val sprig = rule.onNodeWithTag("home_sprig").fetchSemanticsNode().let {
+            androidx.compose.ui.geometry.Rect(it.positionInRoot / d, androidx.compose.ui.geometry.Size(it.size.width / d, it.size.height / d))
+        }
+        val a = width / 2 + 60f
+        fun hillAt(x: Float): Float {
+            val k = ((x - width / 2) / a).coerceIn(-1f, 1f)
+            return crest + 48f - 48f * kotlin.math.sqrt(1f - k * k)
+        }
+        for (x in listOf(sprig.left, sprig.right)) {
+            assertTrue(
+                "$done/$total at $f, ${width}dp: Sprig's bottom ${sprig.bottom} is not below the hill (${hillAt(x)}) at x=$x",
+                sprig.bottom >= hillAt(x) + 1f,
+            )
+        }
+        assertTrue("$done/$total at $f: Sprig's top ${sprig.top} is under the crest $crest", sprig.top < crest)
     }
 }

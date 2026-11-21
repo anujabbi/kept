@@ -44,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -166,11 +167,6 @@ internal fun HomeContent(s: HomeUiState, actions: HomeActions, modifier: Modifie
     val textBottom = textTop + with(density) { textHeightPx.toDp() }.value.toInt()
     val crest = HomeSprig.crestDp(layout, textBottom)
     val skyHeight = inset + crest.dp + Hill.RISE
-    val sprigTop by animateDpAsState(
-        inset + HomeSprig.topDp(layout, crest, done, total).dp,
-        keptTween(Motion.RISE_MS, Motion.RiseEasing),
-        label = "sprig-top",
-    )
 
     val toggleShield = { shieldOpen = !shieldOpen }
     BoxWithConstraints(modifier.fillMaxSize()) {
@@ -181,12 +177,19 @@ internal fun HomeContent(s: HomeUiState, actions: HomeActions, modifier: Modifie
             HomeLayout.ROOMY -> HomeWidths(textDp = HomeSprig.roomyTextDp(screen), sprigDp = HomeSprig.sizeDp(layout))
             HomeLayout.COMPACT -> HomeWidths(textDp = compact.textDp, sprigDp = compact.sprigDp)
         }
+        val sprigTop by animateDpAsState(
+            inset + HomeSprig.topDp(layout, crest, done, total, widths.sprigDp).dp,
+            keptTween(Motion.RISE_MS, Motion.RiseEasing),
+            label = "sprig-top",
+        )
         SkyScaffold(
             sky = SkyRamp.homeSky(done, total),
             skyHeight = skyHeight,
             lightContent = light,
             skyContent = {
                 HomeSprigOnSky(s, layout, sprigTop, widths.sprigDp.dp)
+                // Where the hill's crest is, for tests; takes no space and draws nothing.
+                Box(Modifier.offset(y = inset + crest.dp).size(0.dp).testTag("home_crest"))
                 HeadlineBlock(
                     s, layout, ink, widths.textDp.dp,
                     Modifier.wrapContentHeight(Alignment.Top, unbounded = true).padding(top = inset + textTop.dp)
@@ -197,7 +200,7 @@ internal fun HomeContent(s: HomeUiState, actions: HomeActions, modifier: Modifie
             when (layout) {
                 // Main: the hill's crest at 396 and "Today" at 434, so the page starts 14dp above
                 // the sky's bottom edge (which is 52dp below the crest).
-                HomeLayout.ROOMY -> RoomyPage(s, actions, shieldOpen, toggleShield, Modifier.offset(y = (-14).dp))
+                HomeLayout.ROOMY -> RoomyPage(s, actions, shieldOpen, toggleShield, Modifier.liftBy(14.dp))
                 HomeLayout.COMPACT -> CompactPage(s, actions, shieldOpen, toggleShield)
             }
         }
@@ -207,6 +210,17 @@ internal fun HomeContent(s: HomeUiState, actions: HomeActions, modifier: Modifie
             Box(Modifier.fillMaxSize().testTag("home_shield_scrim").pointerInput(Unit) { detectTapGestures { shieldOpen = false } })
         }
     }
+}
+
+/**
+ * Draws this [lift] higher and [lift] taller, so it starts above its slot but still ends at the
+ * slot's bottom (an `offset` would leave [lift] of the slot empty at the bottom).
+ */
+private fun Modifier.liftBy(lift: Dp): Modifier = layout { m, c ->
+    val px = lift.roundToPx()
+    val maxH = if (c.hasBoundedHeight) c.maxHeight + px else c.maxHeight
+    val p = m.measure(c.copy(minHeight = minOf(c.minHeight + px, maxH), maxHeight = maxH))
+    layout(p.width, (p.height - px).coerceAtLeast(0)) { p.place(0, -px) }
 }
 
 /** The headline column's width and Sprig's size for this screen. */
@@ -319,7 +333,7 @@ private fun Week(s: HomeUiState, shieldOpen: Boolean, onToggleShield: () -> Unit
 @Composable
 private fun RoomyPage(s: HomeUiState, actions: HomeActions, shieldOpen: Boolean, onToggleShield: () -> Unit, modifier: Modifier = Modifier) {
     Column(
-        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, bottom = 16.dp),
+        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         if (anyBanner(s)) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Banners(s, actions) }

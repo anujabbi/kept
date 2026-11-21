@@ -27,7 +27,7 @@ class HomeLayoutTest {
     }
 
     @Test fun `line under the headline`() {
-        assertEquals("Apps unlock when you finish, or at 9:00 pm.", HomeCopy.line(2, 0, "9:00 pm", pastDue = false, breakActive = false))
+        assertEquals("Apps unlock when you finish, or at 9:00\u00A0pm.", HomeCopy.line(2, 0, "9:00 pm", pastDue = false, breakActive = false))
         assertEquals("Apps are open. See you tomorrow.", HomeCopy.line(2, 2, "9:00 pm", pastDue = false, breakActive = false))
         assertEquals("Apps are open. See you tomorrow.", HomeCopy.line(2, 2, "9:00 pm", pastDue = true, breakActive = false))
         assertEquals("Apps are open. Today won't count.", HomeCopy.line(2, 1, "9:00 pm", pastDue = true, breakActive = false))
@@ -104,5 +104,23 @@ class HomeLayoutTest {
         assertEquals(HomeSprig.CompactWidths(168, 150), HomeSprig.compactWidths(360))
         assertEquals(312, HomeSprig.roomyTextDp(360))
         assertEquals(364, HomeSprig.roomyTextDp(412))
+    }
+
+    @Test fun `a smaller compact Sprig keeps the design's bottom`() {
+        for (w in listOf(360, 390, 412)) {
+            val sprig = HomeSprig.compactWidths(w).sprigDp
+            for (total in 4..10) for (done in 0..total) {
+                val top = HomeSprig.topDp(HomeLayout.COMPACT, 212, done, total, sprig)
+                val designBottom = HomeSprig.topDp(HomeLayout.COMPACT, 212, done, total) + 180
+                assertEquals("$w $done/$total", designBottom, top + sprig)
+                // The design's highest bottom (everything done) is 56 + 180 = 236, 24dp below the crest.
+                assertTrue("$w $done/$total bottom ${top + sprig} below crest", top + sprig >= 212 + 24)
+            }
+        }
+    }
+
+    @Test fun `the give-up time never splits`() {
+        val line = HomeCopy.line(2, 0, "9:00 pm", pastDue = false, breakActive = false)
+        assertTrue(line.endsWith("9:00\u00A0pm."))
     }
 }

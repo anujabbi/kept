@@ -97,7 +97,13 @@ object HomeSprig {
     }
 
     /** Sprig's top for a crest at [crestDp]. */
-    fun topDp(layout: HomeLayout, crestDp: Int, done: Int, total: Int): Int = crestDp - aboveCrestDp(layout, done, total)
+    /**
+     * Sprig's top for a crest at [crestDp]. A Sprig drawn smaller than the design's [sizeDp] (a
+     * narrow screen) keeps its bottom where the design's would be, so its lower body stays behind
+     * the hill instead of floating above it.
+     */
+    fun topDp(layout: HomeLayout, crestDp: Int, done: Int, total: Int, sprigDp: Int = sizeDp(layout)): Int =
+        crestDp - aboveCrestDp(layout, done, total) + (sizeDp(layout) - sprigDp)
 }
 
 /** Home's copy (spec, Home). Final; do not reword here. */
@@ -129,7 +135,8 @@ object HomeCopy {
         done >= total -> "Apps are open. See you tomorrow."
         pastDue -> "Apps are open. Today won't count."
         breakActive -> "Lock paused for a break. Apps lock again soon."
-        else -> "Apps unlock when you finish, or at $giveUp."
+        // A no-break space keeps "9:00 pm" on one line.
+        else -> "Apps unlock when you finish, or at ${giveUp.replace(' ', '\u00A0')}."
     }
 
     fun streak(days: Int): String = "$days day streak"

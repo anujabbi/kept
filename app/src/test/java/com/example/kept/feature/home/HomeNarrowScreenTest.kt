@@ -34,6 +34,13 @@ class HomeNarrowScreenTest {
         assertSprigClearsText(rule, current, scale)
     }
 
+    @Test fun sprigSitsBehindTheHill() {
+        val current = mutableStateOf(HomeFixtures.state(2, 0))
+        val scale = mutableFloatStateOf(1f)
+        rule.setContent { Shot(scale.floatValue) { HomeFrame(current.value) } }
+        assertSprigSitsBehindHill(rule, current, scale)
+    }
+
     @Test fun compactListKeepsRoomForRowsAtLargeFonts() {
         rule.setContent { Shot(2f) { HomeFrame(HomeFixtures.state(6, 6)) } }
         rule.waitForIdle()

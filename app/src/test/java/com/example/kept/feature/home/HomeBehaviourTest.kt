@@ -151,7 +151,7 @@ class HomeBehaviourTest {
     @Test fun headlineAndLineFollowProgress() {
         show(HomeFixtures.state(2, 1))
         rule.onNodeWithText("One to go.").assertIsDisplayed()
-        rule.onNodeWithText("Apps unlock when you finish, or at 9:00 pm.").assertIsDisplayed()
+        rule.onNodeWithText("Apps unlock when you finish, or at 9:00\u00A0pm.").assertIsDisplayed()
         rule.onNodeWithText("12 day streak").assertIsDisplayed()
     }
 
@@ -174,5 +174,23 @@ class HomeBehaviourTest {
     @Test fun sprigNeverOverlapsTheHeadlineBlock() {
         showLive()
         assertSprigClearsText(rule, current, scale)
+    }
+
+    @Test fun sprigSitsBehindTheHill() {
+        showLive()
+        assertSprigSitsBehindHill(rule, current, scale)
+    }
+
+    @Test fun shieldIsFullyVisibleWithUpToThreeHabitsAtFontOne() {
+        showLive()
+        val d = rule.density.density
+        for (n in 1..3) {
+            current.value = HomeFixtures.state(n, 0)
+            rule.waitForIdle()
+            val label = rule.onNodeWithText("Shield ready", useUnmergedTree = true).fetchSemanticsNode()
+            val bottom = (label.positionInRoot.y + label.size.height) / d
+            val tabTop = rule.onRoot().fetchSemanticsNode().size.height / d - 75.5f
+            assertTrue("$n habits: 'Shield ready' ends at $bottom, tab bar starts at $tabTop", bottom <= tabTop)
+        }
     }
 }
