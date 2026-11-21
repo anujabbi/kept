@@ -28,6 +28,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.After
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -66,6 +67,22 @@ open class LockMomentActivityTest {
 
     private var habitId = 0L
 
+    /** Every activity a test launched, closed in [tearDown] even when the test fails. */
+    private val scenarios = mutableListOf<ActivityScenario<*>>()
+
+    private fun <A : android.app.Activity> track(s: ActivityScenario<A>): ActivityScenario<A> = s.also { scenarios += it }
+
+    /**
+     * One failing test must not leave a paused clock, a large font or a live activity behind:
+     * that made every later test in the fork fail with `AppNotIdleException` (QA on PR #144).
+     */
+    @After fun tearDown() {
+        compose.mainClock.autoAdvance = true
+        RuntimeEnvironment.setFontScale(1f)
+        scenarios.asReversed().forEach { runCatching { it.close() } }
+        scenarios.clear()
+    }
+
     @Before fun setUp() {
         hilt.inject()
         runBlocking {
@@ -85,11 +102,21 @@ open class LockMomentActivityTest {
         compose.onAllNodes(hasTestTag(tag)).fetchSemanticsNodes().isNotEmpty()
     }
 
-    private fun finishOnTheLockScreen(): ActivityScenario<LockActivity> {
-        val scenario = ActivityScenario.launch<LockActivity>(lockIntent())
+    /**
+     * Ticks the last habit on the lock screen and waits for the moment. With [waitForClaim] it also
+     * waits until the claim is stored: the moment stands in as soon as the tick is made, before
+     * `celebrationShownDate` is written. Without it, the next step can land while the claim is
+     * still in flight, which the undo test does on purpose.
+     */
+    private fun finishOnTheLockScreen(waitForClaim: Boolean = true): ActivityScenario<LockActivity> {
+        val scenario = track(ActivityScenario.launch<LockActivity>(lockIntent()))
         awaitTag("lock_habit_$habitId")
         compose.onNodeWithTag("lock_habit_$habitId").performClick()
         awaitTag("celebration")
+        if (waitForClaim) {
+            val today = time.todayKey()
+            compose.waitUntil(10_000) { runBlocking { prefs.currentSettings().celebrationShownDate } == today }
+        }
         return scenario
     }
 
@@ -133,6 +160,15 @@ open class LockMomentActivityTest {
      */
     private fun tickAndNeverCelebrate(what: String) {
         compose.mainClock.autoAdvance = false
+        try {
+            tickFrameByFrame(what)
+        } finally {
+            compose.mainClock.autoAdvance = true
+        }
+        compose.onNodeWithTag("lock_open_app").assertTextEquals("Open Chrome")
+    }
+
+    private fun tickFrameByFrame(what: String) {
         compose.onNodeWithTag("lock_habit_$habitId").performClick()
         var openFrames = 0
         var frames = 0
@@ -144,12 +180,11 @@ open class LockMomentActivityTest {
             frames++
             check(frames < 3_000) { "$what: the open state never showed" }
         }
-        compose.mainClock.autoAdvance = true
-        compose.onNodeWithTag("lock_open_app").assertTextEquals("Open Chrome")
     }
 
     @Test fun finishedAgainOnTheLockScreenAfterAnUndoDoesNotCelebrateAgain() {
-        finishOnTheLockScreen()
+        // Carry on, undo and tick again without waiting for the first claim to be stored.
+        finishOnTheLockScreen(waitForClaim = false)
         compose.onNodeWithTag("celebration").performClick()
         awaitTag("lock_open_app")
         // Hold to undo in the open state: back to locked.
@@ -165,14 +200,14 @@ open class LockMomentActivityTest {
             assertTrue("KEPT showed it", actions.claimMoment())
             actions.undo(habitId)
         }
-        ActivityScenario.launch<LockActivity>(lockIntent())
+        track(ActivityScenario.launch<LockActivity>(lockIntent()))
         awaitTag("lock_habit_$habitId")
         tickAndNeverCelebrate("celebrated in KEPT, finished on the lock screen")
     }
 
     @Test fun keptDoesNotShowItAgainTheSameDay() {
         finishOnTheLockScreen().close()
-        val main = ActivityScenario.launch(MainActivity::class.java)
+        val main = track(ActivityScenario.launch(MainActivity::class.java))
         awaitTag("home_streak")
         compose.waitForIdle()
         assertEquals("no second showing in KEPT", 0, compose.onAllNodes(hasTestTag("celebration")).fetchSemanticsNodes().size)
@@ -181,7 +216,7 @@ open class LockMomentActivityTest {
 
     @Test fun aDayFinishedInKeptStillShowsItInKept() {
         runBlocking { actions.complete(habitId) }
-        val main = ActivityScenario.launch(MainActivity::class.java)
+        val main = track(ActivityScenario.launch(MainActivity::class.java))
         awaitTag("celebration")
         compose.onNodeWithTag("celebration_headline").assertTextEquals("Promise kept.")
         runBlocking { assertEquals(time.todayKey(), prefs.currentSettings().celebrationShownDate) }

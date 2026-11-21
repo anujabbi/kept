@@ -121,4 +121,38 @@ class MomentsTest {
         assertEquals("never under the interactive size", 110, MomentFit.sprigDp(260, 640, 600, 304))
         assertEquals("never wider than the column", 252, MomentFit.sprigDp(280, 915, 300, 252))
     }
+
+    @Test fun `the lock screen stands the moment in once, only while it can still play`() {
+        assertTrue(MomentRules.lockStandsIn(remaining = 1, shownDate = null, standInDate = null, today = today))
+        assertFalse("not the last habit", MomentRules.lockStandsIn(2, null, null, today))
+        assertFalse("already played today", MomentRules.lockStandsIn(1, today, null, today))
+        assertFalse("already stood in today", MomentRules.lockStandsIn(1, null, today, today))
+        assertTrue("yesterday's stand-in does not count", MomentRules.lockStandsIn(1, yesterday, yesterday, today))
+    }
+
+    /**
+     * QA on PR #144: tick, carry on, undo and tick again while the first claim is still being
+     * written, then the two claims land in either order. Nothing may stand in or go up again.
+     */
+    @Test fun `an undo and re-tick before the first claim is stored never shows the moment again`() {
+        var standIn: String? = null
+        var carriedOn: String? = null
+        val stored: String? = null // the first claim has not been written yet
+
+        // Tick 1: the moment stands in.
+        assertTrue(MomentRules.lockStandsIn(1, stored, standIn, today)); standIn = today
+        // Carry on, undo, tick 2: the stored date still says "not played", but no second stand-in.
+        carriedOn = today
+        assertFalse(MomentRules.lockStandsIn(1, stored, standIn, today))
+        // The claims land, in either order: one wins, and neither puts the moment back up.
+        assertFalse(MomentRules.lockRaisesAfterClaim(claimed = true, carriedOnDate = carriedOn, today = today))
+        assertFalse(MomentRules.lockRaisesAfterClaim(claimed = false, carriedOnDate = carriedOn, today = today))
+    }
+
+    @Test fun `the claimed moment goes up on the lock screen unless carried on already`() {
+        assertTrue(MomentRules.lockRaisesAfterClaim(true, null, today))
+        assertTrue(MomentRules.lockRaisesAfterClaim(true, yesterday, today))
+        assertFalse(MomentRules.lockRaisesAfterClaim(false, null, today))
+        assertFalse(MomentRules.lockRaisesAfterClaim(true, today, today))
+    }
 }

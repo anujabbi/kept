@@ -947,7 +947,11 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     only applies while today's moment can still play: a day re-finished after an undo, or one
     already celebrated in KEPT, goes straight to the open state with no moment at all (review of
     PR #144). A tap to carry on that lands while that tick is still in flight counts: the moment
-    is not raised again when the claim comes back.
+    is not raised again when the claim comes back. The stored date can lag the screen (the claim is
+    written after the tick), so `LockViewModel` also remembers, by date in its `SavedStateHandle`,
+    that it already stood the moment in today and that the user carried on today: an undo and
+    re-tick right after carrying on gets neither a second stand-in nor a late moment, whichever
+    order the two ticks' claims land in (QA on PR #144).
   - *Reduce motion* shows the end state: no petals, no pop, no ring. The ring fades to nothing at
     the end of its animation in both files, so the evolution's "gold ring" is part of the motion;
     the static gold glow under Sprig stays (it sits behind Sprig's body, as in the design).
@@ -970,3 +974,10 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     pane has a "Carry on" click action.
   - *Removed:* `Confetti.kt`, the teal overlay and the old `EvolutionRevealScreen` ("New form",
     "Sprig became {Form}", "Show it off", "Keep going").
+  - *Celestial's cape (QA on PR #144, orchestrator's call).* `SprigA.dc.html` draws the starry
+    cape in `#2B2760`, the same colour as the night sky, so on the evolution screen only the halo
+    and two stars showed. The cape is now `#4A3E86` (a lock-ramp step) with a 1.5-unit gold
+    `#FFC23D` trim along its two outer edges; the stars are kept. It reads on the night sky and on
+    cream. Goldens with Celestial moved: `evolve_*celestial*`, `sprig_form_celestial_idle`,
+    `sprig_silhouette_celestial` (the silhouette's outline grows by the trim), `share_card_celestial`
+    and `recap_*final*`.

@@ -159,13 +159,14 @@ class LockViewModel @Inject constructor(
      */
     private suspend fun afterTick(event: HabitEvent.Completed?) {
         val claimed = event != null && MomentRules.finishedInTime(event.allDoneNow, event.beforeDue) && actions.claimMoment()
+        val today = time.todayKey()
         viewModelScope.launch {
-            // Carried on while the tick was still in flight: the moment has been seen; do not raise it again.
-            if (claimed && !carriedOnEarly) {
+            // Carried on already today (perhaps while this tick was still in flight): the moment has
+            // been seen, so it is not raised again, whatever order two ticks' claims land in.
+            if (MomentRules.lockRaisesAfterClaim(claimed, saved.get<String>(KEY_CARRIED_ON_DATE), today)) {
                 saved[KEY_MOMENT] = true
                 analytics.screen(Screens.CELEBRATION)
             }
-            carriedOnEarly = false
             finishing = false
         }
     }
@@ -173,16 +174,22 @@ class LockViewModel @Inject constructor(
     /**
      * The last habit left is being ticked: the day may be about to finish. Until [afterTick] knows,
      * the moment stands in for the open state, so the gold open state does not flash up for a
-     * frame before the moment covers it. Only when today's moment can still play: once it has
-     * played (here or in KEPT), a re-finished day goes straight to the open state (review of PR #144).
+     * frame before the moment covers it.
+     *
+     * At most once per day, and only while today's moment can still play: not once it has played
+     * (here or in KEPT, per the stored date), and not for a second finishing tick while the first
+     * one's claim may still be in flight (undo and re-tick right after carrying on, QA on PR #144),
+     * which the ViewModel remembers itself because the stored date may not be written yet.
      */
     var finishing by mutableStateOf(false)
         private set
 
     private fun beforeTick() {
         val now = shown(state.value)
+        val today = time.todayKey()
         val shownDate = now.lock?.settings?.celebrationShownDate
-        if (now.remaining <= 1 && MomentRules.mayPlay(shownDate, time.todayKey())) {
+        if (MomentRules.lockStandsIn(now.remaining, shownDate, saved.get<String>(KEY_STAND_IN_DATE), today)) {
+            saved[KEY_STAND_IN_DATE] = today
             saved[KEY_MOMENT_INTRO_PLAYED] = false
             finishing = true
         }
@@ -201,15 +208,12 @@ class LockViewModel @Inject constructor(
         saved[KEY_MOMENT_INTRO_PLAYED] = true
     }
 
-    /** "Tap to carry on" (or Back): the gold open state with "Open {App}" shows. */
+    /** "Tap to carry on" (or Back): the gold open state with "Open {App}" shows; today's moment has been seen. */
     fun carryOn() {
-        if (finishing) carriedOnEarly = true
+        saved[KEY_CARRIED_ON_DATE] = time.todayKey()
         finishing = false
         saved[KEY_MOMENT] = false
     }
-
-    /** "Tap to carry on" came while the finishing tick was still in flight ([finishing]). */
-    private var carriedOnEarly = false
 
     /**
      * `LockActivity` is its own surface: no NavController reaches it, so the two screens it can
@@ -256,6 +260,8 @@ private const val KEY_PKG = "blocked_pkg"
 private const val KEY_LABEL = "blocked_label"
 private const val KEY_MOMENT = "lock_moment"
 private const val KEY_MOMENT_INTRO_PLAYED = "lock_moment_intro_played"
+private const val KEY_STAND_IN_DATE = "lock_moment_stand_in_date"
+private const val KEY_CARRIED_ON_DATE = "lock_moment_carried_on_date"
 
 /**
  * The `combine` behind [LockViewModel.state], kept as a plain function of flows so a JVM test can

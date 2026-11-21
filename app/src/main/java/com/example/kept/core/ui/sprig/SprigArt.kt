@@ -54,7 +54,12 @@ internal object SprigColors {
     val gold = Color(0xFFFFD25E)
     val blush = Color(0xFFFF9EB5)
     val tear = Color(0xFF7CC4FF)
-    val cape = Color(0xFF2B2760)
+    /**
+     * `#4A3E86`, not SprigA's `#2B2760`: that is the night sky, so the cape vanished on the
+     * evolution screen (QA on PR #144). A gold [capeTrim] runs along its outer edges.
+     */
+    val cape = Color(0xFF4A3E86)
+    val capeTrim = Color(0xFFFFC23D)
     val capeStar = Color(0xFFFFE9A8)
     val cardigan = Color(0xFFFFB84D)
     val cardiganDark = Color(0xFFE0952A)
@@ -76,6 +81,8 @@ private object Paths {
     const val LEAF_1 = "M60 24 C50 24 44 18 44 10 C54 10 60 16 60 24 Z"
     const val LEAF_2 = "M60 20 C70 20 77 14 77 6 C66 6 60 12 60 20 Z"
     const val CAPE = "M20 66 Q2 112 2 160 H118 Q118 112 100 66 Z"
+    /** The cape's two outer edges, for its gold trim. */
+    const val CAPE_EDGES = "M20 66 Q2 112 2 160 M100 66 Q118 112 118 160"
     const val CARDIGAN = "M16 100 Q60 110 104 100 V160 H16 Z"
     const val CARDIGAN_HEM = "M16 100 Q60 110 104 100"
     const val SCARF = "M17 94 Q60 106 103 94"
@@ -177,6 +184,7 @@ private fun DrawScope.drawUnits(f: SprigFrame) {
                 // Starry cape and halo sit behind everything.
                 if (outfit == SprigOutfit.STAR) {
                     fill(Paths.CAPE, SprigColors.cape)
+                    stroke(Paths.CAPE_EDGES, SprigColors.capeTrim, 1.5f, round = false)
                     drawCircle(SprigColors.capeStar, 1.3f, Offset(10f, 120f))
                     drawCircle(SprigColors.capeStar, 1.1f, Offset(110f, 104f))
                     drawCircle(SprigColors.capeStar, 1.4f, Offset(108f, 134f))

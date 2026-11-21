@@ -22,6 +22,23 @@ object MomentRules {
     fun mayPlay(shownDate: String?, today: String): Boolean = shownDate != today
 
     /**
+     * The lock screen stands the moment in for a tick that may finish the day ([remaining] at most
+     * 1), so the gold open state does not flash first. Only while today's moment can still play
+     * ([shownDate], as stored) and at most once per day ([standInDate], remembered by the screen
+     * itself, because the stored date is only written after the tick: an undo and re-tick right
+     * after carrying on must not stand it in again, QA on PR #144).
+     */
+    fun lockStandsIn(remaining: Int, shownDate: String?, standInDate: String?, today: String): Boolean =
+        remaining <= 1 && mayPlay(shownDate, today) && standInDate != today
+
+    /**
+     * After the lock screen's claim comes back: the moment goes up if this tick [claimed] it and the
+     * user has not already carried on today ([carriedOnDate]), perhaps while the tick was in flight.
+     */
+    fun lockRaisesAfterClaim(claimed: Boolean, carriedOnDate: String?, today: String): Boolean =
+        claimed && carriedOnDate != today
+
+    /**
      * What a finished day leaves pending for KEPT. Nothing when the lock screen plays the moment
      * itself ([shownHere]) or it already played today; otherwise today, for KEPT to show.
      */
