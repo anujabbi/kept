@@ -101,9 +101,13 @@ the repo. The assets are prepared in `docs/play/` (issue #161).
 
 1. Check `app/build.gradle.kts` says `versionName = "2.0.1"` and `versionCode = 6`, higher than
    any code already uploaded.
-2. Put `keystore.properties` (from `keystore.properties.example`) next to the project, then build
+2. Put `keystore.properties` (from `keystore.properties.example`) in the repository root, beside
+   `settings.gradle.kts` (the build reads `rootProject.file("keystore.properties")`), then build
    the signed bundle: `./gradlew :app:bundleRelease`. The bundle is
    `app/build/outputs/bundle/release/app-release.aab`.
+   - If Gradle logs "release signing is only partly configured", the bundle is **unsigned**. Fix
+     `keystore.properties` (or the `KEPT_KEY*` environment variables) and rebuild before
+     uploading; Play rejects an unsigned bundle.
 3. Walk the minified build on a device first (§6).
 4. Play Console → Test and release → pick a track (internal testing first, then production) →
    Create new release → upload the `.aab`. Paste the release notes from

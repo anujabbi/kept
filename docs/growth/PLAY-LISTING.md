@@ -29,7 +29,7 @@ HOW IT WORKS
   essentials (phone, messages, maps, camera, clock, contacts, settings) and the few exceptions
   you choose.
 • Tick habits off on Home or right on the lock screen. A habit can ask for a photo check-in when
-  you want to be honest with yourself; the photo stays on your phone.
+  you want to be honest with yourself; KEPT never uploads the photo.
 • Finish them all and your apps open. Not done by the give-up time you set? Apps open and the day
   is missed.
 
@@ -51,7 +51,7 @@ REAL LIFE HAPPENS
 
 BUILT FOR YOU, NOT FOR SOMEONE WATCHING YOU
 • No account, no sign-up, no ads.
-• Your habits, photos and streak stay on your phone.
+• KEPT never uploads your habits, photos or streak; they live on your phone.
 • Anonymous usage data helps improve KEPT; turn it off any time in Settings.
 • Not a parental-control app. You set it up for yourself.
 
