@@ -24,7 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.example.kept.core.domain.SprigPose
+import com.example.kept.core.domain.SprigLook
 import com.example.kept.core.ui.KeptCard
 import com.example.kept.core.ui.KeptTheme
 import com.example.kept.core.ui.PrimaryButton
@@ -56,7 +56,7 @@ fun LockScreen(
 
         KeptCard(background = c.purple50, border = null, shape = RoundedCornerShape(16.dp), padding = androidx.compose.foundation.layout.PaddingValues(20.dp)) {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                SprigView(state.sprig.form, SprigPose.BLOCK, Modifier.size(150.dp), variant = state.variant, wilted = state.sprig.wilted)
+                SprigView(state.sprig.form, SprigLook.pose(onLockScreen = true), Modifier.size(150.dp), wilted = state.sprig.wilted)
                 Spacer(Modifier.height(8.dp))
                 val headline = if (state.remaining == 1) "One thing left" else "${state.remaining} things left"
                 Text(headline, style = MaterialTheme.typography.titleMedium, color = c.purple900)

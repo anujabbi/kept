@@ -31,7 +31,6 @@ import com.example.kept.core.data.SprigRepository
 import com.example.kept.core.data.db.DayRecordEntity
 import com.example.kept.core.domain.SprigForm
 import com.example.kept.core.domain.SprigPose
-import com.example.kept.core.domain.Variants
 import com.example.kept.core.ui.KeptCard
 import com.example.kept.core.ui.KeptTheme
 import com.example.kept.core.ui.KeyValueRow
@@ -69,6 +68,12 @@ class RecapViewModel @Inject constructor(
 @Composable
 fun RecapScreen(date: String, onClose: () -> Unit, vm: RecapViewModel = hiltViewModel()) {
     val s by vm.state.collectAsStateWithLifecycle()
+    RecapContent(s, onClose)
+}
+
+/** The recap itself, without the ViewModel, so screenshot tests can render it. */
+@Composable
+internal fun RecapContent(s: RecapUi, onClose: () -> Unit) {
     val c = KeptTheme.colors
     val ctx = LocalContext.current
     val r = s.record
@@ -80,7 +85,6 @@ fun RecapScreen(date: String, onClose: () -> Unit, vm: RecapViewModel = hiltView
     val tooLate = r != null && !kept && !r.unprotected && !r.writtenOff && !r.shieldConsumed &&
         r.habitsTotal > 0 && r.habitsDone >= r.habitsTotal
     val form = SprigForm.fromId(r?.formId ?: 1)
-    val variant = Variants.forDate(s.date)
     val isToday = s.date == LocalDate.now()
 
     Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -94,7 +98,7 @@ fun RecapScreen(date: String, onClose: () -> Unit, vm: RecapViewModel = hiltView
         KeptCard(Modifier.fillMaxWidth(), background = bg, border = null, shape = RoundedCornerShape(16.dp), padding = androidx.compose.foundation.layout.PaddingValues(20.dp)) {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                 // A hollow day costs nothing, so Sprig does not wilt over it (issue #2).
-                SprigView(form, if (kept) SprigPose.CHEER else SprigPose.DROOP, Modifier.size(150.dp), variant = variant, wilted = !kept && r?.shieldConsumed != true && !hollow)
+                SprigView(form, if (kept) SprigPose.CHEER else SprigPose.DROOP, Modifier.size(150.dp), wilted = !kept && r?.shieldConsumed != true && !hollow)
                 Spacer(Modifier.height(8.dp))
                 val headline = when {
                     r == null -> "Nothing recorded"
@@ -135,9 +139,9 @@ fun RecapScreen(date: String, onClose: () -> Unit, vm: RecapViewModel = hiltView
                 ShareCard.share(
                     ctx,
                     ShareCard.Content(
-                        SprigSpec(form, if (kept) SprigPose.CHEER else SprigPose.IDLE, variant),
+                        SprigSpec(form, if (kept) SprigPose.CHEER else SprigPose.IDLE),
                         headline = if (kept) "Day ${r?.streakEnd ?: 0} kept" else "Back at it tomorrow",
-                        subline = "${r?.habitsDone ?: 0} of ${r?.habitsTotal ?: 0} habits · ${formatMillis(r?.lockedMillis ?: 0)} off apps",
+                        subline = "${r?.habitsDone ?: 0} of ${r?.habitsTotal ?: 0} habits",
                     ),
                 )
             },

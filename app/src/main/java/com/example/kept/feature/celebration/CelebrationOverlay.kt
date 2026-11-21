@@ -108,7 +108,7 @@ private fun CelebrationOverlay(s: CelebrationUiState, onDismiss: () -> Unit) {
             Modifier.fillMaxWidth().padding(horizontal = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            SprigView(s.form, SprigPose.CHEER, Modifier.size(200.dp).scale(bounce.value), variant = s.variant)
+            SprigView(s.form, SprigPose.CHEER, Modifier.size(200.dp).scale(bounce.value))
             Spacer(Modifier.height(16.dp))
             Text("Promise kept.", style = MaterialTheme.typography.headlineMedium, color = c.teal900, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(6.dp))

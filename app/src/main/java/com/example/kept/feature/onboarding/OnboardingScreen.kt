@@ -56,7 +56,6 @@ import com.example.kept.core.domain.HabitLimits
 import com.example.kept.core.domain.ProofType
 import com.example.kept.core.domain.SprigForm
 import com.example.kept.core.domain.SprigPose
-import com.example.kept.core.domain.Variants
 import com.example.kept.core.lock.ForegroundWatcherService
 import com.example.kept.core.lock.PermissionKind
 import com.example.kept.core.lock.Permissions
@@ -289,7 +288,7 @@ private fun StepMeetSprig(s: OnboardingState, vm: OnboardingViewModel, onDone: (
         Spacer(Modifier.height(8.dp))
         KeptCard(Modifier.fillMaxWidth(), background = c.purple50, border = null, shape = RoundedCornerShape(16.dp)) {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                SprigView(SprigForm.SPRIG, SprigPose.WAVE, Modifier.size(160.dp), variant = Variants.forDate(java.time.LocalDate.now()))
+                SprigView(SprigForm.SPRIG, SprigPose.WAVE, Modifier.size(160.dp))
                 Text("This is Sprig", style = MaterialTheme.typography.headlineSmall, color = c.purple900)
                 Text("Sprig grows every day you keep your promise, and evolves at streak milestones. Break a lock and Sprig wilts. Miss a day and Sprig starts over.", style = MaterialTheme.typography.bodyMedium, color = c.purple600, textAlign = TextAlign.Center)
             }
@@ -298,7 +297,7 @@ private fun StepMeetSprig(s: OnboardingState, vm: OnboardingViewModel, onDone: (
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             listOf(SprigForm.SPRIG, SprigForm.BUD, SprigForm.BLOOM, SprigForm.THICKET, SprigForm.GROVE).forEach { f ->
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    SprigView(f, SprigPose.IDLE, Modifier.size(56.dp), animate = false, showAccessory = false)
+                    SprigView(f, SprigPose.IDLE, Modifier.size(56.dp), animate = false)
                     Text(if (f.streakThreshold == 0) "Day 1" else "Day ${f.streakThreshold}", style = MaterialTheme.typography.labelSmall, color = c.textMuted)
                 }
             }

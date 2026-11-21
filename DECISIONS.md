@@ -646,3 +646,38 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     luminance 0.2, which matches the Home ramp's halfway rule at every step (`SkyRampTest`);
     callers on a ramp pass `SkyRamp.homeTextIsLight`/`lockTextIsLight` explicitly. The newest
     screen's request wins, so navigation transitions do not leave the wrong icons behind.
+- **The Daybreak Sprig (issue #124).** `SprigArt`/`SprigView` are a port of
+  `docs/design/daybreak/SprigA.dc.html`: the same 120-unit geometry, colours, outfit groups and
+  frame-loop constants. `SprigLook` (core/domain) maps form to sprout stage and outfit and app
+  state to pose; `SprigMotion`/`SprigFrame` (core/ui/sprig) are the design's `this.s` loop and
+  `renderVals()` in pure Kotlin. Departures and choices:
+  - *Constants from the code, not the prose.* The spec text says a 14-unit hop and a 7° wobble;
+    `SprigA.dc.html` uses `arc × 12` and `5 × tick`. The issue says port the reference, so the
+    code's values win.
+  - *`SprigPose.BLOCK` is now `GUARD`, and `SLEEP` is new.* Nothing stores a pose, so the rename
+    is safe.
+  - *Weekly looks are ignored by the renderer.* `SprigView` and `SprigSpec` no longer take a
+    `variant` or `showAccessory`; call sites dropped the argument. The variant data and its copy
+    on Gallery stay until story #125 removes them.
+  - *Wilted* draws the full Sprig in its outfit through a saturation-0.2 colour matrix (spec: "keeps
+    its outfit, desaturated"). *Silhouette* tints the whole drawing `#1E1B3C` (SrcIn) in one layer
+    at the given alpha; Gallery's locked cards use 0.18 and the roadmap's unreached forms 0.2.
+  - *Reduce motion* runs the frame clock for blinks, petting and sleep, but freezes animation time
+    (no sway, bounce or breathing), never hops or wobbles, and does not lean toward the finger
+    (the eyes still follow). The tear, which would otherwise fall on a loop, is shown still,
+    part-way down; the same still frame is used for small and static Sprigs and the share card.
+  - *Small Sprigs.* "Under 100dp" is measured from the laid-out size, so `fillMaxSize` callers
+    (Gallery cards) need no flag. Small, static (`animate = false`) and silhouette Sprigs have no
+    frame clock, no touch handling and are not a button; they keep the content description.
+  - *Taps on Sprig belong to Sprig.* On Home the Sprig sits inside a clickable card that opens the
+    roadmap; a press on Sprig itself is consumed so it hops instead. The rest of the card still
+    opens the roadmap. Drags that start on Sprig pet it rather than scroll the page
+    (`touch-action: none` in the design).
+  - *The frame clock* uses `withInfiniteAnimationFrameNanos`, keyed on the lifecycle being at
+    least STARTED, so it stops in the background and when Sprig leaves composition, and Compose
+    UI tests with auto-advance on are not held busy by it.
+  - *Share card.* Cream page, white card, a dawn panel Sprig stands in, ink headline in the
+    display face. The recap's share subline is now "{done} of {total} habits"; "off apps" is gone.
+    The "Time off apps" row on the Recap screen itself stays until the Recap story.
+  - *Mood words for TalkBack:* idle "happy", cheer "cheering", guard "guarding", droop "sad",
+    wave "waving", sleep (or fallen asleep) "asleep", any wilted Sprig "wilting".

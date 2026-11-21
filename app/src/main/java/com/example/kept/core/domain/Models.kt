@@ -4,7 +4,8 @@ import java.time.LocalDate
 
 enum class ProofType { MANUAL, PHOTO }
 
-enum class SprigPose { IDLE, BLOCK, DROOP, CHEER, WAVE }
+/** Sprig's six Daybreak poses (spec, Sprig (Daybreak), Poses). */
+enum class SprigPose { IDLE, CHEER, GUARD, DROOP, WAVE, SLEEP }
 
 /**
  * Evolution forms. Ordered by rarity. [streakThreshold] is the streak length at which the
