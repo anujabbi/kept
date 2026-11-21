@@ -2,6 +2,7 @@ package com.example.kept.core.data
 
 import com.example.kept.core.analytics.Analytics
 import com.example.kept.core.data.prefs.KeptPreferences
+import com.example.kept.core.domain.MomentRules
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -27,8 +28,9 @@ class HabitActions @Inject constructor(
      * already done, so a "Mark done" notification action tapped twice completes once, fires one
      * event and grants one level.
      *
-     * [momentShown] is true when the screen the tick came from shows the "Promise kept" moment
-     * itself (the lock screen); a day finished that way leaves no celebration pending.
+     * [momentShown] is true when the screen the tick came from plays the "Promise kept" moment
+     * itself (the lock screen, issue #130); a day finished that way leaves no celebration pending
+     * for KEPT. That screen then calls [claimMoment] before it plays it.
      */
     suspend fun complete(
         habitId: Long,
@@ -45,7 +47,7 @@ class HabitActions @Inject constructor(
                 "source" to source.eventValue,
             ),
         )
-        if (event.allDoneNow && event.beforeDue) onDayCompleted(event, momentShown)
+        if (MomentRules.finishedInTime(event.allDoneNow, event.beforeDue)) onDayCompleted(event, momentShown)
         sprig.onHabitEvent(event)
         return event
     }
@@ -61,8 +63,8 @@ class HabitActions @Inject constructor(
 
     /**
      * Every habit ticked, and in time. Worth a moment (issue #9). When the tick came from a screen
-     * that is itself the moment ([momentShown]: the lock screen's gold open state, issue #127),
-     * nothing is left pending, so KEPT does not celebrate the same day a second time.
+     * that plays the moment itself ([momentShown]: the lock screen, issue #130), or the moment
+     * already played today, nothing is left pending, so KEPT does not celebrate the day again.
      */
     private suspend fun onDayCompleted(event: HabitEvent.Completed, momentShown: Boolean) {
         analytics.capture(
@@ -72,8 +74,24 @@ class HabitActions @Inject constructor(
                 "minutes_before_due" to event.minutesBeforeDue,
             ),
         )
-        prefs.updateSettings { it.copy(celebrationPendingDate = if (momentShown) null else time.todayKey()) }
+        val today = time.todayKey()
+        prefs.updateSettings { it.copy(celebrationPendingDate = MomentRules.pendingAfterFinish(momentShown, it.celebrationShownDate, today)) }
         dayCompletion.onDayCompleted()
+    }
+
+    /**
+     * Takes today's "Promise kept" moment for the caller: true, and it is recorded as played, if it
+     * has not played today in KEPT or on the lock screen; false if it has. Whoever gets true plays
+     * it; nobody else does that day (issue #130). Clears anything pending for KEPT too.
+     */
+    suspend fun claimMoment(): Boolean {
+        val today = time.todayKey()
+        var claimed = false
+        prefs.updateSettings {
+            claimed = MomentRules.mayPlay(it.celebrationShownDate, today)
+            if (claimed) it.copy(celebrationShownDate = today, celebrationPendingDate = null) else it
+        }
+        return claimed
     }
 
     /**

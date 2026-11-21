@@ -3,6 +3,7 @@ package com.example.kept.feature.lock
 import android.os.SystemClock
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -10,12 +11,14 @@ import androidx.lifecycle.viewModelScope
 import com.example.kept.core.analytics.Analytics
 import com.example.kept.core.analytics.Screens
 import com.example.kept.core.data.HabitActions
+import com.example.kept.core.data.HabitEvent
 import com.example.kept.core.data.LockRepository
 import com.example.kept.core.data.LockState
 import com.example.kept.core.data.SprigRepository
 import com.example.kept.core.data.TimeSource
 import com.example.kept.core.domain.LockMode
 import com.example.kept.core.domain.LockPolicy
+import com.example.kept.core.domain.MomentRules
 import com.example.kept.core.domain.SprigState
 import com.example.kept.core.domain.minuteOfDayLabel
 import com.example.kept.core.di.ApplicationScope
@@ -128,6 +131,7 @@ class LockViewModel @Inject constructor(
         showing += 1
         showingFlow.value = showing
         breakTimer.cancel()
+        saved[KEY_MOMENT] = false
     }
 
     /** The current state as it may be shown: anything from an earlier showing reads as not loaded yet. */
@@ -140,15 +144,76 @@ class LockViewModel @Inject constructor(
 
     /**
      * Ticks and undos go through [HabitActions], exactly as on Home, so a tick on the lock screen
-     * counts the same (on time or late, level, recap). The one difference: a day finished here gets
-     * its "Promise kept" moment from this screen's gold open state, so no celebration is left
-     * pending for KEPT (`momentShown`). They run on the application
-     * scope, not `viewModelScope` (issue #9): the last tick can end with the activity finishing,
-     * which clears this ViewModel, and the rest of the write must not be cancelled with it.
+     * counts the same (on time or late, level, recap). The one difference: a day finished here in
+     * time plays its "Promise kept" moment on this screen, before the gold open state, so nothing
+     * is left pending for KEPT (`momentShown`, issue #130). They run on the application scope, not
+     * `viewModelScope` (issue #9): the write must not be cancelled if the activity finishes.
      */
-    fun complete(habitId: Long) = appScope.launch { actions.complete(habitId, momentShown = true) }
-    fun completeWithPhoto(habitId: Long, path: String) = appScope.launch { actions.complete(habitId, path, momentShown = true) }
+    fun complete(habitId: Long) { beforeTick(); appScope.launch { afterTick(actions.complete(habitId, momentShown = true)) } }
+    fun completeWithPhoto(habitId: Long, path: String) { beforeTick(); appScope.launch { afterTick(actions.complete(habitId, path, momentShown = true)) } }
     fun undo(habitId: Long) = appScope.launch { actions.undo(habitId) }
+
+    /**
+     * The tick finished the day in time: take today's moment (it plays once per day across KEPT and
+     * the lock screen) and put it up for this showing. A day finished late gets nothing.
+     */
+    private suspend fun afterTick(event: HabitEvent.Completed?) {
+        val claimed = event != null && MomentRules.finishedInTime(event.allDoneNow, event.beforeDue) && actions.claimMoment()
+        val today = time.todayKey()
+        viewModelScope.launch {
+            // Carried on already today (perhaps while this tick was still in flight): the moment has
+            // been seen, so it is not raised again, whatever order two ticks' claims land in.
+            if (MomentRules.lockRaisesAfterClaim(claimed, saved.get<String>(KEY_CARRIED_ON_DATE), today)) {
+                saved[KEY_MOMENT] = true
+                analytics.screen(Screens.CELEBRATION)
+            }
+            finishing = false
+        }
+    }
+
+    /**
+     * The last habit left is being ticked: the day may be about to finish. Until [afterTick] knows,
+     * the moment stands in for the open state, so the gold open state does not flash up for a
+     * frame before the moment covers it.
+     *
+     * At most once per day, and only while today's moment can still play: not once it has played
+     * (here or in KEPT, per the stored date), and not for a second finishing tick while the first
+     * one's claim may still be in flight (undo and re-tick right after carrying on, QA on PR #144),
+     * which the ViewModel remembers itself because the stored date may not be written yet.
+     */
+    var finishing by mutableStateOf(false)
+        private set
+
+    private fun beforeTick() {
+        val now = shown(state.value)
+        val today = time.todayKey()
+        val shownDate = now.lock?.settings?.celebrationShownDate
+        if (MomentRules.lockStandsIn(now.remaining, shownDate, saved.get<String>(KEY_STAND_IN_DATE), today)) {
+            saved[KEY_STAND_IN_DATE] = today
+            saved[KEY_MOMENT_INTRO_PLAYED] = false
+            finishing = true
+        }
+    }
+
+    /**
+     * The "Promise kept" moment is up (issue #130). Kept in the saved state, so a rotation keeps
+     * it on screen, and a new showing of the lock screen ([onShown]) takes it down.
+     */
+    val moment: StateFlow<Boolean> = saved.getStateFlow(KEY_MOMENT, false)
+
+    /** The moment's pop, ring and petals have not played yet: they play once, not again after a rotation. */
+    val momentIntroPending: Boolean get() = saved.get<Boolean>(KEY_MOMENT_INTRO_PLAYED) != true
+
+    fun momentIntroStarted() {
+        saved[KEY_MOMENT_INTRO_PLAYED] = true
+    }
+
+    /** "Tap to carry on" (or Back): the gold open state with "Open {App}" shows; today's moment has been seen. */
+    fun carryOn() {
+        saved[KEY_CARRIED_ON_DATE] = time.todayKey()
+        finishing = false
+        saved[KEY_MOMENT] = false
+    }
 
     /**
      * `LockActivity` is its own surface: no NavController reaches it, so the two screens it can
@@ -193,6 +258,10 @@ class LockViewModel @Inject constructor(
 
 private const val KEY_PKG = "blocked_pkg"
 private const val KEY_LABEL = "blocked_label"
+private const val KEY_MOMENT = "lock_moment"
+private const val KEY_MOMENT_INTRO_PLAYED = "lock_moment_intro_played"
+private const val KEY_STAND_IN_DATE = "lock_moment_stand_in_date"
+private const val KEY_CARRIED_ON_DATE = "lock_moment_carried_on_date"
 
 /**
  * The `combine` behind [LockViewModel.state], kept as a plain function of flows so a JVM test can

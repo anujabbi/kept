@@ -40,16 +40,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.rotate
-import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
@@ -82,6 +76,7 @@ import com.example.kept.core.ui.DaybreakColors
 import com.example.kept.core.ui.DaybreakType
 import com.example.kept.core.ui.Hill
 import com.example.kept.core.ui.LocalReduceMotion
+import com.example.kept.core.ui.Petals
 import com.example.kept.core.ui.PrimaryButton
 import com.example.kept.core.ui.SecondaryButton
 import com.example.kept.core.ui.Sky
@@ -142,9 +137,6 @@ private val GrowEasing = CubicBezierEasing(0.3f, 1.3f, 0.5f, 1f)
 
 /** `.knob`: `cubic-bezier(.3, 1.8, .5, 1)`. */
 private val PopEasing = CubicBezierEasing(0.3f, 1.8f, 0.5f, 1f)
-
-/** `petalFall`: `cubic-bezier(.2, .6, .4, 1)`. */
-private val PetalEasing = CubicBezierEasing(0.2f, 0.6f, 0.4f, 1f)
 
 /** The next form's silhouette (`filter: brightness(0) opacity(0.22)`). */
 private const val SILHOUETTE_ALPHA = 0.22f
@@ -234,7 +226,7 @@ internal fun RecapContent(
                         Modifier.offset(x = spot.sprigLeftDp.dp, y = inset + spot.sprigTopDp.dp).size(spot.sprigDp.dp).testTag("recap_sprig"),
                         motion = sprigMotion,
                     )
-                    if (petalsFalling) Petals(elapsed, Modifier.matchParentSize())
+                    if (petalsFalling) Petals(RecapMotion.SHOWER, elapsed, Modifier.matchParentSize().testTag("recap_petals"))
                 },
             ) {
                 Column(Modifier.fillMaxWidth().wrapContentHeight(Alignment.Top, unbounded = true).onSizeChanged { bodyPx = it.height }) {
@@ -478,32 +470,6 @@ private fun Bar(p: RecapProgress.Toward, kept: Boolean, elapsed: () -> Long, mod
             fill.place(0, 0)
             dots.place(0, 0)
             knob.place(fillW + KNOB_PAST.roundToPx() - k, -KNOB_ABOVE.roundToPx())
-        }
-    }
-}
-
-/** The 14 petals (`.petal`), each falling 380dp and turning 320° once, clipped to the sky. */
-@Composable
-private fun Petals(elapsed: () -> Long, modifier: Modifier = Modifier) {
-    Canvas(modifier.clipToBounds().testTag("recap_petals")) {
-        val ms = elapsed()
-        val w = RecapMotion.PETAL_W_DP.dp.toPx()
-        val h = RecapMotion.PETAL_H_DP.dp.toPx()
-        val big = CornerRadius(8.dp.toPx())
-        // `border-radius: 8px 8px 8px 2px`: the bottom-left corner is the sharp one.
-        val shape = Path().apply {
-            addRoundRect(RoundRect(0f, 0f, w, h, big, big, big, CornerRadius(2.dp.toPx())))
-        }
-        for (petal in RecapMotion.PETALS) {
-            val t = RecapMotion.petalProgress(petal, ms) ?: continue
-            val e = PetalEasing.transform(t)
-            val x = petal.xDp.dp.toPx()
-            val y = (RecapMotion.PETAL_TOP_DP + RecapMotion.PETAL_FALL_DP * e).dp.toPx()
-            translate(x, y) {
-                rotate(RecapMotion.PETAL_TURN_DEG * e, pivot = Offset(w / 2, h / 2)) {
-                    drawPath(shape, Color(petal.colour), alpha = RecapMotion.petalAlpha(t))
-                }
-            }
         }
     }
 }
