@@ -46,6 +46,50 @@ object DaybreakIcons {
     /** Lock screen, "Phone" (`A3-Lock`). */
     val Phone: ImageVector = stroke("Phone", 2.4f, "M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z")
 
+    /** The back arrow in a page header (`A10`–`A14`). */
+    val Back: ImageVector = stroke("Back", 2.4f, "M15 5l-7 7 7 7")
+
+    /** The search field's magnifier (`A12-Exceptions`). */
+    val Search: ImageVector = stroke("Search", 2.4f, circle(11f, 11f, 6f), "M20 20l-4-4")
+
+    /**
+     * The onboarding habit presets' icons (`A10-Onb-Habits`), by habit icon key. Keys the design
+     * draws no icon for return null; callers fall back to [HabitIcons].
+     */
+    fun habit(iconKey: String): ImageVector? = habitIcons[iconKey]
+
+    private val habitIcons: Map<String, ImageVector> = mapOf(
+        "run" to stroke("Run", 2.2f, "M13 4a1.5 1.5 0 1 0 .01 0M7 21l3-6 3 2v4M10 15l1-5 4 2 3-1M11 10l-3 1-1 3"),
+        "book" to stroke("Book", 2.2f, "M4 5c3-1 6-1 8 1v13c-2-2-5-2-8-1zM20 5c-3-1-6-1-8 1v13c2-2 5-2 8-1z"),
+        "music" to stroke("Music", 2.2f, "M9 18V5l11-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM20 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"),
+        "study" to stroke("Study", 2.2f, "M2 9l10-5 10 5-10 5zM6 11v5c3 2 9 2 12 0v-5"),
+        "tidy" to stroke("Tidy", 2.2f, "M14 3l-4 9M7 12h8l2 9H5z"),
+        "sleep" to stroke("Sleep", 2.2f, "M20 14A8 8 0 1 1 10 4a6 6 0 0 0 10 10z"),
+    )
+
+    /**
+     * "How Sprig works" (`A14-Onb-Ready`): the three rules' duotone icons, drawn in their own
+     * colours (`tint = Color.Unspecified`), each on a 40dp round tile.
+     */
+    val Growth: ImageVector = duotone(
+        "Growth", Color(0xFF1F7A45),
+        Part("M12 21v-9"),
+        Part("M12 12c-1-4-4-6-8-5.5.5 4 3.5 6 8 5.5z", fill = Color(0xFFBDE8CC)),
+        Part("M12 15c1-3.5 4-5 7.5-4-.5 3.5-3.5 5-7.5 4z", fill = Color(0xFFBDE8CC)),
+    )
+
+    /** A padlock opening: `<rect x=5 y=10 w=14 h=10 rx=2.5>` and the shackle. */
+    val Padlock: ImageVector = duotone(
+        "Padlock", Color(0xFF5B4BD6),
+        Part("M7.5 10h9a2.5 2.5 0 0 1 2.5 2.5v5a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 5 17.5v-5A2.5 2.5 0 0 1 7.5 10z", fill = Color(0xFFCFC8FF)),
+        Part("M8 10V7.5a4 4 0 0 1 7.5-2"),
+    )
+
+    val ShieldDuo: ImageVector = duotone(
+        "ShieldDuo", Color(0xFF2F6FC4),
+        Part("M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z", fill = Color(0xFFC7DCF6)),
+    )
+
     /**
      * Break the lock, "What it costs" (`A4-Break`): duotone icons, a coloured line over a pale fill,
      * drawn in their own colours (use them with `tint = Color.Unspecified`). Each sits in a 40dp

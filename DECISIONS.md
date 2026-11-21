@@ -1015,3 +1015,48 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
   - *Removed:* the roadmap screen ("How Sprig grows"), `Routes.ROADMAP` and `Screens.ROADMAP`,
     and the old "Now" card, "Collected" and "Still to earn" sections. `GalleryViewModel` no
     longer needs `TimeSource`.
+
+- **Onboarding in Daybreak (issue #132).** Built from `A1-Welcome`, `A10`–`A14`; the pure rules
+  are `core/domain/OnboardingLayout.kt` (`LockWindowRules`, `OnboardingCopy`, `WelcomeLayout`,
+  `ReadySprig`, `HillEdge`) and `OnboardingFlow` in `feature/onboarding`.
+  - *Welcome is not a step.* It comes before step 1 and fires no `onboarding_step_viewed`;
+    steps 1 to 5 fire it as the progress bar numbers them (habits 1, lock window 2, exceptions
+    3, permissions 4, how Sprig works 5). `ONBOARDING_STEPS` is 5, so "Start today" now stores
+    `onboardingStep = 5`. `onboarding_completed` and the permission events are unchanged.
+  - *The lock window step is back* (spec, Onboarding step 2), reversing issue #37's removal. It
+    starts from the stored window (the 7:00 am / 9:00 pm defaults on a fresh install) and is
+    written on "Start today" only if the person moved it, so a window set in Settings before a
+    re-run survives an untouched step. The design script's bounds are kept: start 6:00 am to
+    9:30 pm, give-up up to 11:30 pm, give-up at least 2 hours after start, 30 minute steps. A
+    stored window outside those (one that runs past midnight) is shown brought inside the bar;
+    a button stops (and is shown disabled) where its rule stops it. The − / + targets are 48dp
+    wide, not the design's 44, for the touch-target rule. A row keeps its stepper beside the text only
+    when the whole label fits on one line there; otherwise the stepper goes under the text
+    (QA on PR #147). At 360dp that is already the case at font 1.0.
+  - *Welcome geometry from the screen.* The hill uses the spec's 48dp radius (the mock drew
+    64). The crest sits 58dp above the button block, as in the mock; Sprig is as large as fits
+    between the text and the hill (350dp at most, 20dp in from each side), its bottom 10dp
+    under the crest and 2dp under the hill at both lower corners, as on the Sprig tab. When a
+    120dp Sprig does not fit (360 × 640 at font 2.0) the page grows and scrolls.
+  - *Step pages.* Titles and lines stay above the list as in the design; from font scale 1.5
+    they scroll with the list, so a small screen keeps room for the body. The footer is fixed.
+    The four bar labels step down in size together at large fonts rather than touch.
+  - *"Add your own"* opens the app's existing habit editor on its own page with a back arrow
+    (its Daybreak redesign is #134). A saved habit joins the picks, picked; tapping it unpicks
+    (removes) it. At 10 habits the "Add your own" row is replaced by `HabitLimits.LIMIT_REACHED`.
+  - *Habit icons* for the six presets are the design's line icons (`DaybreakIcons.habit`); other
+    icon keys fall back to the existing Material icons.
+  - *What stays open* shows the device's real always-open apps (the six names until they load,
+    14 at most plus "+n more") and every installed app the person may except, with its real
+    icon on the 32dp tile, or its initial on purple when the device has none (the design's brand
+    colours are not known for arbitrary apps). The row order is the existing picker order
+    (switched-on first, then A to Z).
+  - *Permissions*: cards and tags as `A13`; the card copy is the design's. The camera card shows
+    in onboarding only with a photo habit on a device with a camera, as before. The red line is
+    `RequiredPermissions.onboardingWarning`, as the issue asks, so it reads "won't" and "grant"
+    where the mock reads "will not" and "turn on".
+  - *Shared bodies.* `ExceptionsBody` and `PermissionsBody` take `BodyMode.ONBOARDING` or
+    `SETTINGS`. The Settings pages already use them in settings mode (a back arrow, no footer,
+    and the hollow-day note on Permissions), because it was a one-line change each; the rest of
+    Settings is #133. The old Settings-only copy ("Permissions" title, "Always available",
+    "Locked") is gone with it.

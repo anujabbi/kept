@@ -64,7 +64,8 @@ fun KeptCard(
 /**
  * Daybreak primary button (`A18-Parts`): 56dp, fully round, ink fill, cream 17/700 text.
  * Disabled is a `#B9B4CC` fill with the same cream text. [contentPadding] narrows the sides for
- * two buttons side by side on a narrow screen (Recap).
+ * two buttons side by side on a narrow screen (Recap). [containerColor] is ink except where a
+ * design dims the button while it stays enabled (onboarding's "Continue without the lock").
  */
 @Composable
 fun PrimaryButton(
@@ -74,6 +75,7 @@ fun PrimaryButton(
     enabled: Boolean = true,
     textStyle: TextStyle = DaybreakType.button,
     contentPadding: PaddingValues = ButtonDefaults.ContentPadding,
+    containerColor: Color = DaybreakColors.ink,
 ) {
     val d = DaybreakColors
     Button(
@@ -82,7 +84,7 @@ fun PrimaryButton(
         modifier = modifier.fillMaxWidth().heightIn(min = 56.dp),
         shape = CircleShape,
         colors = ButtonDefaults.buttonColors(
-            containerColor = d.ink, contentColor = d.cream,
+            containerColor = containerColor, contentColor = d.cream,
             disabledContainerColor = d.disabled, disabledContentColor = d.cream,
         ),
         elevation = null,

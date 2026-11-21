@@ -1,6 +1,7 @@
 package com.example.kept.feature.onboarding
 
 import com.example.kept.core.data.prefs.Settings
+import com.example.kept.core.domain.LockWindowRules
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -8,9 +9,9 @@ import org.junit.Test
 import java.time.LocalDate
 
 /**
- * Onboarding no longer has a lock-rule step (issue #37). What it writes to [Settings] on the way
- * through and on finish is pinned here so nothing in the flow can overwrite the lock window or
- * break length again: those come from the [Settings] defaults and are changed in Settings only.
+ * What onboarding writes to [Settings] on the way through and on finish. The break length is
+ * never asked for (issue #37). The lock window step (#132) writes the window only when the person
+ * moved it; otherwise the stored window, the defaults on a fresh install, stays as it was.
  */
 class OnboardingCommitTest {
     private val today: LocalDate = LocalDate.of(2026, 10, 1)
@@ -32,11 +33,25 @@ class OnboardingCommitTest {
         assertEquals(30, after.breakDurationMin)
     }
 
-    @Test fun `finishing marks onboarding done at the last of four steps`() {
+    @Test fun `finishing marks onboarding done at the last of five steps`() {
         val after = Settings().onboardingFinished(today)
         assertTrue(after.onboardingDone)
-        assertEquals(4, ONBOARDING_STEPS)
+        assertEquals(5, ONBOARDING_STEPS)
         assertEquals(ONBOARDING_STEPS, after.onboardingStep)
+    }
+
+    @Test fun `an untouched lock window step writes nothing`() {
+        val after = tuned.onboardingLockWindow(null).onboardingFinished(today)
+        assertEquals(6 * 60, after.lockFromMinute)
+        assertEquals(22 * 60 + 15, after.dueMinute)
+    }
+
+    @Test fun `a moved lock window is written on finish, and nothing else changes`() {
+        val after = tuned.onboardingLockWindow(LockWindowRules.Window(8 * 60, 20 * 60 + 30)).onboardingFinished(today)
+        assertEquals(8 * 60, after.lockFromMinute)
+        assertEquals(20 * 60 + 30, after.dueMinute)
+        assertEquals(60, after.breakDurationMin)
+        assertTrue(after.onboardingDone)
     }
 
     @Test fun `the draft sets first use date once and never moves it`() {
