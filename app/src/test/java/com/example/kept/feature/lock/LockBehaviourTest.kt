@@ -12,15 +12,18 @@ import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
 import androidx.core.app.ActivityOptionsCompat
+import androidx.core.content.FileProvider
 import com.example.kept.core.ui.shots.Shot
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -70,6 +73,17 @@ class LockBehaviourTest {
 
     private val current = mutableStateOf(LockFixtures.state(2, 0))
 
+    /**
+     * `FileProvider` keeps its path roots in a static cache keyed by authority. Robolectric reuses
+     * a sandbox (and so that cache) across tests but gives each test a new files directory, so a
+     * cached root from an earlier test would not contain this test's proof file. Clear it.
+     */
+    @Before fun clearFileProviderCache() {
+        val f = FileProvider::class.java.getDeclaredField("sCache").apply { isAccessible = true }
+        val cache = f.get(null) as MutableMap<*, *>
+        synchronized(cache) { cache.clear() }
+    }
+
     private fun show(calls: Calls = Calls(), system: FakeSystem = FakeSystem(), label: String = "Chrome"): Calls {
         val owner = object : ActivityResultRegistryOwner { override val activityResultRegistry = system }
         rule.setContent {
@@ -111,6 +125,28 @@ class LockBehaviourTest {
         val (id, path) = calls.photos.single()
         assertEquals(5L, id)
         assertTrue("saved under files/proof like Home: $path", path.contains("/proof/proof_") && path.endsWith(".jpg"))
+    }
+
+    /**
+     * A second photo in the same JVM. `FileProvider` caches its roots statically, and a reused
+     * Robolectric sandbox gives each test a new files directory, so without [clearFileProviderCache]
+     * whichever photo test ran second failed ("Failed to find configured root").
+     */
+    @Test fun aPhotoHabitWorksWhateverRanBefore() {
+        current.value = LockFixtures.state(6, 0)
+        val system = FakeSystem()
+        val calls = show(system = system)
+        rule.onNodeWithTag("lock_habit_5").performScrollTo().performClick()
+        rule.waitForIdle()
+        assertEquals(5L, calls.photos.single().first)
+    }
+
+    @Test fun aLateTickReadsTooLateNotDone() {
+        current.value = LockFixtures.state(3, 2, late = 1)
+        show()
+        rule.onNodeWithText("Too late").assertIsDisplayed()
+        // Only the on-time tick reads "Done".
+        assertEquals(1, rule.onAllNodesWithText("Done").fetchSemanticsNodes().size)
     }
 
     @Test fun phoneOpensTheDialerInOneTapAndBreakGoesToTheBreakFlow() {

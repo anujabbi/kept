@@ -187,7 +187,8 @@ enum class HabitRowState { ToDo, Done, DoneLate }
  * the detail (or state) on a second line instead of on the right.
  *
  * [night] is the lock screen's dark row (`A3-Lock`) on [Sky.lockGround]: a clear row with a
- * `#4A4590` border, and when done a `#3E3895` fill with a gold dot and an ink check.
+ * `#4A4590` border, and when done a `#3E3895` fill with a gold dot and an ink check. Done late
+ * stays a clear row, like Home's grey late row: a `#A9A3DC` dot, soft title, "Too late" in gold.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -207,7 +208,7 @@ fun DaybreakHabitRow(
     val shape = RoundedCornerShape(if (roomy) 22.dp else 18.dp)
     val dot = if (roomy) 34.dp else 28.dp
     val (ground, border) = when {
-        night -> if (done) LockPalette.rowDone to LockPalette.rowDoneLine else Color.Transparent to LockPalette.rowLine
+        night -> if (state == HabitRowState.Done) LockPalette.rowDone to LockPalette.rowDoneLine else Color.Transparent to LockPalette.rowLine
         state == HabitRowState.ToDo -> D.white to D.rowLine
         state == HabitRowState.Done -> D.purpleTint to D.purpleDone
         else -> D.lateRow to D.rowLine
@@ -240,7 +241,7 @@ fun DaybreakHabitRow(
             else -> Box(
                 Modifier.size(dot).clip(CircleShape).background(
                     when {
-                        night -> Sky.gold
+                        night -> if (state == HabitRowState.Done) Sky.gold else LockPalette.ring
                         state == HabitRowState.Done -> D.purple
                         else -> D.disabled
                     },
@@ -253,16 +254,16 @@ fun DaybreakHabitRow(
                 title,
                 m,
                 style = if (roomy) DaybreakType.rowTitle.copy(fontSize = 17.sp, lineHeight = 22.sp) else DaybreakType.rowTitle,
-                color = if (state == HabitRowState.DoneLate && !night) D.muted else ink,
-                textDecoration = if (state == HabitRowState.Done || (night && done)) TextDecoration.LineThrough else null,
+                color = if (state == HabitRowState.DoneLate) soft else ink,
+                textDecoration = if (state == HabitRowState.Done) TextDecoration.LineThrough else null,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
         }
         val trailing: @Composable () -> Unit = {
             when {
-                state == HabitRowState.Done || (night && done) -> Text(if (roomy) "Done. Hold to undo" else "Done", style = DaybreakType.caption, color = soft)
-                state == HabitRowState.DoneLate -> Text("Too late", style = DaybreakType.caption, fontWeight = FontWeight.SemiBold, color = D.amberLabel)
+                state == HabitRowState.Done -> Text(if (roomy) "Done. Hold to undo" else "Done", style = DaybreakType.caption, color = soft)
+                state == HabitRowState.DoneLate -> Text("Too late", style = DaybreakType.caption, fontWeight = FontWeight.SemiBold, color = if (night) Sky.gold else D.amberLabel)
                 photo -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     val accent = if (night) LockPalette.soft else D.purple
                     Icon(DaybreakIcons.Camera, null, Modifier.size(16.dp), tint = accent)

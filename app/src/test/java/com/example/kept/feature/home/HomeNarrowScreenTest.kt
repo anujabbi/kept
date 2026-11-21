@@ -65,4 +65,11 @@ class HomeNarrowScreenTest {
     @Test fun done0of6_font2() = shot("0of6", 2f, HomeFixtures.state(6, 0))
     @Test fun done6of6() = shot("6of6", 1f, HomeFixtures.state(6, 6))
     @Test fun done6of6_font2() = shot("6of6", 2f, HomeFixtures.state(6, 6))
+
+    @Test fun headlineNeverBreaksInsideAWord() {
+        val current = mutableStateOf(HomeFixtures.state(2, 0))
+        val scale = mutableFloatStateOf(1f)
+        rule.setContent { Shot(scale.floatValue) { HomeFrame(current.value) } }
+        assertHomeHeadlineWhole(rule, current, scale)
+    }
 }

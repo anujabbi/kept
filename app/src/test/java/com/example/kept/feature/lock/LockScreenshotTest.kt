@@ -40,6 +40,7 @@ class LockScreenshotTest {
     @Test fun open2of2_font2() = shot("2of2_open", 2f, LockFixtures.state(2, 2))
     @Test fun done2of10() = shot("2of10", 1f, LockFixtures.state(10, 2))
     @Test fun done2of10_font2() = shot("2of10", 2f, LockFixtures.state(10, 2))
+    @Test fun lateTick() = shot("2of3_late", 1f, LockFixtures.state(3, 2, late = 1))
     @Test fun open10of10() = shot("10of10_open", 1f, LockFixtures.state(10, 10))
     @Test fun open10of10_font2() = shot("10of10_open", 2f, LockFixtures.state(10, 10))
 
@@ -49,5 +50,13 @@ class LockScreenshotTest {
         val label = mutableStateOf("Chrome")
         rule.setContent { Shot(scale.floatValue) { LockScreen(current.value, label.value, LockActions()) } }
         assertLockFits(rule, current, scale, label)
+    }
+
+    @Test fun appNamesNeverBreakInsideAWord() {
+        val current = mutableStateOf(LockFixtures.state(2, 0))
+        val scale = mutableFloatStateOf(1f)
+        val label = mutableStateOf("Instagram")
+        rule.setContent { Shot(scale.floatValue) { LockScreen(current.value, label.value, LockActions()) } }
+        assertAppNamesWhole(rule, current, scale, label)
     }
 }

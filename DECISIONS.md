@@ -800,7 +800,12 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     intent the button goes to the launcher.
   - *App name.* The label the foreground watcher already passes (`InstalledAppsSource.label`).
     Blank (never expected) reads "This app". Long names step the headline down until the longest
-    word fits, like Home's headline.
+    word fits, like Home's headline. The size is found by measuring every word (a binary search
+    from the full size down to 35% of it), because Bricolage's optical sizing means a word's width
+    does not shrink in proportion to its size (QA on #127: "Instagra|m" at font 2.0). Hyphenation
+    is off. A word that does not fit even at 35% keeps shrinking rather than split. Home's headline
+    uses the same `fitLongestWord`, so one Home golden (360dp, 6 of 6, font 2.0) moved: "Promise"
+    is now a little larger, because the measured fit is closer than the old proportional guess.
   - *Layout.* Compact Home's widths (`HomeSprig.compactWidths`): the headline column is 180dp, not
     `A3-Lock`'s 190, so it ends 4dp before Sprig's box instead of running under it; Sprig is 180dp
     at 412dp, 168 at 390, 150 at 360, keeping the design's bottom edge. The design's top values
@@ -815,6 +820,9 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     photo habit reads "Snap photo" with the camera icon (as on Home and `A18-Parts`) in the lock
     screen's soft text colour, instead of the design's plain "Photo". The open state uses the
     normal done rows, which match the design's all-done colours.
+    A habit ticked after the give-up time reads "Too late" on the dark row too. That is the night
+    version of Home's grey late row: a clear row, a `#A9A3DC` dot with an ink check, the title in
+    the soft colour with no strike, and "Too late" in gold. The design has no late state.
   - *Footer.* "Break the lock" is a text button in `#D8D3F5`, as the design's link. Button content
     padding is 12dp (not Material's 24) so "Phone" and its icon fit half of a 360dp row at font
     2.0; "Phone" steps its size down rather than break inside the word.

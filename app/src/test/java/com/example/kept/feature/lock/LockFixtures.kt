@@ -13,6 +13,7 @@ import androidx.compose.ui.text.TextLayoutResult
 import com.example.kept.core.data.LockState
 import com.example.kept.core.data.prefs.Settings
 import com.example.kept.core.domain.SprigState
+import com.example.kept.core.ui.shots.assertNoWordSplit
 import com.example.kept.feature.home.HomeFixtures
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -20,11 +21,11 @@ import org.junit.Assert.assertTrue
 /** Lock states shaped like `A3-Lock`: Bloom (the sweater), a 12 day streak, the design's habits. */
 internal object LockFixtures {
     /**
-     * [total] habits, the first [done] ticked in time. With everything done the lock is no longer
+     * [total] habits, the first [done] ticked, the first [late] of those after the give-up time. With everything done the lock is no longer
      * active, as `LockPolicy` says, so the state is the open one.
      */
-    fun state(total: Int, done: Int): LockUi {
-        val t = HomeFixtures.habits(total, done)
+    fun state(total: Int, done: Int, late: Int = 0): LockUi {
+        val t = HomeFixtures.habits(total, done, late)
         val locked = done < total
         return LockUi(
             loaded = true,
@@ -96,5 +97,30 @@ internal fun assertLockFits(
             val b = rule.rectDp(tag)
             assertTrue("$at: $tag $b is cut off (screen ${root.height})", b.bottom <= root.height + 0.5f && b.height >= 47.9f)
         }
+    }
+}
+
+/** Real app names, long single words and two-word names, for the headline checks. */
+internal val APP_NAMES = listOf(
+    "Instagram", "WhatsApp", "Snapchat", "Facebook", "Minecraft", "Samsung Internet", "Telegram",
+    "Pinterest", "Microsoft Authenticator", "YouTube Music",
+)
+
+/**
+ * "{App} can wait." and "{App} is open." never break inside a word, for every [APP_NAMES] name at
+ * font 1.0, 1.3 and 2.0 (QA on #127).
+ */
+internal fun assertAppNamesWhole(
+    rule: ComposeContentTestRule,
+    current: MutableState<LockUi>,
+    scale: MutableFloatState,
+    label: MutableState<String>,
+) {
+    for (f in listOf(1f, 1.3f, 2f)) for (name in APP_NAMES) for ((total, done) in listOf(2 to 0, 2 to 2)) {
+        scale.floatValue = f
+        label.value = name
+        current.value = LockFixtures.state(total, done)
+        rule.waitForIdle()
+        assertNoWordSplit(rule, "lock_headline", "$name $done/$total at $f")
     }
 }

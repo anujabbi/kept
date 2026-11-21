@@ -50,4 +50,12 @@ class LockNarrowScreenTest {
         rule.setContent { Shot(scale.floatValue) { LockScreen(current.value, label.value, LockActions()) } }
         assertLockFits(rule, current, scale, label)
     }
+
+    @Test fun appNamesNeverBreakInsideAWord() {
+        val current = mutableStateOf(LockFixtures.state(2, 0))
+        val scale = mutableFloatStateOf(1f)
+        val label = mutableStateOf("Instagram")
+        rule.setContent { Shot(scale.floatValue) { LockScreen(current.value, label.value, LockActions()) } }
+        assertAppNamesWhole(rule, current, scale, label)
+    }
 }
