@@ -72,6 +72,25 @@ fun screenNameFor(route: String?): String? = when (route) {
     else -> null
 }
 
+/** Opens a tab [route] as the tab bar does: each tab keeps its own back stack. */
+internal fun NavController.openTab(route: String) {
+    navigate(route) {
+        popUpTo(Routes.HOME) { saveState = true }
+        launchSingleTop = true
+        restoreState = true
+    }
+}
+
+/**
+ * "See my Sprigs" on the recap: the recap is popped first, so it is not saved into Home's stack
+ * and brought back by the next tap on Today (QA on #129), then the Sprig tab opens as from the
+ * tab bar.
+ */
+internal fun NavController.leaveRecapForSprigs() {
+    popBackStack()
+    openTab(Routes.GALLERY)
+}
+
 /** The three tabs and the route each one opens. */
 private val tabRoutes = mapOf(
     KeptTab.Today to Routes.HOME,
@@ -131,7 +150,11 @@ fun KeptApp(startDestination: String, pendingRoute: String?, consumeRoute: () ->
                         )
                     }
                     composable(Routes.RECAP, arguments = listOf(navArgument("date") { type = NavType.StringType })) {
-                        RecapScreen(date = it.arguments!!.getString("date")!!, onClose = { nav.popBackStack() })
+                        RecapScreen(
+                            date = it.arguments!!.getString("date")!!,
+                            onClose = { nav.popBackStack() },
+                            onOpenSprigs = { nav.leaveRecapForSprigs() },
+                        )
                     }
                     composable(Routes.EXCEPTIONS) { ExceptionsScreen(onBack = { nav.popBackStack() }) }
                     composable(Routes.HABITS) { HabitsEditScreen(onBack = { nav.popBackStack() }) }
@@ -145,13 +168,7 @@ fun KeptApp(startDestination: String, pendingRoute: String?, consumeRoute: () ->
             AnimatedVisibility(showBar, enter = fadeIn(), exit = fadeOut()) {
                 KeptTabBar(
                     selected = tabRoutes.entries.firstOrNull { it.value == currentRoute }?.key,
-                    onSelect = { tab ->
-                        nav.navigate(tabRoutes.getValue(tab)) {
-                            popUpTo(Routes.HOME) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
+                    onSelect = { tab -> nav.openTab(tabRoutes.getValue(tab)) },
                 )
             }
         }

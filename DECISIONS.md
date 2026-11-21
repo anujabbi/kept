@@ -876,3 +876,50 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     sits under "What it costs", so it says what the user ends up with ("2 of 3" on the first break
     of the week, as in the design; "0 of 3" on the third). This was the orchestrator's call on the
     review thread; the first version counted the breaks left before this one.
+- **Recap in Daybreak (issue #129).** Built from `A5-Recap` (prop `outcome`) and its five
+  wrappers; the pure rules are `core/domain/RecapLayout.kt` (`RecapOutcome`, `RecapCopy`,
+  `RecapProgress`, `RecapSprig`, `RecapMotion`). Where the build departs from or fills gaps in the
+  design:
+  - *Outcome mapping* keeps the order the recap always used: counted is kept; unprotected and not
+    written off is lock off (issue #2); then shield; then written off; then everything ticked is
+    too late (issue #7); anything else slipped. The rollover engine can spend the shield on a
+    written-off day; such a day shows "Shield saved it." as before, though the break screen says the
+    shield cannot save it. That is a rule question and out of scope here.
+  - *Reset copy (issue #16).* The table's "Streak reset." is only said when this day took a live
+    streak to 0 (`RecapRules.streakReset`). Otherwise slipped reads "Tomorrow is fresh.", too late
+    "Everything got ticked after the give-up time.", and written off "A fourth break this week, so
+    today does not count." Lock off with no streak reads "That one is on us. Today does not
+    count." instead of promising a "0-day streak". "1 day running." / "in 1 day" are singular.
+  - *Real numbers.* The progress card is computed from the day's `streakEnd`: the form is
+    `SprigForm.forStreak`, the span is the days between its threshold and the next form's, the
+    fill ends at today and, on a kept day, grows from `max(0, into - 1)` as the design does. Day 7,
+    14, 30, … (a form just reached) therefore starts the new span at 0 with nothing to grow.
+  - *Final form* (Celestial): the card shows the mini Sprig with its name beside "Sprig is
+    Celestial, the final form." The design has no final-form state; this keeps the card's shape.
+  - *Sprig* is not desaturated on bad days (the old recap wilted it); the design draws it in full
+    colour, drooping. It is centred, 250dp, at the design's height above the crest; a tall headline
+    (large font, narrow screen) shrinks it to 110dp (still interactive) before it moves the crest
+    down, so its box always clears the text by 8dp and its lower body stays behind the hill.
+  - *Short screens* (under 760dp between the bars, 360 × 640): 12dp above the card instead of 24
+    and a 16dp footer margin instead of 28, so nothing scrolls at font 1.0. When the page still
+    cannot fit (large fonts) the whole page scrolls, sky included; the buttons are not pinned.
+  - *Buttons* use 10dp side padding (`contentPadding` added to `PrimaryButton`/`SecondaryButton`)
+    so "Share this look" stays on one line at 154dp wide (360dp screen). "See my Sprigs" pops the
+    recap first (so the Today tab never restores it) and then opens the Sprig tab the way the tab
+    bar does (`leaveRecapForSprigs`, QA on PR #142). "Share this look" uses the existing
+    share card. With no record (still loading, or nothing recorded) the screen shows "Nothing
+    recorded." and only "Done".
+  - *Moment.* The petals, the grow and the knob pop are functions of one clock (`RecapMotion`),
+    read in layout and draw. The CSS keyframes are approximated per segment: the petal's fall and
+    turn are eased over the whole 2.6s, its opacity is linear between the 0/10/80/100% keyframes,
+    and each half of the knob pop is eased by the knob's curve. The moment plays once per showing
+    (`RecapViewModel` keeps that in `SavedStateHandle`); with reduce motion nothing plays and the bar
+    shows today.
+  - *Removed:* "Time off apps" (`lockedMillis` is still recorded), the "Today, wrapped up" date
+    line (not in the design), `formatMillis`, and the old `screen_recap_*` goldens with
+    `SprigOnScreensScreenshotTest`.
+  - *QA on PR #142.* The card's top line is a small layout (`CardHeader`) rather than a `FlowRow`
+    with `SpaceBetween`, which let "Bud in 3 days" and "Day 0 of 3" touch at 390dp, font 2.0: the
+    two share a baseline with at least 12dp between them, or the count goes under the line. The two
+    stat values take one size (the one that fits the wider value), so their labels start level when
+    "locks broken" wraps at large fonts.

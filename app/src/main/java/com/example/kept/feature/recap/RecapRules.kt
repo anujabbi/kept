@@ -1,6 +1,7 @@
 package com.example.kept.feature.recap
 
 import com.example.kept.core.data.db.DayRecordEntity
+import com.example.kept.core.domain.RecapOutcome
 
 object RecapRules {
     /**
@@ -14,4 +15,8 @@ object RecapRules {
         if (record == null || previous == null) return false
         return !record.countedForStreak && !record.shieldConsumed && record.streakEnd == 0 && previous.streakEnd > 0
     }
+
+    /** The recap outcome for a day record ([RecapOutcome.of]). */
+    fun outcome(r: DayRecordEntity): RecapOutcome =
+        RecapOutcome.of(r.countedForStreak, r.unprotected, r.writtenOff, r.shieldConsumed, r.habitsDone, r.habitsTotal)
 }
