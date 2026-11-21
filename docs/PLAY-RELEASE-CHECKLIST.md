@@ -81,8 +81,9 @@ it.
   KEPT leaves the device).
 - Ads: **none**. Declare "no ads".
 - App access: no login required — say so, so the reviewer is not blocked.
-- Screenshots (phone, at least 2; take them from `verification/`), feature graphic, short and full
-  description, app icon.
+- Screenshots (phone, at least 2; use `docs/play/screenshots/`), feature graphic
+  (`docs/play/feature-graphic.png`), short and full description (`docs/growth/PLAY-LISTING.md`),
+  app icon (`docs/play/icon-512.png`).
 
 ## 6. Before uploading
 
@@ -92,3 +93,25 @@ it.
 - Confirm the release build actually reports to PostHog (the project token comes from `.env` /
   `POSTHOG_PROJECT_TOKEN` and is empty by default, which silently disables analytics).
 - Confirm the privacy policy URL resolves.
+
+## 7. Upload 2.0.1
+
+The owner does this; it needs the upload keystore and Play Console access, neither of which is in
+the repo. The assets are prepared in `docs/play/` (issue #161).
+
+1. Check `app/build.gradle.kts` says `versionName = "2.0.1"` and `versionCode = 6`, higher than
+   any code already uploaded.
+2. Put `keystore.properties` (from `keystore.properties.example`) next to the project, then build
+   the signed bundle: `./gradlew :app:bundleRelease`. The bundle is
+   `app/build/outputs/bundle/release/app-release.aab`.
+3. Walk the minified build on a device first (§6).
+4. Play Console → Test and release → pick a track (internal testing first, then production) →
+   Create new release → upload the `.aab`. Paste the release notes from
+   `docs/play/release-notes-2.0.1.md` into `<en-US>`.
+5. Play Console → Grow users → Store presence → Main store listing:
+   - App icon: replace with `docs/play/icon-512.png`.
+   - Feature graphic: replace with `docs/play/feature-graphic.png`.
+   - Phone screenshots: delete the old ones and upload the eight in `docs/play/screenshots/`, in
+     file-name order.
+   - Short and full description: paste from `docs/growth/PLAY-LISTING.md` once you approve it.
+6. Save, send the changes for review, and roll the release out.
