@@ -97,4 +97,35 @@ class PartsBehaviourTest {
         assertEquals("re-tapping the current tab does nothing", listOf(KeptTab.Sprig), picked)
     }
 
+    @Test fun roomyRowTicksUndoesAndShowsItsStateUnderTheTitle() {
+        var ticks = 0
+        var undos = 0
+        rule.setContent {
+            Shot {
+                androidx.compose.foundation.layout.Column {
+                    DaybreakHabitRow("Exercise", "30 min", HabitRowState.ToDo, onTick = { ticks++ }, onUndo = { undos++ }, roomy = true)
+                    DaybreakHabitRow("Read", "10 pages", HabitRowState.Done, onTick = { ticks++ }, onUndo = { undos++ }, roomy = true)
+                    DaybreakHabitRow("Practice", "20 min", HabitRowState.DoneLate, onTick = { ticks++ }, onUndo = { undos++ }, roomy = true)
+                }
+            }
+        }
+        rule.onNodeWithText("30 min").assertExists()
+        rule.onNodeWithText("Done. Hold to undo").assertExists()
+        rule.onNodeWithText("Too late").assertExists()
+        rule.onNodeWithText("Exercise").performClick()
+        assertEquals(1, ticks)
+        rule.onNodeWithText("Read").performTouchInput { longClick() }
+        assertEquals(1, undos)
+        // 68dp rows (Main), at least.
+        val h = rule.onNodeWithText("Exercise").fetchSemanticsNode().let { n ->
+            generateSequence(n) { it.parent }.first { it.config.contains(SemanticsProperties.Role) }.size.height / rule.density.density
+        }
+        assertTrue("roomy row is ${h}dp", h >= 67.9f)
+    }
+
+    @Test fun firstLandingBannerTakesItsBody() {
+        rule.setContent { Shot { com.example.kept.core.ui.FirstLandingBanner(onGotIt = {}, body = com.example.kept.core.ui.FIRST_LANDING_BODY_NO_NOTIFICATIONS) } }
+        rule.onNodeWithText(com.example.kept.core.ui.FIRST_LANDING_BODY_NO_NOTIFICATIONS).assertExists()
+    }
+
 }

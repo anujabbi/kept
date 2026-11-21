@@ -3,7 +3,6 @@ package com.example.kept
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
-import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -39,9 +38,10 @@ class HomeTest {
         ActivityScenario.launch(MainActivity::class.java).use {
             compose.waitUntil(10_000) { compose.onAllNodes(hasText("day streak", substring = true)).fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText("12 day streak").assertIsDisplayed()
-            compose.onNodeWithText("Exercise 30 min").assertIsDisplayed()
-            compose.onNodeWithText("Read 10 pages").assertIsDisplayed()
-            compose.onAllNodesWithText("Tap when done", substring = true)[0].assertIsDisplayed()
+            compose.onNodeWithText("Exercise").assertIsDisplayed()
+            compose.onNodeWithText("30 min").assertIsDisplayed()
+            compose.onNodeWithText("Read").assertIsDisplayed()
+            compose.onNodeWithText("10 pages").assertIsDisplayed()
         }
     }
 
@@ -60,7 +60,7 @@ class HomeTest {
             }
             compose.onNodeWithText("Too late for today", substring = true).assertIsDisplayed()
             // The checklist still works: the habits are there to tick.
-            compose.onAllNodesWithText("Tap when done", substring = true)[0].assertIsDisplayed()
+            compose.onNodeWithText("Exercise").assertIsDisplayed()
         }
     }
 
@@ -71,11 +71,11 @@ class HomeTest {
         }
         ActivityScenario.launch(MainActivity::class.java).use {
             compose.waitUntil(10_000) { compose.onAllNodes(hasText("day streak", substring = true)).fetchSemanticsNodes().isNotEmpty() }
-            compose.onNodeWithText("That's it, you're all set!").assertIsDisplayed()
-            // The everyday Home renders below the card, unchanged.
+            compose.onNodeWithText("That's it, you're all set.").assertIsDisplayed()
+            // The everyday Home renders around the banner, unchanged.
             compose.onNodeWithText("12 day streak").assertIsDisplayed()
-            compose.onNodeWithTag("home_first_landing_dismiss").performClick()
-            compose.waitUntil(5_000) { compose.onAllNodes(hasText("That's it, you're all set!")).fetchSemanticsNodes().isEmpty() }
+            compose.onNodeWithText("Got it").performClick()
+            compose.waitUntil(5_000) { compose.onAllNodes(hasText("That's it, you're all set.")).fetchSemanticsNodes().isEmpty() }
             compose.onNodeWithTag("home_first_landing").assertDoesNotExist()
             compose.waitUntil(5_000) { !runBlocking { prefs.currentSettings() }.firstLandingPending }
             assertFalse(runBlocking { prefs.currentSettings() }.firstLandingPending)

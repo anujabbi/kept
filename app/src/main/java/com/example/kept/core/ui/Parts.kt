@@ -50,6 +50,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 // The Daybreak shared parts, ported from `docs/design/daybreak/A18-Parts.dc.html` (banners,
 // habit rows, the empty row), `Main.dc.html` (tab bar), `A7-Settings.dc.html` (switch) and
@@ -123,16 +124,26 @@ fun LockOffBanner(message: String, onFix: () -> Unit, modifier: Modifier = Modif
     )
 }
 
+/** The first-landing body when reminders can reach the user (`A18-Parts`). */
+const val FIRST_LANDING_BODY = "You can close the app now. Sprig keeps watch and reminds you when it matters."
+
+/**
+ * The first-landing body when notifications are off: the reminder promise would be false, so
+ * it says how to turn them on instead (issue #41).
+ */
+const val FIRST_LANDING_BODY_NO_NOTIFICATIONS =
+    "You can close the app now. Sprig keeps watch, but reminders are off until notifications are turned on in Settings."
+
 /** Green: once, right after onboarding. "Got it" dismisses it. */
 @Composable
-fun FirstLandingBanner(onGotIt: () -> Unit, modifier: Modifier = Modifier) {
+fun FirstLandingBanner(onGotIt: () -> Unit, modifier: Modifier = Modifier, body: String = FIRST_LANDING_BODY) {
     Banner(
         background = D.greenTint,
         textColor = D.greenText,
         modifier = modifier,
         title = "That's it, you're all set.",
         titleColor = D.greenInk,
-        body = "You can close the app now. Sprig keeps watch and reminds you when it matters.",
+        body = body,
         trailing = {
             // 32dp to see, 48dp to touch.
             Box(
@@ -171,6 +182,9 @@ enum class HabitRowState { ToDo, Done, DoneLate }
  * One habit (`A18-Parts`, 56dp rows). A tap on a to-do row ticks it, with the CONFIRM haptic;
  * a photo habit's tap is the camera's to handle, so it fires [onTick] without the haptic and
  * the caller confirms once the photo is saved. Holding a done row undoes it.
+ *
+ * [roomy] is Home's 1 to 3 habit row (`Main`): 68dp, radius 22, a 34dp dot, a 17sp title with
+ * the detail (or state) on a second line instead of on the right.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -182,17 +196,19 @@ fun DaybreakHabitRow(
     onUndo: () -> Unit,
     modifier: Modifier = Modifier,
     photo: Boolean = false,
+    roomy: Boolean = false,
 ) {
     val haptics = rememberHaptics()
     val done = state != HabitRowState.ToDo
-    val shape = RoundedCornerShape(18.dp)
+    val shape = RoundedCornerShape(if (roomy) 22.dp else 18.dp)
+    val dot = if (roomy) 34.dp else 28.dp
     val (ground, border) = when (state) {
         HabitRowState.ToDo -> D.white to D.rowLine
         HabitRowState.Done -> D.purpleTint to D.purpleDone
         HabitRowState.DoneLate -> D.lateRow to D.rowLine
     }
     Row(
-        modifier.fillMaxWidth().heightIn(min = 56.dp).clip(shape).background(ground).border(2.dp, border, shape)
+        modifier.fillMaxWidth().heightIn(min = if (roomy) 68.dp else 56.dp).clip(shape).background(ground).border(2.dp, border, shape)
             .combinedClickable(
                 onClickLabel = if (done) null else if (photo) "Snap photo" else "Mark done",
                 onLongClickLabel = if (done) "Undo" else null,
@@ -208,34 +224,47 @@ fun DaybreakHabitRow(
                 role = Role.Checkbox
                 toggleableState = ToggleableState(done)
             }
-            .padding(horizontal = 14.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+            .padding(horizontal = if (roomy) 16.dp else 14.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(if (roomy) 14.dp else 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         when (state) {
-            HabitRowState.ToDo -> Box(Modifier.size(28.dp).border(2.dp, D.faint, CircleShape))
+            HabitRowState.ToDo -> Box(Modifier.size(dot).border(2.dp, D.faint, CircleShape))
             HabitRowState.Done, HabitRowState.DoneLate -> Box(
-                Modifier.size(28.dp).clip(CircleShape).background(if (state == HabitRowState.Done) D.purple else D.disabled),
+                Modifier.size(dot).clip(CircleShape).background(if (state == HabitRowState.Done) D.purple else D.disabled),
                 contentAlignment = Alignment.Center,
-            ) { Icon(DaybreakIcons.Check, null, Modifier.size(15.dp), tint = D.white) }
+            ) { Icon(DaybreakIcons.Check, null, Modifier.size(if (roomy) 18.dp else 15.dp), tint = D.white) }
         }
-        Text(
-            title,
-            Modifier.weight(1f),
-            style = DaybreakType.rowTitle,
-            color = if (state == HabitRowState.DoneLate) D.muted else D.ink,
-            textDecoration = if (state == HabitRowState.Done) TextDecoration.LineThrough else null,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
-        when {
-            state == HabitRowState.Done -> Text("Done", style = DaybreakType.caption, color = D.muted)
-            state == HabitRowState.DoneLate -> Text("Too late", style = DaybreakType.caption, fontWeight = FontWeight.SemiBold, color = D.amberLabel)
-            photo -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                Icon(DaybreakIcons.Camera, null, Modifier.size(16.dp), tint = D.purple)
-                Text("Snap photo", style = DaybreakType.caption, fontWeight = FontWeight.SemiBold, color = D.purple)
+        val titleText: @Composable (Modifier) -> Unit = { m ->
+            Text(
+                title,
+                m,
+                style = if (roomy) DaybreakType.rowTitle.copy(fontSize = 17.sp, lineHeight = 22.sp) else DaybreakType.rowTitle,
+                color = if (state == HabitRowState.DoneLate) D.muted else D.ink,
+                textDecoration = if (state == HabitRowState.Done) TextDecoration.LineThrough else null,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        val trailing: @Composable () -> Unit = {
+            when {
+                state == HabitRowState.Done -> Text(if (roomy) "Done. Hold to undo" else "Done", style = DaybreakType.caption, color = D.muted)
+                state == HabitRowState.DoneLate -> Text("Too late", style = DaybreakType.caption, fontWeight = FontWeight.SemiBold, color = D.amberLabel)
+                photo -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Icon(DaybreakIcons.Camera, null, Modifier.size(16.dp), tint = D.purple)
+                    Text("Snap photo", style = DaybreakType.caption, fontWeight = FontWeight.SemiBold, color = D.purple)
+                }
+                else -> Text(detail, style = DaybreakType.caption, color = D.muted)
             }
-            else -> Text(detail, style = DaybreakType.caption, color = D.muted)
+        }
+        if (roomy) {
+            Column(Modifier.weight(1f)) {
+                titleText(Modifier)
+                trailing()
+            }
+        } else {
+            titleText(Modifier.weight(1f))
+            trailing()
         }
     }
 }

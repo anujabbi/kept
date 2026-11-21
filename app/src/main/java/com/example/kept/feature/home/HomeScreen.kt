@@ -1,88 +1,102 @@
 package com.example.kept.feature.home
 
 import android.app.Activity
-import android.content.Context
-import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CameraAlt
-import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.HourglassBottom
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.LockOpen
-import androidx.compose.material.icons.outlined.Shield
-import androidx.compose.material.icons.outlined.Warning
-import androidx.compose.material.icons.rounded.LocalFireDepartment
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.core.content.FileProvider
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.kept.core.data.HabitToday
-import com.example.kept.core.domain.SprigLook
+import com.example.kept.core.data.prefs.Settings
+import com.example.kept.core.domain.HomeCopy
+import com.example.kept.core.domain.HomeLayout
+import com.example.kept.core.domain.HomeSprig
 import com.example.kept.core.domain.ProofType
-import com.example.kept.core.domain.SprigPose
+import com.example.kept.core.domain.SprigLook
 import com.example.kept.core.domain.minuteOfDayLabel
 import com.example.kept.core.lock.RequiredPermissions
-import com.example.kept.core.ui.DayDot
-import com.example.kept.core.ui.HabitIcons
-import com.example.kept.core.ui.InfoBox
-import com.example.kept.core.ui.KeptCard
-import com.example.kept.core.ui.KeptTheme
-import com.example.kept.core.ui.Pill
-import com.example.kept.core.ui.QuietButton
+import com.example.kept.core.ui.AddFirstHabitRow
+import com.example.kept.core.ui.DaybreakColors
+import com.example.kept.core.ui.DaybreakHabitRow
+import com.example.kept.core.ui.DaybreakType
+import com.example.kept.core.ui.FIRST_LANDING_BODY
+import com.example.kept.core.ui.FIRST_LANDING_BODY_NO_NOTIFICATIONS
+import com.example.kept.core.ui.FirstLandingBanner
+import com.example.kept.core.ui.HabitRowState
+import com.example.kept.core.ui.Hill
+import com.example.kept.core.ui.LockOffBanner
+import com.example.kept.core.ui.Motion
+import com.example.kept.core.ui.SkyRamp
+import com.example.kept.core.ui.SkyScaffold
+import com.example.kept.core.ui.TooLateBanner
+import com.example.kept.core.ui.keptTween
 import com.example.kept.core.ui.rememberHaptics
-import com.example.kept.core.ui.SectionLabel
-import com.example.kept.core.ui.ThinProgress
-import com.example.kept.core.ui.WeekDots
 import com.example.kept.core.ui.sprig.SprigView
 import java.io.File
-import java.time.format.DateTimeFormatter
-import java.time.format.TextStyle
-import java.util.Locale
+
+/** What Home can ask for. Navigation is the caller's; Sprig is not a way to navigate. */
+internal class HomeActions(
+    val onComplete: (Long) -> Unit = {},
+    val onUndo: (Long) -> Unit = {},
+    val onPhoto: (Long, String) -> Unit = { _, _ -> },
+    val onOpenPermissions: () -> Unit = {},
+    val onOpenHabits: () -> Unit = {},
+    val onFirstLandingSeen: () -> Unit = {},
+)
 
 @Composable
 fun HomeScreen(
@@ -90,11 +104,9 @@ fun HomeScreen(
     onOpenReveal: (Long) -> Unit,
     onOpenPermissions: () -> Unit,
     onOpenHabits: () -> Unit,
-    onOpenRoadmap: () -> Unit,
     vm: HomeViewModel = hiltViewModel(),
 ) {
     val s by vm.state.collectAsStateWithLifecycle()
-    val c = KeptTheme.colors
 
     // Surface a fresh evolution first, then a pending recap.
     LaunchedEffect(s.unseenUnlock?.id) { s.unseenUnlock?.let { onOpenReveal(it.id) } }
@@ -103,8 +115,8 @@ fun HomeScreen(
         if (d != null && s.unseenUnlock == null) { vm.dismissRecap(); onOpenRecap(d) }
     }
 
-    // The first-landing card lasts while Home stays on screen. Leaving Home, by navigating away or
-    // the app going to the background, ends it; a rotation does not (issue #41).
+    // The first-landing banner lasts while Home stays on screen. Leaving Home, by navigating away
+    // or the app going to the background, ends it; a rotation does not (issue #41).
     val owner = LocalLifecycleOwner.current
     val activity = LocalContext.current as? Activity
     DisposableEffect(owner, activity) {
@@ -117,186 +129,280 @@ fun HomeScreen(
 
     if (!s.loaded) return
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 20.dp)) {
-        Spacer(Modifier.height(12.dp))
-        if (s.firstLanding) {
-            FirstLandingCard(s.notificationsGranted, onDismiss = vm::firstLandingSeen)
-            Spacer(Modifier.height(14.dp))
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Column {
-                Text(s.date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault()), style = MaterialTheme.typography.titleMedium, color = c.textPrimary)
-                Text(s.date.format(DateTimeFormatter.ofPattern("d MMMM")), style = MaterialTheme.typography.bodySmall, color = c.textMuted)
-            }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (s.sprig.shieldAvailable) Pill("Shield", background = c.blue50, foreground = c.blue800, icon = Icons.Outlined.Shield)
-                StreakPill(s.sprig.streakDays)
-            }
-        }
-        Spacer(Modifier.height(14.dp))
-
-        if (s.missingLockPermissions.isNotEmpty()) {
-            KeptCard(background = c.dangerSoft, border = null, onClick = onOpenPermissions, padding = androidx.compose.foundation.layout.PaddingValues(14.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.Warning, null, tint = c.danger, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text("Lock is off", style = MaterialTheme.typography.titleSmall, color = c.danger)
-                        Text(RequiredPermissions.lockOffBody(s.missingLockPermissions), style = MaterialTheme.typography.bodySmall, color = c.textSecondary)
-                    }
-                    Text("Fix", style = MaterialTheme.typography.labelLarge, color = c.danger)
-                }
-            }
-            Spacer(Modifier.height(12.dp))
-        }
-
-        SprigPanel(s, onOpenRoadmap)
-        Spacer(Modifier.height(20.dp))
-
-        SectionLabel("Today", trailing = if (s.today.total > 0) "${s.today.done} of ${s.today.total}" else null)
-        Spacer(Modifier.height(8.dp))
-        if (s.pastDue && s.today.total > 0 && !s.today.allDoneOnTime) {
-            InfoBox(
-                "Too late for today. You can still tick these off, but today won't count.",
-                icon = Icons.Outlined.HourglassBottom,
-                background = c.surface2,
-                foreground = c.textSecondary,
+    HomeContent(
+        s,
+        remember(vm, onOpenPermissions, onOpenHabits) {
+            HomeActions(
+                onComplete = { vm.complete(it) },
+                onUndo = { vm.undo(it) },
+                onPhoto = { id, path -> vm.completeWithPhoto(id, path) },
+                onOpenPermissions = onOpenPermissions,
+                onOpenHabits = onOpenHabits,
+                onFirstLandingSeen = { vm.firstLandingSeen() },
             )
-            Spacer(Modifier.height(8.dp))
-        }
-        if (s.today.total == 0) {
-            KeptCard(onClick = onOpenHabits) {
-                Text("No habits yet", style = MaterialTheme.typography.titleSmall, color = c.textPrimary)
-                Text("Add one or two. Apps lock until they're done.", style = MaterialTheme.typography.bodySmall, color = c.textSecondary)
-            }
-        }
-        s.today.habits.forEach { h ->
-            HabitRow(h, onComplete = { vm.complete(h.id) }, onUndo = { vm.undo(h.id) }, onPhoto = { vm.completeWithPhoto(h.id, it) })
-            Spacer(Modifier.height(8.dp))
-        }
-        Spacer(Modifier.height(4.dp))
-        LockStatusBox(s)
-        Spacer(Modifier.height(20.dp))
+        },
+    )
+}
 
-        SectionLabel("This week", trailing = s.lastSeven.firstOrNull()?.first?.format(DateTimeFormatter.ofPattern("d MMM"))?.let { "$it – today" })
-        Spacer(Modifier.height(8.dp))
-        KeptCard {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                WeekDots(s.lastSeven.map { (d, r) -> dotFor(d == s.date, r, s.today.allDoneOnTime) }, c.purple400)
-                Text("Best ${s.sprig.bestStreak}", style = MaterialTheme.typography.labelMedium, color = c.textSecondary)
-            }
-            // A hollow square is a day KEPT could not watch. It is explained rather than left to
-            // look like a miss, because it costs nothing (issue #2).
-            if (s.lastSeven.any { (d, r) -> d != s.date && r != null && r.unprotected && !r.writtenOff }) {
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    "Hollow days are days the lock was off. They don't count, and they don't break your streak.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = c.textMuted,
+/**
+ * Home in Daybreak (spec, Home): a sky that follows the progress ramp, Sprig rising over the hill
+ * as habits are done, then the habits, the week and the shield. Roomy for 1 to 3 habits
+ * (`Main.dc.html`), compact from 4 (`A2-Home-6.dc.html`), where only the habit list scrolls.
+ */
+@Composable
+internal fun HomeContent(s: HomeUiState, actions: HomeActions, modifier: Modifier = Modifier) {
+    val total = s.today.total
+    val done = s.today.done
+    val layout = HomeLayout.forHabitCount(total)
+    val light = SkyRamp.homeTextIsLight(done, total)
+    val ink by animateColorAsState(SkyRamp.textOn(light), keptTween(Motion.SKY_MS), label = "sky-ink")
+    var shieldOpen by rememberSaveable { mutableStateOf(false) }
+    BackHandler(enabled = shieldOpen) { shieldOpen = false }
+
+    val density = LocalDensity.current
+    val inset = with(density) { WindowInsets.statusBars.getTop(this).toDp() }
+    // The headline block's height, measured; a taller block (large font) moves the hill down.
+    var textHeightPx by remember(layout) { mutableIntStateOf(0) }
+    val textTop = if (layout == HomeLayout.ROOMY) ROOMY_TEXT_TOP else COMPACT_TEXT_TOP
+    val textBottom = textTop + with(density) { textHeightPx.toDp() }.value.toInt()
+    val crest = HomeSprig.crestDp(layout, textBottom)
+    val skyHeight = inset + crest.dp + Hill.RISE
+
+    val toggleShield = { shieldOpen = !shieldOpen }
+    BoxWithConstraints(modifier.fillMaxSize()) {
+        // Column and Sprig widths come from the real screen width, not the 390dp design.
+        val screen = maxWidth.value.toInt()
+        val compact = HomeSprig.compactWidths(screen)
+        val widths = when (layout) {
+            HomeLayout.ROOMY -> HomeWidths(textDp = HomeSprig.roomyTextDp(screen), sprigDp = HomeSprig.sizeDp(layout))
+            HomeLayout.COMPACT -> HomeWidths(textDp = compact.textDp, sprigDp = compact.sprigDp)
+        }
+        val sprigTop by animateDpAsState(
+            inset + HomeSprig.topDp(layout, crest, done, total, widths.sprigDp).dp,
+            keptTween(Motion.RISE_MS, Motion.RiseEasing),
+            label = "sprig-top",
+        )
+        SkyScaffold(
+            sky = SkyRamp.homeSky(done, total),
+            skyHeight = skyHeight,
+            lightContent = light,
+            skyContent = {
+                HomeSprigOnSky(s, layout, sprigTop, widths.sprigDp.dp)
+                // Where the hill's crest is, for tests; takes no space and draws nothing.
+                Box(Modifier.offset(y = inset + crest.dp).size(0.dp).testTag("home_crest"))
+                HeadlineBlock(
+                    s, layout, ink, widths.textDp.dp,
+                    Modifier.wrapContentHeight(Alignment.Top, unbounded = true).padding(top = inset + textTop.dp)
+                        .onSizeChanged { textHeightPx = it.height },
                 )
+            },
+        ) {
+            when (layout) {
+                // Main: the hill's crest at 396 and "Today" at 434, so the page starts 14dp above
+                // the sky's bottom edge (which is 52dp below the crest).
+                HomeLayout.ROOMY -> RoomyPage(s, actions, shieldOpen, toggleShield, Modifier.liftBy(14.dp))
+                HomeLayout.COMPACT -> CompactPage(s, actions, shieldOpen, toggleShield)
             }
         }
-        Spacer(Modifier.height(28.dp))
+        if (shieldOpen) {
+            // Tapping anywhere, the button included, closes the card. Not in the semantics tree:
+            // TalkBack closes it with the button.
+            Box(Modifier.fillMaxSize().testTag("home_shield_scrim").pointerInput(Unit) { detectTapGestures { shieldOpen = false } })
+        }
     }
 }
 
 /**
- * The one-time "you're all set" moment right after "Start today" (issue #41). Which reminder line
- * shows is decided from the live notifications grant, not from what onboarding remembered.
+ * Draws this [lift] higher and [lift] taller, so it starts above its slot but still ends at the
+ * slot's bottom (an `offset` would leave [lift] of the slot empty at the bottom).
+ */
+private fun Modifier.liftBy(lift: Dp): Modifier = layout { m, c ->
+    val px = lift.roundToPx()
+    val maxH = if (c.hasBoundedHeight) c.maxHeight + px else c.maxHeight
+    val p = m.measure(c.copy(minHeight = minOf(c.minHeight + px, maxH), maxHeight = maxH))
+    layout(p.width, (p.height - px).coerceAtLeast(0)) { p.place(0, -px) }
+}
+
+/** The headline column's width and Sprig's size for this screen. */
+private data class HomeWidths(val textDp: Int, val sprigDp: Int)
+
+private const val ROOMY_TEXT_TOP = 24
+private const val COMPACT_TEXT_TOP = 22
+
+@Composable
+private fun BoxScope.HomeSprigOnSky(s: HomeUiState, layout: HomeLayout, top: Dp, size: Dp) {
+    // Only a day finished before the give-up time is worth cheering about (issue #7).
+    val pose = SprigLook.pose(wilted = s.sprig.wilted, allDone = s.today.allDoneOnTime)
+    val place = when (layout) {
+        HomeLayout.ROOMY -> Modifier.align(Alignment.TopCenter)
+        HomeLayout.COMPACT -> Modifier.align(Alignment.TopEnd).padding(end = HomeSprig.COMPACT_SPRIG_END_DP.dp)
+    }
+    // Tapping hops (SprigView handles it); it opens nothing.
+    SprigView(s.form, pose, place.offset(y = top).size(size).testTag("home_sprig"), wilted = s.sprig.wilted)
+}
+
+/** The streak pill and the headline with its line. Roomy: pill top right; compact: top left. */
+@Composable
+private fun HeadlineBlock(s: HomeUiState, layout: HomeLayout, ink: Color, textWidth: Dp, modifier: Modifier = Modifier) {
+    val total = s.today.total
+    val done = s.today.done
+    val headline = HomeCopy.headline(total, done, s.today.allDoneOnTime)
+    val giveUp = (s.lock?.settings ?: Settings()).dueMinute.minuteOfDayLabel()
+    val line = HomeCopy.line(total, done, giveUp, s.pastDue, s.lock?.breakActiveUntil != null)
+    val roomy = layout == HomeLayout.ROOMY
+    val base = if (roomy) DaybreakType.headline else DaybreakType.headline.copy(fontSize = 38.sp, lineHeight = 38.sp)
+    val headStyle = fitLongestWord(headline, base, textWidth)
+    Column(modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+        StreakPill(s.sprig.streakDays, ink, if (roomy) Modifier.align(Alignment.End) else Modifier)
+        Spacer(Modifier.height(if (roomy) 10.dp else 16.dp))
+        Column(if (roomy) Modifier.widthIn(max = textWidth) else Modifier.width(textWidth)) {
+            Text(headline, Modifier.testTag("home_headline"), style = headStyle, color = ink)
+            Spacer(Modifier.height(8.dp))
+            Text(
+                line,
+                Modifier.widthIn(max = if (roomy) minOf(300.dp, textWidth) else textWidth).testTag("home_line"),
+                style = DaybreakType.body.copy(lineHeight = 20.sp),
+                color = ink,
+            )
+        }
+    }
+}
+
+/**
+ * Headlines may wrap between words but never inside one: at large font scales the size steps
+ * down until the longest word fits [width].
  */
 @Composable
-private fun FirstLandingCard(notificationsGranted: Boolean, onDismiss: () -> Unit) {
-    val c = KeptTheme.colors
-    KeptCard(Modifier.testTag("home_first_landing"), background = c.teal50, border = null, shape = RoundedCornerShape(16.dp)) {
-        Text("That's it, you're all set!", style = MaterialTheme.typography.titleMedium, color = c.teal900)
-        Spacer(Modifier.height(4.dp))
-        Text(
-            if (notificationsGranted) "You can close the app now. Sprig keeps watch in the background and reminds you when it matters."
-            else "You can close the app now. Sprig keeps watch in the background, but reminders are off until notifications are turned on in Settings.",
-            style = MaterialTheme.typography.bodySmall,
-            color = c.teal600,
+private fun fitLongestWord(text: String, style: TextStyle, width: Dp): TextStyle {
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val max = with(density) { width.roundToPx() }
+    return remember(text, style, max, density) {
+        val widest = text.split(' ').filter { it.isNotEmpty() }
+            .maxOfOrNull { measurer.measure(it, style, softWrap = false, maxLines = 1, density = density).size.width } ?: 0
+        if (widest <= max) style
+        else {
+            val k = max.toFloat() / widest * 0.98f
+            style.copy(fontSize = style.fontSize * k, lineHeight = style.lineHeight * k)
+        }
+    }
+}
+
+/** Banners, in the spec's order, when they apply. */
+@Composable
+private fun ColumnScope.Banners(s: HomeUiState, actions: HomeActions) {
+    if (s.missingLockPermissions.isNotEmpty()) {
+        LockOffBanner(RequiredPermissions.lockOffBody(s.missingLockPermissions), onFix = actions.onOpenPermissions, Modifier.testTag("home_lock_off"))
+    }
+    if (s.firstLanding) {
+        FirstLandingBanner(
+            onGotIt = actions.onFirstLandingSeen,
+            modifier = Modifier.testTag("home_first_landing"),
+            body = if (s.notificationsGranted) FIRST_LANDING_BODY else FIRST_LANDING_BODY_NO_NOTIFICATIONS,
         )
-        Spacer(Modifier.height(4.dp))
-        QuietButton("Got it", onClick = onDismiss, modifier = Modifier.align(Alignment.End).testTag("home_first_landing_dismiss"), color = c.teal900)
+    }
+    if (showTooLate(s)) TooLateBanner(Modifier.testTag("home_too_late"))
+}
+
+internal fun showTooLate(s: HomeUiState): Boolean = s.pastDue && s.today.total > 0 && !s.today.allDoneOnTime
+
+private fun anyBanner(s: HomeUiState) = s.missingLockPermissions.isNotEmpty() || s.firstLanding || showTooLate(s)
+
+@Composable
+private fun TodayHeader(s: HomeUiState, modifier: Modifier = Modifier) {
+    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
+        Text("Today", style = DaybreakType.section, color = DaybreakColors.ink)
+        if (s.today.total > 0) {
+            Text(HomeCopy.count(s.today.done, s.today.total), style = DaybreakType.bodySmall, fontWeight = FontWeight.SemiBold, color = DaybreakColors.muted, maxLines = 1)
+        }
     }
 }
 
 @Composable
-private fun StreakPill(streak: Int) {
-    val c = KeptTheme.colors
-    val scale by animateFloatAsState(if (streak > 0) 1f else 0.96f, tween(300), label = "streak")
-    Pill(
-        if (streak == 1) "1 day streak" else "$streak day streak",
-        Modifier.scale(scale),
-        background = if (streak > 0) c.amber50 else c.surface0,
-        foreground = if (streak > 0) c.amber800 else c.textMuted,
-        icon = Icons.Rounded.LocalFireDepartment,
+private fun Week(s: HomeUiState, shieldOpen: Boolean, onToggleShield: () -> Unit, gapToShield: Dp) {
+    WeekSection(
+        s.lastSeven.map { (d, r) -> d to dayDot(d == s.date, r, s.today.allDoneOnTime) },
+        s.sprig.bestStreak,
     )
+    // The shield button's touch area is 48dp around a 28dp visual, so 10dp of the gap is inside it.
+    Spacer(Modifier.height(gapToShield - 10.dp))
+    ShieldButton(ready = s.sprig.shieldAvailable, open = shieldOpen, onToggle = onToggleShield)
 }
 
+/** `Main`: everything below the hill scrolls together (it only needs to at large font scales). */
 @Composable
-internal fun SprigPanel(s: HomeUiState, onOpenRoadmap: () -> Unit) {
-    val c = KeptTheme.colors
-    // Only a day finished before the give-up time is worth cheering about (issue #7).
-    val allDone = s.today.allDoneOnTime
-    val pose = SprigLook.pose(wilted = s.sprig.wilted, allDone = allDone)
-    val bg = when {
-        s.sprig.wilted -> c.surface0
-        allDone -> c.teal50
-        else -> c.purple50
+private fun RoomyPage(s: HomeUiState, actions: HomeActions, shieldOpen: Boolean, onToggleShield: () -> Unit, modifier: Modifier = Modifier) {
+    Column(
+        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        if (anyBanner(s)) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Banners(s, actions) }
+        TodayHeader(s, Modifier.padding(horizontal = 4.dp))
+        if (s.today.total == 0) AddFirstHabitRow(actions.onOpenHabits, Modifier.testTag("home_add_first"))
+        s.today.habits.forEach { HomeHabitRow(it, roomy = true, actions) }
+        Column(Modifier.padding(start = 4.dp, end = 4.dp, top = 14.dp)) {
+            Week(s, shieldOpen, onToggleShield, gapToShield = 12.dp)
+        }
     }
-    val fg = when {
-        s.sprig.wilted -> c.textSecondary
-        allDone -> c.teal900
-        else -> c.purple900
-    }
-    val sub = when {
-        s.sprig.wilted -> c.textMuted
-        allDone -> c.teal600
-        else -> c.purple600
-    }
-    KeptCard(background = bg, border = null, shape = RoundedCornerShape(16.dp), onClick = onOpenRoadmap, padding = androidx.compose.foundation.layout.PaddingValues(20.dp)) {
-        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-            SprigView(s.form, pose, Modifier.size(170.dp), wilted = s.sprig.wilted)
-            Spacer(Modifier.height(10.dp))
-            val headline = when {
-                s.sprig.wilted -> "Sprig is wilting"
-                allDone -> "Promise kept today"
-                s.today.anyLate && s.today.allDone -> "Ticked, but too late"
-                s.lockActive -> "Sprig is growing"
-                else -> "Sprig is ${if (s.form.streakThreshold >= 7) "thriving" else "stretching"}"
-            }
-            Text(headline, style = MaterialTheme.typography.titleMedium, color = fg)
-            Spacer(Modifier.height(2.dp))
-            val detail = when {
-                s.sprig.wilted -> "Finish today's habits and Sprig recovers."
-                s.today.anyLate && s.today.allDone ->
-                    "The give-up time passed, so today doesn't count. Start earlier tomorrow."
-                s.nextForm == null -> "${s.form.displayName} · Lv ${s.sprig.level} · the final form"
-                else -> "${s.form.displayName} · Lv ${s.sprig.level} · ${s.daysToNext} day${if (s.daysToNext == 1) "" else "s"} to ${s.nextForm!!.displayName}"
-            }
-            Text(detail, style = MaterialTheme.typography.bodySmall, color = sub, textAlign = TextAlign.Center)
-            if (s.nextForm != null && !s.sprig.wilted) {
-                Spacer(Modifier.height(12.dp))
-                val prev = s.form.streakThreshold
-                val next = s.nextForm!!.streakThreshold
-                val frac = ((s.sprig.streakDays - prev).toFloat() / (next - prev).toFloat()).coerceIn(0.02f, 1f)
-                ThinProgress(frac, Modifier.fillMaxWidth(0.6f), color = if (allDone) c.teal600 else c.purple400, track = Color.White.copy(alpha = 0.6f), height = 4.dp)
+}
+
+/**
+ * `A2-Home-6`: the sky, "Today", the week and the shield stay put; only the habit list scrolls.
+ * The list always keeps at least [COMPACT_LIST_MIN] of height: on a small screen at a large font,
+ * where the fixed parts would squeeze it to nothing, the whole page below the hill scrolls
+ * instead, and the list keeps scrolling inside it.
+ */
+@Composable
+private fun CompactPage(s: HomeUiState, actions: HomeActions, shieldOpen: Boolean, onToggleShield: () -> Unit) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val viewport = constraints.maxHeight
+        Layout(
+            content = {
+                Column {
+                    if (anyBanner(s)) {
+                        Column(Modifier.padding(start = 20.dp, end = 20.dp, bottom = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { Banners(s, actions) }
+                    }
+                    TodayHeader(s, Modifier.padding(start = 24.dp, end = 24.dp, bottom = 10.dp))
+                }
+                Column(
+                    Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
+                        .padding(start = 20.dp, end = 20.dp, bottom = 12.dp).testTag("home_habit_list"),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    s.today.habits.forEach { HomeHabitRow(it, roomy = false, actions) }
+                }
+                Column {
+                    Box(Modifier.fillMaxWidth().height(1.5.dp).background(DaybreakColors.line))
+                    Column(Modifier.padding(start = 24.dp, end = 24.dp, top = 14.dp, bottom = 2.dp)) {
+                        Week(s, shieldOpen, onToggleShield, gapToShield = 10.dp)
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+        ) { measurables, c ->
+            val loose = c.copy(minHeight = 0, maxHeight = androidx.compose.ui.unit.Constraints.Infinity)
+            val top = measurables[0].measure(loose)
+            val bottom = measurables[2].measure(loose)
+            val listH = maxOf(viewport - top.height - bottom.height, COMPACT_LIST_MIN.roundToPx())
+            val list = measurables[1].measure(c.copy(minHeight = listH, maxHeight = listH))
+            layout(c.maxWidth, top.height + listH + bottom.height) {
+                top.place(0, 0)
+                list.place(0, top.height)
+                bottom.place(0, top.height + listH)
             }
         }
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+/** The least height the compact habit list keeps: about two rows. */
+private val COMPACT_LIST_MIN = 128.dp
+
+/**
+ * A habit on Home: [DaybreakHabitRow] plus the camera for photo habits. The tick haptic for a
+ * photo habit plays once the photo is saved, not on the tap that opens the camera.
+ */
 @Composable
-fun HabitRow(
-    h: HabitToday,
-    onComplete: () -> Unit,
-    onUndo: () -> Unit,
-    onPhoto: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val c = KeptTheme.colors
+private fun HomeHabitRow(h: HabitToday, roomy: Boolean, actions: HomeActions) {
     val ctx = LocalContext.current
     val haptics = rememberHaptics()
     var pendingPhoto by remember { mutableStateOf<File?>(null) }
@@ -304,7 +410,7 @@ fun HabitRow(
         val f = pendingPhoto
         if (ok && f != null) {
             haptics.habitTicked()
-            onPhoto(f.absolutePath)
+            actions.onPhoto(h.id, f.absolutePath)
         }
         pendingPhoto = null
     }
@@ -315,94 +421,19 @@ fun HabitRow(
             takePicture.launch(uri)
         }
     }
-
-    val onClick: () -> Unit = {
-        when {
-            h.isDone -> Unit
-            h.habit.proofType == ProofType.MANUAL -> {
-                haptics.habitTicked()
-                onComplete()
-            }
-            h.habit.proofType == ProofType.PHOTO -> cameraPermission.launch(android.Manifest.permission.CAMERA)
-        }
-    }
-
-    // A tick after the give-up time still shows as done, but not as a win.
-    val counts = !h.late
-    val shape = RoundedCornerShape(12.dp)
-    Row(
-        modifier.fillMaxWidth().clip(shape).background(if (h.isDone && counts) c.green50 else c.surface2)
-            .then(if (h.isDone) Modifier else Modifier.background(Color.Transparent))
-            .combinedClickable(onClick = onClick, onLongClick = { if (h.isDone) onUndo() })
-            .padding(horizontal = 14.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(if (h.isDone && counts) c.green400.copy(alpha = 0.25f) else c.purple50), contentAlignment = Alignment.Center) {
-            Icon(if (h.isDone) Icons.Outlined.Check else HabitIcons.of(h.habit.iconKey), null, tint = if (h.isDone && counts) c.green600 else if (h.isDone) c.textMuted else c.purple600, modifier = Modifier.size(20.dp))
-        }
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("${h.habit.title} ${h.subtitle}", style = MaterialTheme.typography.titleSmall, color = if (h.isDone && counts) c.green600 else c.textPrimary, modifier = Modifier.weight(1f))
-                Text(
-                    if (h.late) "Too late" else if (h.isDone) "Done" else h.progressLabel,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (h.isDone && counts) c.green600 else c.textMuted,
-                )
-            }
-            if (!h.isDone) {
-                Text(
-                    when (h.habit.proofType) { ProofType.MANUAL -> "Tap when done"; ProofType.PHOTO -> "Tap to snap a photo" },
-                    style = MaterialTheme.typography.bodySmall, color = c.textMuted,
-                )
-            } else {
-                Text(
-                    if (h.late) "Doesn't count today. Hold to undo." else "Hold to undo",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (counts) c.green600.copy(alpha = 0.7f) else c.textMuted,
-                )
-            }
-        }
-        if (!h.isDone) {
-            Spacer(Modifier.width(8.dp))
-            Icon(
-                when (h.habit.proofType) { ProofType.PHOTO -> Icons.Outlined.CameraAlt; ProofType.MANUAL -> Icons.Outlined.Check },
-                null, tint = c.textMuted, modifier = Modifier.size(20.dp),
-            )
-        }
-    }
-}
-
-fun newProofFile(ctx: Context): Pair<File, Uri> {
-    val dir = File(ctx.filesDir, "proof").apply { mkdirs() }
-    val file = File(dir, "proof_${System.currentTimeMillis()}.jpg")
-    val uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.files", file)
-    return file to uri
-}
-
-@Composable
-private fun LockStatusBox(s: HomeUiState) {
-    val c = KeptTheme.colors
-    val lock = s.lock ?: return
-    val due = lock.settings.dueMinute.minuteOfDayLabel()
-    val from = lock.settings.lockFromMinute.minuteOfDayLabel()
-    val remaining = s.today.remaining
-    val (icon, text) = when {
-        s.today.total == 0 -> Icons.Outlined.LockOpen to "Nothing to lock for. Add a habit."
-        s.today.allDoneOnTime -> Icons.Outlined.LockOpen to "Apps are open. You kept today."
-        s.pastDue -> Icons.Outlined.LockOpen to "Apps are open. Today is missed — the lock is back at $from."
-        lock.breakActiveUntil != null -> Icons.Outlined.LockOpen to "Lock paused. Apps re-lock soon. Sprig noticed."
-        s.lockActive -> Icons.Outlined.Lock to "Everything but essentials is locked until ${if (remaining == 1) "this is" else "both are"} done or $due."
-        else -> Icons.Outlined.Lock to "Apps lock at $from until today's habits are done."
-    }
-    InfoBox(text, icon = icon, background = if (s.today.allDone) c.teal50 else c.surface2, foreground = if (s.today.allDone) c.teal600 else c.textSecondary)
-}
-
-private fun dotFor(isToday: Boolean, r: com.example.kept.core.data.db.DayRecordEntity?, allDoneToday: Boolean): DayDot = when {
-    isToday -> if (allDoneToday) DayDot.DONE else DayDot.TODAY
-    r == null -> DayDot.MISSED
-    r.unprotected && !r.writtenOff -> DayDot.UNPROTECTED
-    r.countedForStreak -> DayDot.DONE
-    r.shieldConsumed -> DayDot.SHIELDED
-    else -> DayDot.MISSED
+    val photo = h.habit.proofType == ProofType.PHOTO
+    DaybreakHabitRow(
+        title = h.habit.title,
+        detail = HomeCopy.habitDetail(h.habit.targetValue, h.habit.unit),
+        state = when {
+            !h.isDone -> HabitRowState.ToDo
+            h.late -> HabitRowState.DoneLate
+            else -> HabitRowState.Done
+        },
+        onTick = { if (photo) cameraPermission.launch(android.Manifest.permission.CAMERA) else actions.onComplete(h.id) },
+        onUndo = { actions.onUndo(h.id) },
+        modifier = Modifier.testTag("home_habit_${h.id}"),
+        photo = photo,
+        roomy = roomy,
+    )
 }

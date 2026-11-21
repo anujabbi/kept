@@ -77,11 +77,11 @@ class OnboardingFlowTest {
 
             // First landing (issue #41): the one-time card sits at the top of Home, and its
             // reminder line follows the live notifications grant rather than onboarding's answer.
-            compose.onNodeWithText("That's it, you're all set!").assertIsDisplayed()
+            compose.onNodeWithText("That's it, you're all set.").assertIsDisplayed()
             val expectedLine = if (permissions.notificationsGranted()) {
-                "You can close the app now. Sprig keeps watch in the background and reminds you when it matters."
+                "You can close the app now. Sprig keeps watch and reminds you when it matters."
             } else {
-                "You can close the app now. Sprig keeps watch in the background, but reminders are off until notifications are turned on in Settings."
+                "You can close the app now. Sprig keeps watch, but reminders are off until notifications are turned on in Settings."
             }
             compose.onNodeWithText(expectedLine).assertIsDisplayed()
             compose.onNodeWithText("Got it").assertIsDisplayed()
@@ -90,7 +90,7 @@ class OnboardingFlowTest {
             // A configuration change recreates the activity but is not a second visit.
             it.recreate()
             compose.waitUntil(10_000) { compose.onAllNodesWithText("Today").fetchSemanticsNodes().isNotEmpty() }
-            compose.onNodeWithText("That's it, you're all set!").assertIsDisplayed()
+            compose.onNodeWithText("That's it, you're all set.").assertIsDisplayed()
         }
         // Closing the scenario stops Home, which is the second-visit boundary. The next launch,
         // the same as a relaunch after a swipe-away, is the everyday Home.

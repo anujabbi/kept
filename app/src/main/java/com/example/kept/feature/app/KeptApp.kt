@@ -119,7 +119,6 @@ fun KeptApp(startDestination: String, pendingRoute: String?, consumeRoute: () ->
                             onOpenReveal = { nav.navigate(Routes.reveal(it)) },
                             onOpenPermissions = { nav.navigate(Routes.PERMISSIONS) },
                             onOpenHabits = { nav.navigate(Routes.HABITS) },
-                            onOpenRoadmap = { nav.navigate(Routes.ROADMAP) },
                         )
                     }
                     composable(Routes.GALLERY) { GalleryScreen(onOpenRoadmap = { nav.navigate(Routes.ROADMAP) }) }
