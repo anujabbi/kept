@@ -14,6 +14,7 @@ import com.example.kept.core.data.SprigRepository
 import com.example.kept.core.data.TimeSource
 import com.example.kept.core.data.prefs.KeptPreferences
 import com.example.kept.core.di.ApplicationScope
+import com.example.kept.core.di.drainAndCancel
 import com.example.kept.core.domain.ProofType
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
@@ -77,7 +78,11 @@ class LockViewModelBreakTest {
         }
     }
 
-    @After fun clear() = stores.forEach { it.clear() }
+    /** Clears the ViewModels, then waits out their application-scope work so none lands in the next test (issue #146). */
+    @After fun clear() {
+        stores.forEach { it.clear() }
+        appScope.drainAndCancel()
+    }
 
     /** A ViewModel the way the activity gets one, so `viewModelScope` is cleared after the test. */
     private fun viewModel(saved: SavedStateHandle): LockViewModel {

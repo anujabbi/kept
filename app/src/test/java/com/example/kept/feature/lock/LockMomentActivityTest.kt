@@ -17,12 +17,15 @@ import com.example.kept.core.data.HabitActions
 import com.example.kept.core.data.HabitRepository
 import com.example.kept.core.data.TimeSource
 import com.example.kept.core.data.prefs.KeptPreferences
+import com.example.kept.core.di.ApplicationScope
+import com.example.kept.core.di.drainAndCancel
 import com.example.kept.core.domain.ProofType
 import com.example.kept.feature.celebration.CelebrationViewModel
 import com.github.takahirom.roborazzi.captureRoboImage
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.HiltTestApplication
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -61,6 +64,7 @@ open class LockMomentActivityTest {
     @Inject lateinit var habits: HabitRepository
     @Inject lateinit var actions: HabitActions
     @Inject lateinit var time: TimeSource
+    @Inject @ApplicationScope lateinit var appScope: CoroutineScope
 
     /** Names the golden for this screen size. */
     open val size: String = ""
@@ -75,12 +79,15 @@ open class LockMomentActivityTest {
     /**
      * One failing test must not leave a paused clock, a large font or a live activity behind:
      * that made every later test in the fork fail with `AppNotIdleException` (QA on PR #144).
+     * Nor a tick's write still in flight: the preferences outlive the test, so a claim stored after
+     * the next test's [setUp] made that test's day read as already celebrated (issue #146).
      */
     @After fun tearDown() {
         compose.mainClock.autoAdvance = true
         RuntimeEnvironment.setFontScale(1f)
         scenarios.asReversed().forEach { runCatching { it.close() } }
         scenarios.clear()
+        appScope.drainAndCancel()
     }
 
     @Before fun setUp() {

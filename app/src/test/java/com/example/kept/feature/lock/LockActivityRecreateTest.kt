@@ -11,11 +11,15 @@ import androidx.test.core.app.ApplicationProvider
 import com.example.kept.core.data.HabitRepository
 import com.example.kept.core.data.LockRepository
 import com.example.kept.core.data.prefs.KeptPreferences
+import com.example.kept.core.di.ApplicationScope
+import com.example.kept.core.di.drainAndCancel
 import com.example.kept.core.domain.ProofType
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.HiltTestApplication
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.runBlocking
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Rule
@@ -46,6 +50,10 @@ class LockActivityRecreateTest {
     @Inject lateinit var prefs: KeptPreferences
     @Inject lateinit var habits: HabitRepository
     @Inject lateinit var lockRepo: LockRepository
+    @Inject @ApplicationScope lateinit var appScope: CoroutineScope
+
+    /** No tick's write may land in the next test: the preferences outlive it (issue #146). */
+    @After fun drainAppScope() = appScope.drainAndCancel()
 
     private val chrome = "com.android.chrome"
     private val instagram = "com.instagram.android"
