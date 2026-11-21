@@ -193,4 +193,9 @@ class HomeBehaviourTest {
             assertTrue("$n habits: 'Shield ready' ends at $bottom, tab bar starts at $tabTop", bottom <= tabTop)
         }
     }
+
+    @Test fun headlineNeverBreaksInsideAWord() {
+        showLive()
+        assertHomeHeadlineWhole(rule, current, scale)
+    }
 }

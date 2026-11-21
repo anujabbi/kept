@@ -18,6 +18,7 @@ import com.example.kept.core.domain.ProofType
 import com.example.kept.core.domain.SprigState
 import com.example.kept.core.ui.KeptTheme
 import com.example.kept.feature.lock.BreakLockScreen
+import com.example.kept.feature.lock.LockActions
 import com.example.kept.feature.lock.LockScreen
 import com.example.kept.feature.lock.LockUi
 import org.junit.Rule
@@ -37,15 +38,16 @@ class LockScreensTest {
     }
 
     @Test fun lock_screen_shows_remaining_habits() {
-        compose.setContent { KeptTheme { LockScreen(sampleState().copy(clockLabel = "9:41"), "Instagram", {}, {}, {}, {}) } }
-        compose.onNodeWithTag("lock_clock").assertTextEquals("9:41")
-        compose.onNodeWithText("Instagram is locked").assertIsDisplayed()
-        compose.onNodeWithText("2 things left").assertIsDisplayed()
-        compose.onNodeWithText("Exercise 30 min").assertIsDisplayed()
-        compose.onNodeWithText("Read 10 pages").assertIsDisplayed()
+        compose.setContent { KeptTheme { LockScreen(sampleState(), "Instagram", LockActions()) } }
+        compose.onNodeWithTag("lock_headline").assertTextEquals("Instagram can wait.")
+        compose.onNodeWithText("Finish your promised habits to unlock.").assertIsDisplayed()
+        compose.onNodeWithTag("lock_count").assertTextEquals("1 of 2")
+        compose.onNodeWithText("Exercise").assertIsDisplayed()
+        compose.onNodeWithText("Read").assertIsDisplayed()
         // The dialer button says what it is, not "Emergency call" (issue #17).
         compose.onNodeWithTag("emergency_call").assertIsDisplayed().assertTextEquals("Phone")
-        compose.onNodeWithTag("break_lock").assertIsDisplayed()
+        compose.onNodeWithTag("break_lock").assertIsDisplayed().assertTextEquals("Break the lock")
+        compose.onNodeWithText("Open KEPT").assertDoesNotExist()
     }
 
     @Test fun break_lock_requires_countdown_before_unlock() {

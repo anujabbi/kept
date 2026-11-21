@@ -767,3 +767,69 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
   - *Sprig no longer opens the roadmap from Home.* `HomeScreen` lost `onOpenRoadmap`; the roadmap
     route stays for Collection until #131 removes it. The old `HabitRow` moved to
     `feature/home/LegacyHabitRow.kt` because the lock screen still uses it until #127.
+
+- **Lock screen in Daybreak (issue #127).** Built from `A3-Lock`; the pure rules are
+  `core/domain/LockLayout.kt` (`LockMode`, `LockCopy`, `LockSprig`). Where the issue or the design
+  leaves something open:
+  - *Finishing the day on the lock screen: the open state is today's "Promise kept" moment.*
+    Decided by the orchestrator on the owner's behalf (option (c) of the review on PR #140),
+    pending the owner's review. Since issue #9 the lock screen went to Home when the last habit was
+    ticked, so the celebration showed at once. Now a day finished in time turns the lock screen into
+    its gold open state ("{App} is open.", "Promise kept. Enjoy it.", Sprig cheering), and
+    "Open {App}" launches the locked app. That screen is the day's moment: a tick from the lock
+    screen (`HabitActions.complete(momentShown = true)`) that finishes the day in time leaves no
+    `celebrationPendingDate`, so KEPT does not celebrate the same day again later. The day still
+    counts in full: `day_completed` is reported and the level is granted. No "Apps are open.
+    Promise kept." notification is posted, because the lock screen is in the foreground when the
+    day finishes, as before. A day finished in KEPT keeps the #9 behaviour. Undoing and finishing
+    again in KEPT celebrates there. A day that ends up all ticked but after the give-up time has
+    nothing to celebrate, so the screen dismisses to the launcher, as it does for a break, an
+    exception or the window ending. Undoing a tick in the open state (hold) takes the screen back
+    to locked.
+  - *A lock screen left in its open state does not flash stale.* If the user leaves the gold
+    screen with Home instead of "Open {App}", the activity stays in its task. When the watcher
+    raises it again (`onNewIntent`), maybe the next day, `LockViewModel.onShown()` counts a new
+    showing and recomputes for it. Until the new showing's first state arrives, any state from an
+    earlier showing reads as not loaded (`LockUi.forShowing`), so nothing stale flashes up. The
+    counter lives only in the ViewModel, so a configuration change cannot split it (review round 2
+    on PR #140). For the same reason, the covered package and its label are kept in the
+    ViewModel's `SavedStateHandle`, not in the activity: a rebuilt activity reads no intent and
+    keeps the app it was raised for last.
+  - *"Open {App}" does not re-trigger the lock* because `LockPolicy.isLockActive` is false once no
+    habit is left; nothing new was added to the foreground watcher. If the app has no launch
+    intent the button goes to the launcher.
+  - *App name.* The label the foreground watcher already passes (`InstalledAppsSource.label`).
+    Blank (never expected) reads "This app". Long names step the headline down until the longest
+    word fits, like Home's headline. The size is found by measuring every word (a binary search
+    from the full size down to 35% of it), because Bricolage's optical sizing means a word's width
+    does not shrink in proportion to its size (QA on #127: "Instagra|m" at font 2.0). Hyphenation
+    is off. A word that does not fit even at 35% keeps shrinking rather than split. Home's headline
+    uses the same `fitLongestWord`, so one Home golden (360dp, 6 of 6, font 2.0) moved: "Promise"
+    is now a little larger, because the measured fit is closer than the old proportional guess.
+  - *Layout.* Compact Home's widths (`HomeSprig.compactWidths`): the headline column is 180dp, not
+    `A3-Lock`'s 190, so it ends 4dp before Sprig's box instead of running under it; Sprig is 180dp
+    at 412dp, 168 at 390, 150 at 360, keeping the design's bottom edge. The design's top values
+    (headline 60, Sprig 116 / 80, crest 232) are measured below the status bar, as on Home. A
+    taller headline block (large font) moves the crest and Sprig down. Only the habit list
+    scrolls; at 360 × 640dp and font 2.0, where the sky and footer leave the list under 128dp,
+    "Today" and the list scroll together. The footer never scrolls.
+  - *Sprig* wears the outfit of the user's form (the design hard-codes the Bloom sweater). The
+    guarding Sprig at 116 shows only its head above the hill, as in the design; the flat mouth and
+    most of the raised arm sit behind the hill.
+  - *Rows.* `DaybreakHabitRow` gained `night` for the dark row rather than a second row part. A
+    photo habit reads "Snap photo" with the camera icon (as on Home and `A18-Parts`) in the lock
+    screen's soft text colour, instead of the design's plain "Photo". The open state uses the
+    normal done rows, which match the design's all-done colours.
+    A habit ticked after the give-up time reads "Too late" on the dark row too. That is the night
+    version of Home's grey late row: a clear row, a `#A9A3DC` dot with an ink check, the title in
+    the soft colour with no strike, and "Too late" in gold. The design has no late state.
+  - *Footer.* "Break the lock" is a text button in `#D8D3F5`, as the design's link. Button content
+    padding is 12dp (not Material's 24) so "Phone" and its icon fit half of a 360dp row at font
+    2.0; "Phone" steps its size down rather than break inside the word.
+  - *Camera from the lock screen.* `LockActivity` is now `singleTask` (still its own task with an
+    empty affinity, excluded from recents) instead of `singleInstance`: an activity started for a
+    result from a single-instance activity is forced into a new task and its result is cancelled,
+    which would lose the photo. The photo flow (`core/ui/PhotoProof.kt`, `rememberPhotoTick`) is
+    now shared by Home and Lock, and the pending file path survives activity recreation.
+  - *Removed:* "Open KEPT", the clock row and "{App} is locked" (the design has neither; the status
+    bar shows the time), `LockUi.clockLabel`, and `feature/home/LegacyHabitRow.kt`.

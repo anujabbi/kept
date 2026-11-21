@@ -173,3 +173,13 @@ internal fun assertSprigSitsBehindHill(rule: ComposeContentTestRule, current: Mu
         assertTrue("$done/$total at $f: Sprig's top ${sprig.top} is under the crest $crest", sprig.top < crest)
     }
 }
+
+/** Home's headline ("Seven to go.", "Promise kept.") never breaks inside a word, at font 1.0, 1.3 and 2.0, in both layouts. */
+internal fun assertHomeHeadlineWhole(rule: ComposeContentTestRule, current: MutableState<HomeUiState>, scale: MutableFloatState) {
+    for (f in listOf(1f, 1.3f, 2f)) for (total in 0..10) for (done in setOf(0, total)) {
+        scale.floatValue = f
+        current.value = HomeFixtures.state(total, done)
+        rule.waitForIdle()
+        com.example.kept.core.ui.shots.assertNoWordSplit(rule, "home_headline", "$done/$total at $f")
+    }
+}

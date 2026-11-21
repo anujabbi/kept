@@ -39,6 +39,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -65,7 +66,7 @@ fun KeptCard(
  * Disabled is a `#B9B4CC` fill with the same cream text.
  */
 @Composable
-fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, textStyle: TextStyle = DaybreakType.button) {
     val d = DaybreakColors
     Button(
         onClick = onClick,
@@ -77,7 +78,7 @@ fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifi
             disabledContainerColor = d.disabled, disabledContentColor = d.cream,
         ),
         elevation = null,
-    ) { Text(text, style = DaybreakType.button, textAlign = TextAlign.Center) }
+    ) { Text(text, style = textStyle, textAlign = TextAlign.Center) }
 }
 
 /** Daybreak secondary button (`A18-Parts`): 56dp, fully round, 2dp ink outline, ink text. */

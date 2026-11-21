@@ -21,7 +21,6 @@ import com.example.kept.core.domain.SprigState
 import com.example.kept.core.ui.KeptTheme
 import com.example.kept.core.ui.shots.Shot
 import com.example.kept.feature.lock.BreakLockScreen
-import com.example.kept.feature.lock.LockScreen
 import com.example.kept.feature.lock.LockUi
 import com.example.kept.feature.recap.RecapContent
 import com.example.kept.feature.recap.RecapUi
@@ -36,7 +35,8 @@ import java.time.LocalDate
 
 /**
  * The existing screens with the new Sprig in place, to check nothing in their (not yet
- * redesigned) layouts breaks: Lock, Break, and Recap kept and slipped.
+ * redesigned) layouts breaks: Break, and Recap kept and slipped. The lock screen has its own
+ * Daybreak screenshots (`LockScreenshotTest`).
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -61,12 +61,7 @@ class SprigOnScreensScreenshotTest {
         loaded = true,
         lock = LockState(Settings(), today(false), breakActiveUntil = null, breaksUsedThisWeek = 0, userExceptions = emptySet(), unprotectedToday = false),
         sprig = SprigState(level = 2, streakDays = 9),
-        clockLabel = "10:42",
     )
-
-    @Test fun lock() = shot("lock") {
-        LockScreen(lockUi, blockedLabel = "Instagram", onComplete = {}, onBreak = {}, onEmergency = {}, onOpenKept = {})
-    }
 
     @Test fun breakLock() = shot("break") {
         BreakLockScreen(lockUi, onCancel = {}, onConfirm = {}, countdownSeconds = 0)
