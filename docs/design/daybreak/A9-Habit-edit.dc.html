@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>KEPT add a habit, Daybreak</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
+<style>
+body{margin:0}
+a{color:#1E1B3C}a:hover{color:#5B4BD6}
+input:focus{outline:2px solid #5B4BD6;outline-offset:2px}
+input::placeholder{color:#9A95B3}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; overflow: hidden; display: flex; flex-direction: column; background: #FFF9F1; font-family: 'Bricolage Grotesque', system-ui, sans-serif; color: #1E1B3C">
+<div style="flex: none; padding: 24px 12px 4px">
+<a href="A8-Habits.dc.html" aria-label="Cancel" style="display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 22px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.400" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></a>
+</div>
+<div style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 28px; padding: 4px 24px 20px">
+<h1 style="margin: 0; font-size: 36px; line-height: 1; font-weight: 800; letter-spacing: -0.02em">Add a habit</h1>
+
+<div style="display: flex; flex-direction: column; gap: 12px">
+<label for="habit-name" style="font-size: 15px; font-weight: 700">What will you do every day?</label>
+<input id="habit-name" type="text" value="{{title}}" onChange="{{setTitle}}" placeholder="Read, walk, practice" style="height: 60px; padding: 0 18px; border-radius: 20px; border: 1.500px solid #E6DCCE; background: #FFFFFF; font: inherit; font-size: 19px; font-weight: 700; color: #1E1B3C; box-sizing: border-box; width: 100%">
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{presets}}" as="p" hint-placeholder-count="4">
+<button type="button" onClick="{{p.pick}}" style="height: 36px; padding: 0 14px; border-radius: 18px; border: 0; background: #ECE9FF; font: inherit; font-size: 14px; font-weight: 600; color: #3A2FA0; cursor: pointer">{{p.label}}</button>
+</sc-for>
+</div>
+</div>
+
+<sc-if value="{{manual}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center; justify-content: space-between">
+<span style="font-size: 15px; font-weight: 700">How much?</span>
+<div style="display: flex; align-items: center; height: 52px; border-radius: 26px; background: #FFFFFF; border: 1.500px solid #E6DCCE">
+<button type="button" onClick="{{dec}}" aria-label="Less" style="width: 48px; height: 100%; border: 0; background: none; font: inherit; font-size: 22px; font-weight: 700; color: #5B4BD6; cursor: pointer">−</button>
+<span style="min-width: 92px; text-align: center; font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums">{{amount}}</span>
+<button type="button" onClick="{{inc}}" aria-label="More" style="width: 48px; height: 100%; border: 0; background: none; font: inherit; font-size: 22px; font-weight: 700; color: #5B4BD6; cursor: pointer">+</button>
+</div>
+</div>
+<sc-if value="{{showUnits}}" hint-placeholder-val="{{ false }}">
+<div role="group" aria-label="Unit" style="display: flex; justify-content: flex-end; gap: 6px">
+<sc-for list="{{units}}" as="u" hint-placeholder-count="4">
+<button type="button" onClick="{{u.pick}}" aria-pressed="{{u.on}}" style="height: 36px; padding: 0 14px; border-radius: 18px; border: 0; background: {{u.bg}}; font: inherit; font-size: 14px; font-weight: 700; color: {{u.ink}}; cursor: pointer">{{u.label}}</button>
+</sc-for>
+</div>
+</sc-if>
+</div>
+</sc-if>
+
+<button type="button" role="switch" aria-checked="{{photo}}" onClick="{{togglePhoto}}" style="display: flex; align-items: center; gap: 14px; padding: 0; border: 0; background: none; font: inherit; color: #1E1B3C; text-align: left; cursor: pointer">
+<span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 700">Prove it with a photo</span><span style="font-size: 13px; line-height: 1.35; font-weight: 500; color: #5C5878">Otherwise you just tap when it is done.</span></span>
+<span style="flex: none; position: relative; width: 48px; height: 28px; border-radius: 14px; background: {{track}}; transition: background 0.2s"><span style="position: absolute; top: 3px; left: {{knob}}px; width: 22px; height: 22px; border-radius: 11px; background: #FFFFFF; transition: left 0.2s"></span></span>
+</button>
+</div>
+<div style="flex: none; padding: 12px 20px 28px">
+<a href="A8-Habits.dc.html" style="display: flex; align-items: center; justify-content: center; height: 56px; border-radius: 28px; background: {{saveBg}}; color: #FFF9F1; font-size: 17px; font-weight: 700; text-decoration: none">Save habit</a>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const st = this.state || {};
+    const title = st.title != null ? st.title : '';
+    const photo = !!st.photo;
+    const target = st.target != null ? st.target : 20;
+    const unit = st.unit || 'min';
+    const set = (o) => this.setState(Object.assign({}, st, o));
+    const presets = [['Exercise', 30, 'min'], ['Read', 10, 'pages'], ['Practice', 20, 'min'], ['Study', 45, 'min']];
+    const step = unit === 'min' ? 5 : 1;
+    const custom = !!title.trim() && !presets.some((p) => p[0] === title.trim());
+    const starts = { min: 20, pages: 10, times: 1, glasses: 8 };
+    return {
+      title: title,
+      setTitle: (e) => set({ title: e.target.value }),
+      presets: presets.map((p) => ({ label: p[0], pick: () => set({ title: p[0], target: p[1], unit: p[2] }) })),
+      manual: !photo,
+      showUnits: custom,
+      units: ['min', 'pages', 'times', 'glasses'].map((u) => ({
+        label: u, on: unit === u,
+        bg: unit === u ? '#5B4BD6' : '#ECE9FF', ink: unit === u ? '#FFFFFF' : '#3A2FA0',
+        pick: () => set({ unit: u, target: starts[u] })
+      })),
+      amount: target + ' ' + unit,
+      dec: () => set({ target: Math.max(step, target - step) }),
+      inc: () => set({ target: target + step }),
+      photo: photo,
+      togglePhoto: () => set({ photo: !photo }),
+      track: photo ? '#5B4BD6' : '#CFC8E6',
+      knob: photo ? 23 : 3,
+      saveBg: title ? '#1E1B3C' : '#B9B4CC'
+    };
+  }
+}
+</script>
+</body>
+</html>

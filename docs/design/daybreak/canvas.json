@@ -1,0 +1,326 @@
+{
+  "v": 3,
+  "createdOnFiles": {
+    "v": 1,
+    "at": "2026-11-20T12:00:00Z"
+  },
+  "title": "KEPT Daybreak design",
+  "launch": {
+    "view": "canvas"
+  },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": {
+      "x": 890,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "A Home",
+      "is_interactive": true,
+      "radius": 36
+    },
+    "SprigA.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 320,
+      "h": 320,
+      "title": "Sprig A, play with it",
+      "is_interactive": true
+    },
+    "A1-Welcome.dc.html": {
+      "x": 420,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "A Welcome",
+      "is_interactive": true,
+      "radius": 36
+    },
+    "A3-Lock.dc.html": {
+      "x": 1360,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "A Lock",
+      "is_interactive": true,
+      "radius": 36
+    },
+    "A4-Break.dc.html": {
+      "x": 1830,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "A Break the lock",
+      "is_interactive": true,
+      "radius": 36
+    },
+    "A5-Recap.dc.html": {
+      "x": 2300,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "A Recap, promise kept",
+      "is_interactive": true,
+      "radius": 36
+    },
+    "A6-Collection.dc.html": {
+      "x": 2770,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "A Sprig collection",
+      "is_interactive": true,
+      "radius": 36
+    },
+    "A2-Home-6.dc.html": {
+      "x": 3240,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "A Home, 6 habits",
+      "is_interactive": true,
+      "radius": 36
+    },
+    "A5-Recap-slipped.dc.html": {
+      "x": 3710,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "A Recap, promise slipped",
+      "is_interactive": true,
+      "radius": 36
+    },
+    "A7-Settings.dc.html": {
+      "x": 4180,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "A Settings",
+      "is_interactive": true,
+      "radius": 36
+    },
+    "A8-Habits.dc.html": {
+      "x": 4650,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "A Your habits",
+      "is_interactive": true,
+      "radius": 36
+    },
+    "A9-Habit-edit.dc.html": {
+      "x": 5120,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "A Add a habit",
+      "is_interactive": true,
+      "radius": 36
+    },
+    "A10-Onb-Habits.dc.html": {
+      "x": 420,
+      "y": 1300,
+      "w": 390,
+      "h": 844,
+      "title": "Onboarding 1: habits",
+      "is_interactive": true,
+      "radius": 36
+    },
+    "A11-Onb-Rule.dc.html": {
+      "x": 890,
+      "y": 1300,
+      "w": 390,
+      "h": 844,
+      "title": "Onboarding 2: lock window",
+      "is_interactive": true,
+      "radius": 36
+    },
+    "A12-Exceptions.dc.html": {
+      "x": 1360,
+      "y": 1300,
+      "w": 390,
+      "h": 844,
+      "title": "Onboarding 3: what stays open",
+      "is_interactive": true,
+      "radius": 36
+    },
+    "A13-Permissions.dc.html": {
+      "x": 1830,
+      "y": 1300,
+      "w": 390,
+      "h": 844,
+      "title": "Onboarding 4: permissions",
+      "is_interactive": true,
+      "radius": 36
+    },
+    "A14-Onb-Ready.dc.html": {
+      "x": 2300,
+      "y": 1300,
+      "w": 390,
+      "h": 844,
+      "title": "Onboarding 5: how it works",
+      "is_interactive": true,
+      "radius": 36
+    },
+    "A12-Exceptions-settings.dc.html": {
+      "x": 2770,
+      "y": 1300,
+      "w": 390,
+      "h": 844,
+      "title": "Settings: what stays open",
+      "is_interactive": true,
+      "radius": 36
+    },
+    "A13-Permissions-settings.dc.html": {
+      "x": 3240,
+      "y": 1300,
+      "w": 390,
+      "h": 844,
+      "title": "Settings: permissions",
+      "is_interactive": true,
+      "radius": 36
+    },
+    "A15-History.dc.html": {
+      "x": 3710,
+      "y": 1300,
+      "w": 390,
+      "h": 844,
+      "title": "Settings: history",
+      "is_interactive": true,
+      "radius": 36
+    },
+    "A16-Celebrate.dc.html": {
+      "x": 420,
+      "y": 2600,
+      "w": 390,
+      "h": 844,
+      "title": "Promise kept moment",
+      "is_interactive": true,
+      "radius": 36
+    },
+    "A17-Evolve.dc.html": {
+      "x": 890,
+      "y": 2600,
+      "w": 390,
+      "h": 844,
+      "title": "Sprig evolves",
+      "is_interactive": true,
+      "radius": 36
+    },
+    "A5-Recap-shield.dc.html": {
+      "x": 1360,
+      "y": 2600,
+      "w": 390,
+      "h": 844,
+      "title": "Recap: shield used",
+      "is_interactive": true,
+      "radius": 36
+    },
+    "A5-Recap-lockoff.dc.html": {
+      "x": 1830,
+      "y": 2600,
+      "w": 390,
+      "h": 844,
+      "title": "Recap: lock was off",
+      "is_interactive": true,
+      "radius": 36
+    },
+    "A5-Recap-late.dc.html": {
+      "x": 2300,
+      "y": 2600,
+      "w": 390,
+      "h": 844,
+      "title": "Recap: too late",
+      "is_interactive": true,
+      "radius": 36
+    },
+    "A5-Recap-writtenoff.dc.html": {
+      "x": 2770,
+      "y": 2600,
+      "w": 390,
+      "h": 844,
+      "title": "Recap: day written off",
+      "is_interactive": true,
+      "radius": 36
+    },
+    "A4-Break-last.dc.html": {
+      "x": 3240,
+      "y": 2600,
+      "w": 390,
+      "h": 844,
+      "title": "Break: last resort",
+      "is_interactive": true,
+      "radius": 36
+    },
+    "A18-Parts.dc.html": {
+      "x": 3710,
+      "y": 2600,
+      "w": 390,
+      "h": 844,
+      "title": "Home banners and parts",
+      "is_interactive": true,
+      "radius": 36
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "SprigA.dc.html",
+    "A1-Welcome.dc.html",
+    "A3-Lock.dc.html",
+    "A4-Break.dc.html",
+    "A5-Recap.dc.html",
+    "A6-Collection.dc.html",
+    "A2-Home-6.dc.html",
+    "A5-Recap-slipped.dc.html",
+    "A7-Settings.dc.html",
+    "A8-Habits.dc.html",
+    "A9-Habit-edit.dc.html",
+    "A10-Onb-Habits.dc.html",
+    "A11-Onb-Rule.dc.html",
+    "A12-Exceptions.dc.html",
+    "A13-Permissions.dc.html",
+    "A14-Onb-Ready.dc.html",
+    "A12-Exceptions-settings.dc.html",
+    "A13-Permissions-settings.dc.html",
+    "A15-History.dc.html",
+    "A16-Celebrate.dc.html",
+    "A17-Evolve.dc.html",
+    "A5-Recap-shield.dc.html",
+    "A5-Recap-lockoff.dc.html",
+    "A5-Recap-late.dc.html",
+    "A5-Recap-writtenoff.dc.html",
+    "A4-Break-last.dc.html",
+    "A18-Parts.dc.html"
+  ],
+  "notes": {
+    "ta": {
+      "x": 0,
+      "y": -300,
+      "text": "Main screens",
+      "kind": "title1",
+      "maxW": 5510
+    },
+    "sa": {
+      "x": 0,
+      "y": 380,
+      "w": 320,
+      "fill": "purple",
+      "text": "Press Play on any artboard, then try Sprig:\n- move the pointer: eyes and body follow\n- tap: hop\n- tap three times fast: tickle wobble\n- press and drag: petting, happy eyes\n- leave it alone 12 seconds: it dozes off\nOn Home, tick the habits and watch Sprig react."
+    },
+    "tb": {
+      "x": 0,
+      "y": 1000,
+      "text": "Onboarding and settings",
+      "kind": "title1",
+      "maxW": 5510
+    },
+    "tc": {
+      "x": 0,
+      "y": 2300,
+      "text": "Moments, other states and parts",
+      "kind": "title1",
+      "maxW": 5510
+    }
+  },
+  "designSystems": []
+}

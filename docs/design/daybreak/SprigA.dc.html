@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sprig A</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<button type="button" aria-label="Sprig. Tap to make it hop, drag to pet it." onPointerMove="{{move}}" onPointerDown="{{down}}" onPointerUp="{{up}}" onPointerLeave="{{leave}}" onClick="{{click}}" style="display: block; width: {{sz}}px; height: {{sz}}px; padding: 0; border: 0; background: none; overflow: visible; touch-action: none; cursor: grab; user-select: none; -webkit-tap-highlight-color: transparent">
+<svg viewBox="0 0 120 120" width="100%" height="100%" aria-hidden="true" style="display: block; overflow: visible">
+<defs><clipPath id="saClip"><rect x="-60" y="-80" width="240" height="200"></rect></clipPath></defs>
+<g clip-path="url(#saClip)">
+<g transform="{{body}}">
+<g opacity="{{star}}"><path d="M20 66 Q2 112 2 160 H118 Q118 112 100 66 Z" fill="#2B2760"></path><circle cx="10" cy="120" r="1.300" fill="#FFE9A8"></circle><circle cx="110" cy="104" r="1.100" fill="#FFE9A8"></circle><circle cx="108" cy="134" r="1.400" fill="#FFE9A8"></circle><ellipse cx="60" cy="27" rx="17" ry="4.500" fill="none" stroke="#FFD25E" stroke-width="2.800"></ellipse></g>
+<g transform="{{armL}}"><path d="M24 90 V110" stroke="#6B5BE0" stroke-width="12" stroke-linecap="round" fill="none"></path></g>
+<g transform="{{armR}}"><path d="M96 90 V110" stroke="#6B5BE0" stroke-width="12" stroke-linecap="round" fill="none"></path></g>
+<g transform="{{sprout}}">
+<path d="M60 38 C60 30 61 24 60 17" stroke="#218A52" stroke-width="3" stroke-linecap="round" fill="none"></path>
+<circle cx="60" cy="16" r="3" fill="#2FA866" opacity="{{nub}}"></circle>
+<path d="M60 24 C50 24 44 18 44 10 C54 10 60 16 60 24 Z" fill="#2FA866" opacity="{{leaf1}}"></path>
+<path d="M60 20 C70 20 77 14 77 6 C66 6 60 12 60 20 Z" fill="#5CCB86" opacity="{{leaf2}}"></path>
+<g opacity="{{flower}}"><circle cx="60" cy="9" r="4" fill="#FF8FB0"></circle><circle cx="55" cy="13" r="4" fill="#FF8FB0"></circle><circle cx="65" cy="13" r="4" fill="#FF8FB0"></circle><circle cx="60" cy="13" r="2.6" fill="#FFD25E"></circle></g>
+</g>
+<path d="M16 160 V84 C16 52 34 34 60 34 C86 34 104 52 104 84 V160 Z" fill="#8B7CF6"></path>
+<g opacity="{{sweater}}"><path d="M16 100 Q60 110 104 100 V160 H16 Z" fill="#FFB84D"></path><path d="M16 100 Q60 110 104 100" stroke="#E0952A" stroke-width="3" fill="none"></path><circle cx="60" cy="114" r="1.600" fill="#E0952A"></circle><circle cx="60" cy="120" r="1.600" fill="#E0952A"></circle></g>
+<g opacity="{{scarf}}"><path d="M17 94 Q60 106 103 94" stroke="#FF6F61" stroke-width="9" stroke-linecap="round" fill="none"></path><path d="M78 100 L84 118" stroke="#FF6F61" stroke-width="7" stroke-linecap="round" fill="none"></path><path d="M30 97 L35 98.500 M46 100 L51 101 M68 101 L73 100" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.7"></path></g>
+<g opacity="{{crown}}"><ellipse cx="31" cy="52" rx="7" ry="3.600" fill="#2FA866" transform="rotate(-58 31 52)"></ellipse><ellipse cx="42" cy="42" rx="7" ry="3.600" fill="#5CCB86" transform="rotate(-35 42 42)"></ellipse><ellipse cx="60" cy="37.500" rx="7" ry="3.600" fill="#2FA866"></ellipse><ellipse cx="78" cy="42" rx="7" ry="3.600" fill="#5CCB86" transform="rotate(35 78 42)"></ellipse><ellipse cx="89" cy="52" rx="7" ry="3.600" fill="#2FA866" transform="rotate(58 89 52)"></ellipse><circle cx="60" cy="38" r="2.600" fill="#FF8FB0"></circle></g>
+<ellipse cx="33" cy="81" rx="6.5" ry="4.2" fill="#FF9EB5" opacity="{{blush}}"></ellipse>
+<ellipse cx="87" cy="81" rx="6.5" ry="4.2" fill="#FF9EB5" opacity="{{blush}}"></ellipse>
+<g transform="{{eyes}}">
+<g opacity="{{eyeOpen}}"><circle cx="45" cy="70" r="5.2" fill="#1E1B3C"></circle><circle cx="75" cy="70" r="5.2" fill="#1E1B3C"></circle><circle cx="46.8" cy="68" r="1.7" fill="#FFFFFF"></circle><circle cx="76.8" cy="68" r="1.7" fill="#FFFFFF"></circle></g>
+<g opacity="{{eyeJoy}}" stroke="#1E1B3C" stroke-width="3" stroke-linecap="round" fill="none"><path d="M39 72 Q45 63 51 72"></path><path d="M69 72 Q75 63 81 72"></path></g>
+<g opacity="{{eyeShut}}" stroke="#1E1B3C" stroke-width="3" stroke-linecap="round" fill="none"><path d="M39 70 Q45 75 51 70"></path><path d="M69 70 Q75 75 81 70"></path></g>
+<g opacity="{{tearOp}}" transform="{{tearT}}"><path d="M45 75 C42.500 79 42 81 42 82.500 A3 3 0 0 0 48 82.500 C48 81 47.500 79 45 75 Z" fill="#7CC4FF"></path><circle cx="44" cy="81.500" r="0.9" fill="#FFFFFF"></circle></g>
+</g>
+<g opacity="{{sage}}"><path d="M44 86 Q48 99 60 104 Q72 99 76 86 Q68 91 60 89.500 Q52 91 44 86 Z" fill="#F1EEFF"></path><circle cx="45" cy="70" r="9" fill="#FFFFFF" fill-opacity="0.18" stroke="#1E1B3C" stroke-width="2.200"></circle><circle cx="75" cy="70" r="9" fill="#FFFFFF" fill-opacity="0.18" stroke="#1E1B3C" stroke-width="2.200"></circle><path d="M54 69 Q60 66 66 69" stroke="#1E1B3C" stroke-width="2.200" fill="none"></path></g>
+<path d="M54 80 Q60 87 66 80" stroke="#1E1B3C" stroke-width="2.6" stroke-linecap="round" fill="none" opacity="{{mSmile}}"></path>
+<path d="M53 79 Q60 93 67 79 Z" fill="#1E1B3C" opacity="{{mOpen}}"></path>
+<path d="M54 86 Q60 80 66 86" stroke="#1E1B3C" stroke-width="2.6" stroke-linecap="round" fill="none" opacity="{{mFrown}}"></path>
+<path d="M55 83 H65" stroke="#1E1B3C" stroke-width="2.6" stroke-linecap="round" fill="none" opacity="{{mFlat}}"></path>
+<g opacity="{{brows}}" stroke="#1E1B3C" stroke-width="2.400" stroke-linecap="round" fill="none"><path d="M38 62.500 Q43 61 50 57.500"></path><path d="M82 62.500 Q77 61 70 57.500"></path></g>
+</g>
+<g opacity="{{zzz}}" transform="{{zT}}" fill="#1E1B3C" font-family="system-ui, sans-serif" font-weight="700"><text x="90" y="40" font-size="11">z</text><text x="99" y="30" font-size="8">z</text></g>
+</g>
+</svg>
+</button>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"pose":{"editor":"enum","options":["idle","cheer","guard","droop","wave","sleep"],"default":"idle"},"stage":{"editor":"int","min":0,"max":3,"default":2},"tear":{"editor":"boolean","default":false},"outfit":{"editor":"enum","options":["none","scarf","sweater","both","crown","sage","star"],"default":"none"},"size":{"editor":"int","min":80,"max":400,"default":320},"$preview":{"width":320,"height":320}}'>
+class Component extends DCLogic {
+  componentDidMount() {
+    this.s = this.fresh();
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const loop = (now) => {
+      const s = this.s;
+      const dt = s.last ? Math.min(0.05, (now - s.last) / 1000) : 0;
+      s.last = now; s.t += dt; s.idle += dt;
+      const k = Math.min(1, dt * 9);
+      s.lx += (s.tx - s.lx) * k; s.ly += (s.ty - s.ly) * k;
+      s.hop = Math.max(0, s.hop - dt * 1.7);
+      s.tick = Math.max(0, s.tick - dt * 0.7);
+      s.pet += ((s.petting ? 1 : 0) - s.pet) * Math.min(1, dt * 5);
+      s.nb -= dt;
+      if (s.nb < 0) { s.blink = 0.13; s.nb = 2 + Math.random() * 3.5; }
+      s.blink = Math.max(0, s.blink - dt);
+      s.f += 1;
+      if (s.f % 2 === 0) this.forceUpdate();
+      this.raf = requestAnimationFrame(loop);
+    };
+    this.raf = requestAnimationFrame(loop);
+  }
+  componentWillUnmount() { cancelAnimationFrame(this.raf); }
+  fresh() {
+    return { t: 0, last: 0, lx: 0, ly: 0, tx: 0, ty: 0, hop: 0, tick: 0, pet: 0, petting: false, isDown: false, moved: 0, taps: 0, tapAt: 0, idle: 0, blink: 0, nb: 2.5, f: 0 };
+  }
+  handlers() {
+    if (this.h) return this.h;
+    const clamp = (v) => Math.max(-1, Math.min(1, v));
+    const st = () => { if (!this.s) this.s = this.fresh(); return this.s; };
+    this.h = {
+      move: (e) => {
+        const s = st(); const r = e.currentTarget.getBoundingClientRect();
+        s.tx = clamp((e.clientX - r.left) / r.width * 2 - 1);
+        s.ty = clamp((e.clientY - r.top) / r.height * 2 - 1.1);
+        s.idle = 0;
+        if (s.isDown) { s.moved += Math.abs(e.movementX || 0) + Math.abs(e.movementY || 0); if (s.moved > 20) s.petting = true; }
+      },
+      down: () => {
+        const s = st(); const now = performance.now();
+        s.isDown = true; s.moved = 0; s.idle = 0;
+        s.taps = now - s.tapAt < 450 ? s.taps + 1 : 1; s.tapAt = now;
+        s.hop = 1; if (s.taps >= 3) s.tick = 1;
+      },
+      up: () => { const s = st(); s.isDown = false; s.petting = false; },
+      leave: () => { const s = st(); s.isDown = false; s.petting = false; s.tx = 0; s.ty = 0; },
+      click: (e) => { if (e.detail === 0) { const s = st(); s.hop = 1; s.idle = 0; } }
+    };
+    return this.h;
+  }
+  renderVals() {
+    const s = this.s || this.fresh();
+    const p = this.props;
+    const pose = p.pose || 'idle';
+    const stage = Number(p.stage ?? 2);
+    const PX = 60, PY = 150, TOP = 36;
+    const asleep = pose === 'sleep' || (pose === 'idle' && s.idle > 12);
+    const sad = pose === 'droop' && s.pet < 0.4;
+    const joy = !asleep && (pose === 'cheer' || s.pet > 0.35 || s.hop > 0.25 || s.tick > 0);
+    const shut = asleep || s.blink > 0;
+    const br = Math.sin(s.t * (asleep ? 1.1 : 2)) * (asleep ? 0.02 : 0.012);
+    const arc = s.hop > 0 ? Math.sin((1 - s.hop) * Math.PI) : 0;
+    const sq = s.hop > 0 ? Math.sin((1 - s.hop) * Math.PI * 2) * 0.05 * s.hop : 0;
+    const wob = Math.sin(s.t * 22) * 5 * s.tick;
+    const bounce = pose === 'cheer' ? -Math.abs(Math.sin(s.t * 5)) * 4 : 0;
+    const jy = -arc * 12 + bounce + (sad ? 4 : 0);
+    const sx = 1 - br - sq, sy = 1 + br + sq;
+    const sway = Math.sin(s.t * 2) * 4;
+    let aL = 0, aR = 0;
+    if (pose === 'cheer') { aL = 150 + Math.sin(s.t * 10) * 12; aR = 150 - Math.sin(s.t * 10) * 12; }
+    else if (pose === 'guard') { aL = 8; aR = 138 + Math.sin(s.t * 2) * 4; }
+    else if (pose === 'wave') { aL = sway; aR = 140 + Math.sin(s.t * 8) * 18; }
+    else if (pose === 'droop') { aL = -6; aR = -6; }
+    else { aL = sway + arc * 130 + s.pet * 30; aR = -sway + arc * 130 + s.pet * 30; }
+    const lean = s.lx * 3 + wob;
+    const on = (b) => (b ? 1 : 0);
+    const h = this.handlers();
+    const tear = (p.tear === true || p.tear === 'true') && sad;
+    const ph = (s.t * 0.55) % 1;
+    return {
+      sz: Number(p.size ?? 320),
+      move: h.move, down: h.down, up: h.up, leave: h.leave, click: h.click,
+      body: 'translate(' + (s.lx * 2.5) + ' ' + jy + ') rotate(' + lean + ' ' + PX + ' ' + PY + ') translate(' + PX + ' ' + PY + ') scale(' + sx + ' ' + sy + ') translate(' + (-PX) + ' ' + (-PY) + ')',
+      armL: 'rotate(' + aL + ' 24 90)',
+      armR: 'rotate(' + (-aR) + ' 96 90)',
+      sprout: 'rotate(' + (Math.sin(s.t * 1.4) * 4 - s.lx * 7 + wob * 1.5 + (sad ? 32 : asleep ? 18 : 0)) + ' ' + PX + ' ' + TOP + ')',
+      eyes: 'translate(' + (s.lx * 3.2) + ' ' + (s.ly * 2.6 + (sad ? -1.5 : 0)) + ')',
+      eyeOpen: on(!shut && !joy), eyeJoy: on(joy), eyeShut: on(shut && !joy),
+      mSmile: on(!joy && !sad && pose !== 'guard'), mOpen: on(joy), mFrown: on(sad), mFlat: on(!joy && !sad && pose === 'guard'),
+      blush: 0.55 + s.pet * 0.45,
+      nub: on(stage < 1), leaf1: on(stage >= 1), leaf2: on(stage >= 2), flower: on(stage >= 3),
+      brows: on(sad),
+      scarf: on(p.outfit === 'scarf' || p.outfit === 'both'),
+      sweater: on(p.outfit === 'sweater' || p.outfit === 'both'),
+      crown: on(p.outfit === 'crown'),
+      sage: on(p.outfit === 'sage'),
+      star: on(p.outfit === 'star'),
+      tearOp: tear ? (ph < 0.8 ? Math.min(1, ph * 6) : (1 - ph) / 0.2) : 0,
+      tearT: 'translate(0 ' + (ph * 16) + ')',
+      zzz: on(asleep), zT: 'translate(0 ' + (-((s.t * 5) % 8)) + ')'
+    };
+  }
+}
+</script>
+</body>
+</html>

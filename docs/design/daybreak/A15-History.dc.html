@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>KEPT history</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
+<style>
+body{margin:0}
+a{color:#1E1B3C}a:hover{color:#5B4BD6}
+
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; overflow: hidden; display: flex; flex-direction: column; background: #FFF9F1; font-family: 'Bricolage Grotesque', system-ui, sans-serif; color: #1E1B3C">
+<div style="flex: none; padding: 24px 12px 4px">
+<a href="A7-Settings.dc.html" aria-label="Back" style="display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 22px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.400" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+</div><div style="flex: none; padding: 6px 24px 18px"><h1 style="margin: 0; font-size: 34px; line-height: 1.02; font-weight: 800; letter-spacing: -0.02em">History</h1><p style="margin: 8px 0 0; font-size: 15px; line-height: 1.4; font-weight: 500; color: #5C5878">Your last 14 days. Best streak: 12 days.</p></div>
+<div style="flex: 1; min-height: 0; overflow-y: auto; padding: 0 20px 28px">
+<div style="border-radius: 22px; background: #FFFFFF; border: 1.500px solid #F1E8DC; overflow: hidden">
+<sc-for list="{{days}}" as="d" hint-placeholder-count="14">
+<div style="display: flex; align-items: center; gap: 12px; height: 54px; padding: 0 16px; border-top: {{d.rule}}">
+<span style="flex: none; width: 14px; height: 14px; border-radius: 7px; box-sizing: border-box; background: {{d.fill}}; border: 2px {{d.line}} {{d.stroke}}"></span>
+<span style="flex: 1; font-size: 15px; font-weight: 700">{{d.date}}</span>
+<span style="font-size: 13px; font-weight: 600; color: #5C5878">{{d.habits}}</span>
+<span style="min-width: 92px; text-align: right; font-size: 13px; font-weight: 700; color: {{d.ink}}">{{d.label}}</span>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const kinds = {
+      kept: ['Kept', '#FFB81F', '#FFB81F', 'solid', '#8A4B00'],
+      shield: ['Shield used', '#D9E6FA', '#2F6FC4', 'solid', '#1F4F8A'],
+      missed: ['Missed', '#E6E2EE', '#B9B4CC', 'solid', '#5C5878'],
+      late: ['Too late', '#FBE6CC', '#D9A441', 'solid', '#8A4B00'],
+      off: ['Lock was off', 'transparent', '#8D88A8', 'dashed', '#5C5878'],
+      written: ['Written off', '#FBE3E3', '#A32D2D', 'solid', '#A32D2D']
+    };
+    const rows = [['Tue 29 Sep', 'kept', '2 of 2'], ['Mon 28 Sep', 'kept', '2 of 2'], ['Sun 27 Sep', 'kept', '2 of 2'], ['Sat 26 Sep', 'kept', '2 of 2'], ['Fri 25 Sep', 'shield', '1 of 2'], ['Thu 24 Sep', 'kept', '2 of 2'], ['Wed 23 Sep', 'kept', '2 of 2'], ['Tue 22 Sep', 'off', '2 of 2'], ['Mon 21 Sep', 'kept', '2 of 2'], ['Sun 20 Sep', 'late', '2 of 2'], ['Sat 19 Sep', 'missed', '0 of 2'], ['Fri 18 Sep', 'written', '1 of 2'], ['Thu 17 Sep', 'kept', '2 of 2'], ['Wed 16 Sep', 'kept', '2 of 2']];
+    return { days: rows.map((r, i) => { const k = kinds[r[1]]; return { date: r[0], habits: r[2], label: k[0], fill: k[1], stroke: k[2], line: k[3], ink: k[4], rule: i === 0 ? '0' : '1.500px solid #F1E8DC' }; }) };
+  }
+}
+</script>
+</body>
+</html>

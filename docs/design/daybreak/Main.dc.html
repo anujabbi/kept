@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>KEPT home, Daybreak</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
+<style>
+body{margin:0}
+a{color:#5C5878}a:hover{color:#1E1B3C}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; overflow: hidden; background: {{sky}}; transition: background 0.7s ease; font-family: 'Bricolage Grotesque', system-ui, sans-serif; color: #1E1B3C">
+<div style="position: absolute; left: 24px; right: 24px; top: 24px; display: flex; justify-content: flex-end; align-items: center; color: {{skyInk}}; transition: color 0.7s ease">
+<div style="display: flex; gap: 8px; align-items: center">
+<span style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 16px; background: rgba(255,255,255,0.28); font-size: 14px; font-weight: 700; white-space: nowrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3 0-6 1-9z"></path></svg>12 day streak</span>
+</div>
+</div>
+<div style="position: absolute; left: 24px; right: 24px; top: 66px; color: {{skyInk}}; transition: color 0.7s ease">
+<h1 style="margin: 0; font-size: 40px; line-height: 1; font-weight: 800; letter-spacing: -0.02em">{{headline}}</h1>
+<p style="margin: 8px 0 0; font-size: 15px; line-height: 1.35; font-weight: 500; max-width: 300px">{{sub}}</p>
+</div>
+<div style="position: absolute; z-index: 0; isolation: isolate; left: 75px; top: {{sprigTop}}px; transition: top 0.8s cubic-bezier(0.3, 1.5, 0.5, 1)">
+<dc-import name="SprigA" outfit="sweater" pose="{{pose}}" stage="3" size="240" hint-size="240px,240px"></dc-import>
+</div>
+<div style="position: absolute; left: -60px; right: -60px; top: 396px; bottom: 0; background: #FFF9F1; border-radius: 50% 50% 0 0 / 56px 56px 0 0"></div>
+<div style="position: absolute; left: 20px; right: 20px; top: 434px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; justify-content: space-between; align-items: baseline; padding: 0 4px">
+<h2 style="margin: 0; font-size: 18px; font-weight: 700">Today</h2>
+<p style="margin: 0; font-size: 14px; font-weight: 600; color: #5C5878">{{count}}</p>
+</div>
+<sc-for list="{{habits}}" as="h" hint-placeholder-count="2">
+<button type="button" onClick="{{h.toggle}}" aria-pressed="{{h.done}}" style="display: flex; align-items: center; gap: 14px; width: 100%; height: 68px; padding: 0 16px; border-radius: 22px; border: 2px solid {{h.border}}; background: {{h.bg}}; font: inherit; color: inherit; text-align: left; cursor: pointer; transition: background 0.25s, border-color 0.25s">
+<span style="display: flex; align-items: center; justify-content: center; flex: none; width: 34px; height: 34px; border-radius: 17px; background: {{h.dot}}; border: 2px solid {{h.ring}}; box-sizing: border-box; transition: background 0.25s"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="opacity: {{h.tick}}"><path d="M5 12.5l4.500 4.500L19 7.500"></path></svg></span>
+<span style="display: flex; flex-direction: column; flex: 1">
+<span style="font-size: 17px; font-weight: 700; text-decoration: {{h.strike}}">{{h.title}}</span>
+<span style="font-size: 13px; font-weight: 500; color: #5C5878">{{h.detail}}</span>
+</span>
+</button>
+</sc-for>
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 14px 4px 0">
+<div style="display: flex; justify-content: space-between; align-items: baseline">
+<h2 style="margin: 0; font-size: 18px; font-weight: 700">Last 7 days</h2>
+<p style="margin: 0; font-size: 14px; font-weight: 600; color: #5C5878">Best streak 12</p>
+</div>
+<div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px">
+<sc-for list="{{week}}" as="d" hint-placeholder-count="7">
+<div style="display: flex; flex-direction: column; align-items: center; gap: 5px">
+<span style="width: 30px; height: 30px; border-radius: 15px; box-sizing: border-box; background: {{d.fill}}; border: 2px {{d.line}} {{d.stroke}}"></span>
+<span style="font-size: 12px; font-weight: 600; color: #5C5878">{{d.label}}</span>
+</div>
+</sc-for>
+</div>
+<div style="position: relative; align-self: flex-start; margin-top: 2px">
+<sc-if value="{{shieldOpen}}" hint-placeholder-val="{{ false }}">
+<div role="note" style="position: absolute; left: 0; bottom: 36px; width: 290px; box-sizing: border-box; padding: 14px 16px; border-radius: 18px; background: #1E1B3C; color: #FFF9F1; font-size: 14px; line-height: 1.4; font-weight: 500; box-shadow: 0 8px 24px rgba(30,27,60,0.25)"><strong style="display: block; font-weight: 700; margin-bottom: 4px">Your weekly free pass</strong>Miss a day and the shield saves your streak. You get a new one every week.</div>
+</sc-if>
+<button type="button" onClick="{{toggleShield}}" aria-expanded="{{shieldOpen}}" style="display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0; border: 0; background: none; color: #2F6FC4; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.500 8-8 9-4.500-1-8-4-8-9V6z"></path></svg>Shield ready</button>
+</div>
+</div>
+</div>
+<nav aria-label="Main" style="position: absolute; left: 0; right: 0; bottom: 0; height: 74px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: center; background: #FFF9F1; border-top: 1.500px solid #EFE4D6; font-size: 13px; font-weight: 700; text-align: center">
+<a href="Main.dc.html" aria-current="page" style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0; color: #5B4BD6; text-decoration: none"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="4"></circle><path d="M12 3v2M4.500 6.500l1.500 1.500M19.500 6.500L18 8M3 20h18"></path></svg>Today</a>
+<a href="A6-Collection.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0; text-decoration: none"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21v-9M12 12c-4 0-6-2-6-6 4 0 6 2 6 6zM12 15c3.500 0 5.500-2 5.500-5.500-3.500 0-5.500 2-5.500 5.500z"></path></svg>Sprig</a>
+<a href="A7-Settings.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0; text-decoration: none"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"></path><circle cx="16" cy="7" r="2"></circle><circle cx="8" cy="17" r="2"></circle></svg>Settings</a>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const done = (this.state && this.state.done) || { ex: true, rd: false };
+    const src = [
+      { id: 'ex', title: 'Exercise', detail: '30 min' },
+      { id: 'rd', title: 'Read', detail: '10 pages' }
+    ];
+    const habits = src.map((x) => {
+      const d = !!done[x.id];
+      return {
+        title: x.title, detail: d ? 'Done. Tap to undo' : x.detail, done: d,
+        bg: d ? '#ECE9FF' : '#FFFFFF', border: d ? '#B9B0F7' : '#EADFD2',
+        dot: d ? '#5B4BD6' : 'transparent', ring: d ? '#5B4BD6' : '#8D88A8', tick: d ? 1 : 0,
+        strike: d ? 'line-through' : 'none',
+        toggle: () => this.setState({ done: Object.assign({}, done, { [x.id]: !d }) })
+      };
+    });
+    const n = habits.filter((x) => x.done).length;
+    const left = habits.length - n;
+    const all = left === 0;
+    const marks = ['k', 's', 'k', 'k', 'k', 'k', all ? 'k' : 't'];
+    const labels = ['T', 'F', 'S', 'S', 'M', 'T', 'W'];
+    const week = marks.map((m, i) => ({
+      label: labels[i],
+      fill: m === 'k' ? '#FFB81F' : m === 's' ? '#D9E6FA' : 'transparent',
+      stroke: m === 'k' ? '#FFB81F' : m === 's' ? '#2F6FC4' : '#5B4BD6',
+      line: m === 't' ? 'dashed' : 'solid'
+    }));
+    return {
+      habits: habits, week: week,
+      shieldOpen: !!(this.state && this.state.shieldOpen),
+      toggleShield: () => this.setState({ shieldOpen: !(this.state && this.state.shieldOpen) }),
+      count: n + ' of ' + habits.length,
+      headline: all ? 'Promise kept.' : left === 1 ? 'One to go.' : 'Two to go.',
+      sub: all ? 'Apps are open. See you tomorrow.' : 'Apps unlock when you finish, or at 9:00 pm.',
+      sky: all ? '#FFC23D' : left === 1 ? '#FFD0A6' : '#2B2760',
+      skyInk: left === 2 ? '#FFF4E4' : '#1E1B3C',
+      sprigTop: all ? 176 : left === 1 ? 200 : 224,
+      pose: all ? 'cheer' : 'idle'
+    };
+  }
+}
+</script>
+</body>
+</html>
