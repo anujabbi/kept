@@ -187,8 +187,9 @@ class SettingsBehaviourTest {
     @Test fun changing_the_window_while_locked_asks_change_it_anyway() {
         var confirmed = 0
         var cancelled = 0
-        rule.setContent { Shot(1f) { LockChangeConfirm("Your apps are locked right now. Changing the give-up time opens them early. Still change it?", { confirmed++ }, { cancelled++ }) } }
+        rule.setContent { Shot(1f) { LockChangeConfirm(SettingsCopy.LOCK_FROM_WHILE_LOCKED, { confirmed++ }, { cancelled++ }) } }
         rule.onNodeWithText("Apps are locked right now").assertExists()
+        rule.onNodeWithText(SettingsCopy.LOCK_FROM_WHILE_LOCKED).assertExists()
         rule.onNodeWithText("Change it anyway").assertExists()
         rule.onNodeWithTag("change_cancel").performClick()
         rule.onNodeWithTag("change_anyway").performClick()

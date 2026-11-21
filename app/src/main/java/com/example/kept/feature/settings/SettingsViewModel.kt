@@ -17,6 +17,8 @@ import com.example.kept.core.data.prefs.Settings
 import com.example.kept.core.domain.Allowlist
 import com.example.kept.core.domain.HabitDraft
 import com.example.kept.core.domain.HabitsCopy
+import com.example.kept.core.domain.LockWindowEdit
+import com.example.kept.core.domain.LockWindowField
 import com.example.kept.core.domain.ProofType
 import com.example.kept.core.domain.SprigState
 import com.example.kept.core.lock.AllowlistResolver
@@ -178,11 +180,15 @@ class SettingsViewModel @Inject constructor(
         scheduler.scheduleReminders()
     }
 
-    /** Moving the give-up time or lock start opens apps early during an active lock (issue #1). */
-    fun requestSetLockWindow(from: Int, due: Int) = guard(
-        LockAffectingSetting.LOCK_WINDOW,
-        "Your apps are locked right now. Changing the give-up time opens them early. Still change it?",
-    ) { setLockWindow(from, due) }
+    /**
+     * Set in a lock window editor. Moving the give-up time or lock start opens apps early during
+     * an active lock (issue #1); each editor asks in its own words, and a Set that changes nothing
+     * saves nothing and asks nothing (issue #154). [from] and [due] are the window saved now.
+     */
+    fun requestSetLockWindow(field: LockWindowField, picked: Int, from: Int, due: Int) {
+        val edit = LockWindowEdit.of(field, picked, from, due) ?: return
+        guard(LockAffectingSetting.LOCK_WINDOW, edit.confirm) { setLockWindow(edit.from, edit.due) }
+    }
 
     fun setBreakDuration(min: Int) = viewModelScope.launch { prefs.updateSettings { it.copy(breakDurationMin = min) } }
     /**

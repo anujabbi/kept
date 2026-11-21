@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.kept.core.domain.LockWindowField
 import com.example.kept.core.domain.SettingsCopy
 import com.example.kept.core.domain.SettingsSky
 import com.example.kept.core.domain.SprigForm
@@ -140,10 +141,10 @@ fun SettingsScreen(
 
     when (editor) {
         Editor.LOCK_FROM -> TimeEditor(SettingsCopy.LOCK_FROM, page.lockFromMinute, onDismiss = { editor = null }) {
-            vm.requestSetLockWindow(it, page.dueMinute)
+            vm.requestSetLockWindow(LockWindowField.LOCK_FROM, it, page.lockFromMinute, page.dueMinute)
         }
         Editor.GIVE_UP -> TimeEditor(SettingsCopy.GIVE_UP, page.dueMinute, onDismiss = { editor = null }) {
-            vm.requestSetLockWindow(page.lockFromMinute, it)
+            vm.requestSetLockWindow(LockWindowField.GIVE_UP, it, page.lockFromMinute, page.dueMinute)
         }
         Editor.BREAK -> BreakLengthEditor(page.breakMinutes, onDismiss = { editor = null }) { vm.setBreakDuration(it) }
         null -> Unit
