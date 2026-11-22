@@ -48,8 +48,11 @@ class HomeWeeklyScreenshotTest {
     @Test fun addCard() = shot("add", 1f, HomeFixtures.state(1, 0), scrollTo = "home_weekly_add")
     @Test fun addCard_font2() = shot("add", 2f, HomeFixtures.state(1, 0), scrollTo = "home_weekly_add")
 
-    /** The first partial week: a reduced target, and the days before the goal was set not counted. */
-    @Test fun firstWeek() = card("first_week", 1f, HomeFixtures.goal(1, "Practice", 4, from = HomeFixtures.sunday.plusDays(2)))
+    /**
+     * The first partial week: 4 a week, set today (Wednesday), so this week asks for 3 (Thursday to
+     * Saturday). The card reads "0 of 3" on three segments, Su to Tu are not counted, no lock today.
+     */
+    @Test fun firstWeek() = card("first_week", 1f, HomeFixtures.goal(1, "Practice", 4, from = HomeFixtures.today))
 
     /** Three goals under two habits, as the page opens and scrolled to the last card. */
     @Test fun threeGoals() = shot("three", 1f, HomeFixtures.state(2, 1, weekly = HomeFixtures.threeGoals()), scrollTo = null)

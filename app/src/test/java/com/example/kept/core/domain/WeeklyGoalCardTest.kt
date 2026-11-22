@@ -48,15 +48,18 @@ class WeeklyGoalCardTest {
     }
 
     @Test fun `marking today done moves the count and today's cell, and undo moves them back`() {
-        val before = card(4, day(1), day(0))
         val after = card(4, day(1), day(0), day(1))
         assertEquals("Exercise · 2 of 4 this week", after.plainTitle())
         assertEquals(DayState.DONE, after.days[1].state)
         assertTrue(after.days[1].isToday)
         assertTrue(after.doneToday)
         assertEquals(2, after.filled)
-        // Undo is the same week without today's session.
-        assertEquals(before, card(4, day(1), day(0)))
+        // Undo takes today's session away again: the count, today's cell and the bar go back.
+        val undone = card(4, day(1), day(0))
+        assertEquals("Exercise · 1 of 4 this week", undone.plainTitle())
+        assertEquals(DayState.TODAY, undone.days[1].state)
+        assertFalse(undone.doneToday)
+        assertEquals(1, undone.filled)
     }
 
     @Test fun `a must-do day stops counting once today's session is logged`() {
