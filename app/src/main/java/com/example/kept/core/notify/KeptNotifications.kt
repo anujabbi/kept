@@ -33,6 +33,9 @@ class KeptNotifications @Inject constructor(@ApplicationContext private val ctx:
         const val ID_LOCK_OFF = 6
         const val ID_RESTART = 7
         const val ID_DAY_DONE = 8
+
+        /** A weekly goal's must-do notification is `ID_MUST_DO_BASE + goal id`: one per goal (issue #165). */
+        const val ID_MUST_DO_BASE = 10_000
         const val EXTRA_ROUTE = "route"
 
         /**
@@ -151,6 +154,23 @@ class KeptNotifications @Inject constructor(@ApplicationContext private val ctx:
     }
 
     fun clearReminder() = NotificationManagerCompat.from(ctx).cancel(ID_REMINDER)
+
+    /**
+     * A weekly goal's must-do day (issue #165): why the apps are locked today. Tapping it opens
+     * Home, where the goal's card logs the session. Returns false when it could not be posted.
+     */
+    fun mustDo(goalId: Long, title: String, body: String): Boolean =
+        post(mustDoId(goalId), base(CH_REMINDER, title, body, "home").build())
+
+    fun clearMustDo(goalId: Long) = NotificationManagerCompat.from(ctx).cancel(mustDoId(goalId))
+
+    /** The goals whose must-do notification is in the shade right now. */
+    fun mustDoShowing(): Set<Long> = runCatching {
+        ctx.getSystemService(NotificationManager::class.java).activeNotifications
+            .filter { it.id >= ID_MUST_DO_BASE }.map { (it.id - ID_MUST_DO_BASE).toLong() }.toSet()
+    }.getOrDefault(emptySet())
+
+    private fun mustDoId(goalId: Long): Int = ID_MUST_DO_BASE + goalId.toInt()
 
     /**
      * The day was finished with nothing of KEPT on screen (issue #9), so the celebration cannot be

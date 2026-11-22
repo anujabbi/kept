@@ -9,8 +9,11 @@ import com.example.kept.core.data.HabitActions
 import com.example.kept.core.data.HabitRepository
 import com.example.kept.core.data.SprigRepository
 import com.example.kept.core.data.TimeSource
+import com.example.kept.core.data.WeeklyGoalRepository
 import com.example.kept.core.data.prefs.KeptPreferences
+import com.example.kept.core.domain.GiveUpTime
 import com.example.kept.core.domain.MomentRules
+import com.example.kept.core.domain.WeeklyHold
 import com.example.kept.core.domain.SprigForm
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
@@ -36,6 +39,9 @@ data class CelebrationUiState(
  * "Mark done" button with no UI alive, and the moment is still waiting the next time KEPT is
  * opened. A day whose moment already played (on the lock screen, issue #130) is not due.
  *
+ * The moment says "Apps are open.", so it also waits while a weekly goal's must-do session is
+ * still holding the lock (issue #165, story #175): it plays once that session is logged.
+ *
  * Whether the moment is up, and whether its intro has played, live in [SavedStateHandle], so a
  * rotation neither loses the moment nor plays it again.
  */
@@ -48,14 +54,18 @@ class CelebrationViewModel @Inject constructor(
     time: TimeSource,
     private val actions: HabitActions,
     private val analytics: Analytics,
+    weeklyGoals: WeeklyGoalRepository,
 ) : ViewModel() {
 
     val state: StateFlow<CelebrationUiState> =
-        combine(prefs.settings, habits.observeToday(), sprig.state, time.observeToday()) { settings, today, sprigState, date ->
+        combine(prefs.settings, habits.observeToday(), sprig.state, time.observeToday(), weeklyGoals.observeThisWeek()) { settings, today, sprigState, date, weekly ->
+            val pastDue = GiveUpTime.isPastDue(time.minuteOfDay(), settings.lockFromMinute, settings.dueMinute)
+            val weeklyLeft = WeeklyHold.left(weekly.map { it.week }, pastDue)
             // Only today's celebration: a pending one left over from yesterday is stale, and the
             // rollover recap is the right thing to show for that day instead.
             CelebrationUiState(
-                due = MomentRules.dueInKept(settings.celebrationPendingDate, settings.celebrationShownDate, date.toString(), today.allDoneOnTime),
+                due = weeklyLeft == 0 &&
+                    MomentRules.dueInKept(settings.celebrationPendingDate, settings.celebrationShownDate, date.toString(), today.allDoneOnTime),
                 form = sprigState.form,
                 streakDays = sprigState.streakDays,
             )

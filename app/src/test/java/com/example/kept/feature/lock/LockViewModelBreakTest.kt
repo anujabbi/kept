@@ -53,6 +53,7 @@ class LockViewModelBreakTest {
     @Inject lateinit var lockRepo: LockRepository
     @Inject lateinit var sprigRepo: SprigRepository
     @Inject lateinit var actions: HabitActions
+    @Inject lateinit var weeklyGoals: com.example.kept.core.data.WeeklyGoalRepository
     @Inject lateinit var time: TimeSource
     @Inject @ApplicationScope lateinit var appScope: CoroutineScope
 
@@ -90,7 +91,7 @@ class LockViewModelBreakTest {
         val factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                LockViewModel(saved, lockRepo, sprigRepo, actions, time, appScope, analytics) as T
+                LockViewModel(saved, lockRepo, sprigRepo, actions, time, appScope, analytics, weeklyGoals) as T
         }
         return ViewModelProvider(store, factory)[LockViewModel::class.java]
     }

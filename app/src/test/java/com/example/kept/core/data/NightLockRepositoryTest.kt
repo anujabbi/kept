@@ -49,7 +49,7 @@ class NightLockRepositoryTest {
     private val prefs = KeptPreferences(ctx)
     private val habits = HabitRepository(db.habitDao(), db.habitEntryDao(), db.dayRecordDao(), prefs, time)
     private val sprig = SprigRepository(prefs, db.galleryDao(), db.dayRecordDao(), time)
-    private val lock = LockRepository(db.allowedAppDao(), db.lockBreakDao(), db.protectionGapDao(), db.dayRecordDao(), prefs, habits, sprig, time)
+    private val lock = LockRepository(db.allowedAppDao(), db.lockBreakDao(), db.protectionGapDao(), db.dayRecordDao(), prefs, habits, sprig, time, WeeklyGoalRepository(db.weeklyGoalDao(), db.weeklyGoalEntryDao(), time))
 
     @Before fun reset() = runBlocking { prefs.clearAll() }
 

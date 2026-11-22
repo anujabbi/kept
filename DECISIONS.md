@@ -1386,3 +1386,181 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     because the Settings tab gained a row: `settings_settings_*`, `settings_settings_missing_*`
     and their `_360` twins, and at 412dp `settings_night_off_font1.0`, `settings_night_on_font1.0`
     and `settings_settings_end_font1.0`. Every other golden is byte-identical to `main`.
+- **Weekly goals: Home weekly card (issue #165, story #174).** Built from mockup 4
+  (`docs/design/weekly-goals/4-home-weekly-card`, PR #166) with #165's copy; the card's words and
+  state mapping are pure Kotlin in `core/domain/WeeklyGoalCard.kt` (`WeeklyCard`,
+  `WeeklyCardCopy`), drawn by `feature/home/HomeWeekly.kt`. No lock, lock screen, notification,
+  streak or rollover code is touched, and `TodaySummary`, the "Today" count, the headline and the
+  roomy/compact choice still come from the daily habits alone. Departures and open choices:
+  - *The status line is #165's, not the mockup's.* The mockup reads "On track. 6 days left for 3
+    more, so no lock."; the issue gives "On track, no lock" and "Today counts: apps lock until
+    it's done", and the issue wins. "Today counts" is shown from `isMustDay` although the lock
+    itself arrives with #175 (planner's note on #174): until that ships the line promises a lock
+    that does not happen yet.
+  - *A third status line, "Done for today, no lock".* The issue has two lines. When today's
+    session is logged in a week whose target is already out of reach (4 a week, first session on
+    Friday), today is no longer a must-do day, but "On track" would be untrue. That one case
+    reads "Done for today, no lock", in muted grey. A complete week reads "On track, no lock".
+  - *Mark done and undo are a habit row inside the card.* Mockup 4 has no control for it. The
+    card ends with the today row of the weekly lock screen (mockup 3): the activity with "Today"
+    on the right, drawn by the shared `DaybreakHabitRow`. A tap logs today's session with the
+    tick haptic; once done the row reads "Done", a tap does nothing, and holding it undoes, as a
+    habit row on Home does. A double tap cannot count twice: the row stops ticking once done,
+    and `WeeklyGoalRepository.logToday` stores nothing the second time.
+  - *Where the section sits.* With at least one goal, "This week" follows the habits and comes
+    before "Last 7 days" (mockup 4's order) in the roomy layout, and ends the scrolling habit
+    list in the compact layout (4 or more habits), where the week row and the shield stay fixed
+    below it. With no goal, the "Add a weekly goal" row is the last thing on the roomy page,
+    after the shield, and the end of the list in compact. An invitation placed after the habits
+    would push "Last 7 days" and the shield off the first screen for everyone with one to three
+    habits, which `shieldIsFullyVisibleWithUpToThreeHabitsAtFontOne` forbids; a card with real
+    progress on it is worth that, the invitation is not. The cost: with two habits the row is
+    half below the fold on a 412 × 915dp screen, and with three or more it needs a scroll.
+    Weekly goals never switch Home to the compact layout.
+  - *The add row is the "Add your first habit" row with other words*: "Add a weekly goal" over
+    "For things you don't need to do every day." (the setup screen's subtitle). `AddFirstHabitRow`
+    now delegates to a shared `AddRow`; its pixels do not change. It shows only while there is no
+    goal; a second and third goal are added from Settings → Weekly goals.
+  - *Days the goal did not count* (`NOT_COUNTED`: before it was set, or the day it was set with
+    nothing logged) are not in the mockup: a small `#CFC8E6` dot with no ring, spoken as
+    "{day}, not counted". A skipped day is the lock screen mockup's dash on the light card: a
+    `#E6E2EE` disc with a `#8D88A8` dash. The other cells are the mockup's; the coming-up ring
+    `#E0D6C8` gets a token, `weekRing`.
+  - *Spoken strip.* Each cell is one node: "Sunday, done", "Monday, skipped", "Wednesday,
+    today, not done yet", "Wednesday, today, done", "Thursday, coming up", "Sunday, not
+    counted". The two-letter labels are not read separately.
+  - *The progress bar has one segment per session of this week's target* (the reduced target in
+    the first partial week; none when it is 0, as for a goal set on a Saturday, whose card reads
+    "0 of 0 this week"). Sessions beyond the target fill no extra segment, but the title counts
+    them ("3 of 2 this week") rather than hiding a logged session.
+  - *Goldens.* New: `home_weekly_*` (on track, today counts, complete week and the add row at
+    font 1.0 and 2.0; first partial week, three goals, compact, no habits) and
+    `home_360_weekly_*`. Re-recorded because Home now shows the add row on the first screen:
+    `home_0of2_font1.0`, `home_1of2_font1.0`, `home_2of2_font1.0`, `home_no_habits_font1.0`,
+    `home_no_habits_font2.0`, `home_shield_open_font1.0` and `home_shield_used_font1.0`. Every
+    other golden is byte-identical to `main`.
+- **Weekly goals: must-do lock, weekly lock screen and notification (issue #165, story #175).**
+  `LockPolicy.Snapshot` gains `weeklyMustDoIncomplete` (off by default) and the daily lock is
+  `(habitsIncomplete || weeklyMustDoIncomplete) && isWindowActive`, still OR-ed with night
+  lockdown. `LockState` carries the goals' weeks (`weekly`), so everything that already asks the
+  policy (the service, the watchdog, the lock screen, Home, the Settings confirms) follows a
+  weekly goal as it follows a habit. The words are pure Kotlin in `core/domain/WeeklyLock.kt`.
+  Mockups 2 and 3 were read from `docs/weekly-goals-mockups` (PR #166); #165's copy wins.
+  Departures and open choices:
+  - *Not in this story: streak, level, shield, recap, `day_records` (story #176).* A must-do day
+    whose session was never logged still counts as a kept day at rollover if the habits were
+    done in time, and still grants the day's level. Nothing in `RolloverEngine`, `StreakRules`,
+    `LevelRules` or the recap is touched. Until #176, the only cost of skipping a must-do day is
+    the lock itself and the next day's lock.
+  - *Protection gaps and `lockedMillis` follow the daily lock, weekly term included.* A
+    weekly-only lock is the promise's lock, unlike night lockdown: a permission switched off
+    during it opens a gap, a dead service with the phone in use is a gap, and its minutes are
+    added to the day's locked time. This falls out of `isDailyLockActive`; no other code changed.
+  - *"Mark today's {activity} done" logs the session and opens the app in one tap* when that
+    lifted the lock for the app the screen covers, as the acceptance list says ("opens the
+    app"), rather than turning the screen gold and asking for a second tap on "Open {App}" as a
+    finished habit list does (#127). If something still holds the lock (another goal's must-do
+    session, night lockdown) the screen stays and shows what holds it. A session logged from the
+    "This week" row of the habits list behaves like a habit tick: the list stays, and the last
+    thing ticked turns it gold with "Open {App}".
+  - *Several goals must-do on one day.* The weekly variant is about one goal: the first one
+    still holding, in the goals' order. Marking it done brings up the next one, with its own
+    headline, line, strip and button; the last one opens the app. Each goal gets its own
+    notification. In the habits list each must-do goal has its own row.
+  - *The "This week" row.* With habits undone as well, the habits list shows, after the habits,
+    a row per must-do goal: the activity, with "This week" where a habit has its amount. A tap
+    logs today's session; it then stays as a done row ("Done") that holding undoes, like a
+    habit. "Today 1 of 2" above the list still counts habits only, and the headline and line
+    stay "{App} can wait." / "Finish your promised habits to unlock.".
+  - *The "can't hit" line replaces the line under the headline* (#165: "The lock line says"):
+    Friday of example C reads "2 days left, 3 to go." over "You can't hit 4 this week, but today
+    still counts.", and the "{done} of {target} done. Do today's session to unlock." line is not
+    shown that day. The headline keeps the real numbers, so it can read "1 day left, 3 to go.".
+  - *The hint is left out on the one day it would be untrue.* "Skip today and tomorrow locks
+    too." holds on every must-do day but a Saturday: tomorrow is a new week, which locks on its
+    Sunday only for a 7-day goal. On a Saturday the hint is hidden unless the goal is 7 a week.
+    The mockup's second sentence ("Every day from here counts.") is not in #165 and is not shown.
+  - *The activity inside a sentence.* "No exercise yet this week", "Mark today's exercise done":
+    the first letter of the goal's name is lowered, unless the second letter is a capital too
+    ("TV-free night" stays). The rest is left as written ("read Dune"). The summary beside "This
+    week" and the today row keep the name as written.
+  - *Mockup 3, as built.* The chip, headline, line, Sprig on guard, "This week" with
+    "{activity} · {done} of {target}", the Su–Sa strip with its four-word legend, the today row,
+    the hint, the gold button with a tick, "Phone" and "Break the lock". Differences: the
+    headline is 36sp stepped down until "4 days left," fits the 180dp column beside Sprig (about
+    30sp at 412dp wide; the mockup's column is 200px and overlaps Sprig's box); "Break the lock"
+    is not underlined, as on the other lock faces; a day the goal did not count (`NOT_COUNTED`)
+    is a small `#4A4590` dot, which the mockup does not have. Tapping the today row does what
+    the gold button does. Two tokens (`LockPalette.chip`, `LockPalette.dash`) and one icon
+    (`DaybreakIcons.Lock`) are new; `PrimaryButton` gains a `contentColor` for the gold button's
+    ink text.
+  - *Large fonts on the weekly variant.* From font scale 1.5 Sprig steps aside and the words
+    take the screen's width (the setup screen's rule, `WeeklyGoalSetupLayout`): beside Sprig the
+    chip, a two-clause headline and a three-sentence line pushed the hill off a 640dp screen.
+    The week scrolls in the room left between the hill and the gold button, which stays in
+    view; "Phone" and "Break the lock" never scroll. On 360 × 640dp at font 2.0 the gold button
+    is partly under "Phone" until the week is scrolled; nothing is unreachable.
+  - *The must-do notification.* Posted by the lock service's tick, so it arrives with the lock:
+    once per goal per day, when the window is open and today is that goal's must-do day; that
+    is the lock start, or the moment the state appears later (a target raised, a goal's first
+    counted day). The once-a-day mark (`weekly_must_do_notified` in DataStore, goal id to date)
+    is written when the notification is posted, so a restarted process does not post it again
+    and an undo after it does not bring a second one. It is taken down when what it says stops
+    being true: the session is logged, the goal is lowered or deleted, or the give-up time ends
+    the lock. It goes on the existing "KEPT reminders" channel and opens Home. Open choices:
+    (1) it is *not* held back by the "Reminders" switch, because it explains a lock rather than
+    nudging; (2) mockup 2's "Mark done" and "Open KEPT" buttons are not built: #165 and #175
+    give only a title, a body and a tap, and a session logged from the shade would need the
+    photo-proof question answered for weekly goals first; (3) with a lock window that wraps
+    midnight a must-do day that starts at 00:00 inside the window posts at midnight; (4) if the
+    phone is in Doze at the lock start it arrives when the service next runs, not by an alarm.
+  - *The foreground notification* counts must-do sessions with the habits, "1 habit and 1
+    weekly session left today", or "1 weekly session left today" once the habits are done. Its
+    cases moved into `LockNotice` (pure, tested); every case without a must-do session reads as
+    before. "All habits done / Apps are open. Promise kept." is no longer shown while a session
+    still holds the lock.
+  - *Home counts what the lock waits for* (planner's items from QA on #174). The headline, its
+    line, the sky and Sprig's pose count the habits plus each must-do session not yet logged
+    (`HomeDay`), so habits done with a session left reads "One to go." / "Apps unlock when you
+    finish, or at 9:00 pm." under a sky that is not yet gold. "Today 1 of 2", the habit rows,
+    the week dots and the roomy/compact choice are still the habits alone. A must-do session
+    counts from the morning, before the window opens, as a habit does.
+  - *After the give-up time* a must-do session no longer counts on Home (`WeeklyHold`): the
+    lock has ended, and until #176 the day is still kept if the habits were done, so the
+    headline is "Promise kept." / "Apps are open. See you tomorrow." and the card's status
+    changes from "Today counts: apps lock until it's done" to a new fourth line, "Past the
+    give-up time, no lock" (muted, with the clock). The session can still be logged that
+    evening and counts toward the week. #176 will decide what the headline says about a missed
+    must-do day; today it would be untrue to say the day does not count.
+  - *The "Promise kept" moment and "All habits done" notification wait for the session.* Both
+    say "Apps are open.". On a must-do day, ticking the last habit leaves the moment pending;
+    it plays in KEPT once the session is logged (or after the give-up time). On the lock screen
+    the tick that finishes the habits does not claim or play the moment while a session holds
+    the lock. The shade's "All habits done" is not posted while a session is left.
+  - *Lowering or deleting a goal that holds the lock* goes through the lock-change confirm
+    (`SettingsViewModel.guard`, the "Apps are locked right now" dialog): "…Lowering this goal
+    can open them early. Still lower it?" and "…Deleting this goal can open them early. Still
+    delete it?". It asks only while this goal's must-do session is unlogged and the daily lock
+    is in force; raising, renaming, or a goal that is not must-do today asks nothing. It asks
+    on any lowering, including one that leaves today a must-do day (7 to 5 on a Wednesday),
+    as removing one of two undone habits asks. A held delete skips "Delete this weekly goal?",
+    so the person is asked once. There is no "pause" for a goal in the app, so nothing was
+    built for pausing. The existing `settings_changed_during_lock` event reports it with a new
+    value of its existing `setting` property, `weekly_goal` (as `night_lock` was added in
+    #168); no event or property is added.
+  - *Analytics, unchanged but worth knowing.* `day_completed` still fires when the last habit is
+    ticked in time, also on a must-do day where the lock stays on for the session; `rollover`'s
+    `kept` still ignores must-do sessions (story #176); `lock_shown` does not say which reason
+    held the lock. Logging a weekly session sends no event, as in #174.
+  - *A goal removed elsewhere.* `logToday` and `updateGoal` already report an unknown or removed
+    goal (false) and store nothing. The lock screen follows the stored goals, so a goal deleted
+    from Settings while the weekly variant is up takes the variant away on the next emission;
+    a tap on its stale button logs nothing. The edit page of a goal that disappears closes
+    itself instead of staying blank.
+  - *Goldens.* New: `lock_weekly_nothing_done`, `lock_weekly_some_done`, `lock_weekly_cant_hit`
+    and `lock_weekly_combined` at font 1.0 and 2.0, and `lock_360_weekly_nothing_done` at both.
+    Re-recorded because their Home fixture has a must-do session, which the headline and the
+    sky now count: `home_weekly_today_counts_font1.0` and `_font2.0` and their `home_360_` twins
+    ("One to go." became "Two to go."), `home_weekly_three_font1.0` and
+    `home_weekly_three_end_font1.0` (the same), and `home_weekly_no_habits_font1.0` ("Add a
+    habit." became "One to go."). Every other golden is byte-identical to `main`.

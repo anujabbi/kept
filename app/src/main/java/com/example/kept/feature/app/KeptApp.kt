@@ -166,6 +166,7 @@ fun KeptApp(startDestination: String, pendingRoute: String?, consumeRoute: () ->
                             onOpenReveal = { nav.navigate(Routes.reveal(it)) },
                             onOpenPermissions = { nav.navigate(Routes.PERMISSIONS) },
                             onOpenHabits = { nav.navigate(Routes.HABITS) },
+                            onAddWeeklyGoal = { nav.navigateFrom(Routes.HOME, Routes.WEEKLY_GOAL_ADD) },
                         )
                     }
                     composable(Routes.GALLERY) { GalleryScreen() }

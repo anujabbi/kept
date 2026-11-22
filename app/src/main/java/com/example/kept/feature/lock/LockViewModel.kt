@@ -16,9 +16,13 @@ import com.example.kept.core.data.LockRepository
 import com.example.kept.core.data.LockState
 import com.example.kept.core.data.SprigRepository
 import com.example.kept.core.data.TimeSource
+import com.example.kept.core.data.WeeklyGoalRepository
+import com.example.kept.core.data.WeeklyGoalWeek
 import com.example.kept.core.domain.LockMode
 import com.example.kept.core.domain.LockPolicy
 import com.example.kept.core.domain.LockReason
+import com.example.kept.core.domain.LockScreenKind
+import com.example.kept.core.domain.WeeklyLockScreen
 import com.example.kept.core.domain.NightWindow
 import com.example.kept.core.domain.MomentRules
 import com.example.kept.core.domain.SprigState
@@ -60,7 +64,31 @@ data class LockUi(
      * Locked, open (every habit done in time, issue #127) or gone. Read from one emission, so the
      * screen can never show the open state for a reason [shouldDismiss] disagrees with.
      */
-    val mode: LockMode get() = LockMode.of(loaded, lockActive, blockedStillLocked, finishedToday, night)
+    val mode: LockMode get() = LockMode.of(loaded, lockActive, blockedStillLocked, finishedToday, night, weeklyMustDo.isNotEmpty())
+
+    /** The weekly goals whose must-do session is not logged today: each one holds the daily lock (issue #165). */
+    val weeklyMustDo: List<WeeklyGoalWeek> get() = lock?.weeklyMustDo.orEmpty()
+
+    /**
+     * Which face the screen shows: night lockdown's, the habits list, or the weekly variant when
+     * a must-do session is the only thing holding the lock.
+     */
+    val kind: LockScreenKind get() = LockScreenKind.of(night, lock?.habitsIncomplete == true, weeklyMustDo.isNotEmpty())
+
+    /**
+     * The goal the weekly variant is about: the first one still holding. With two must-do goals
+     * on one day, marking the first done brings up the second.
+     */
+    val weeklyGoal: WeeklyGoalWeek? get() = weeklyMustDo.firstOrNull()?.takeIf { kind == LockScreenKind.WEEKLY }
+
+    /** What the weekly variant shows, or null on the other faces. */
+    val weekly: WeeklyLockScreen? get() = weeklyGoal?.let { WeeklyLockScreen.of(it.goal.title, it.week, it.goal.daysPerWeek) }
+
+    /**
+     * The "This week" rows of the habits list: every goal whose today is a must-do day, logged
+     * or not, so a session logged there stays as a done row that holding undoes, as a habit does.
+     */
+    val weeklyRows: List<WeeklyGoalWeek> get() = if (kind == LockScreenKind.HABITS) lock?.weekly.orEmpty().filter { it.week.todayCounts } else emptyList()
 
     /**
      * Night lockdown is what holds the phone (issue #164): the screen shows its night variant, with
@@ -104,6 +132,7 @@ class LockViewModel @Inject constructor(
     private val time: TimeSource,
     @ApplicationScope private val appScope: CoroutineScope,
     private val analytics: Analytics,
+    private val weeklyGoals: WeeklyGoalRepository,
 ) : ViewModel() {
 
     /**
@@ -143,12 +172,54 @@ class LockViewModel @Inject constructor(
     fun onShown() {
         showing += 1
         showingFlow.value = showing
+        held = null
         breakTimer.cancel()
         saved[KEY_MOMENT] = false
     }
 
-    /** The current state as it may be shown: anything from an earlier showing reads as not loaded yet. */
-    fun shown(live: LockUi): LockUi = live.forShowing(showing)
+    /**
+     * The current state as it may be shown: anything from an earlier showing reads as not loaded
+     * yet. While "Mark today's {activity} done" is being carried out the screen holds the state it
+     * was tapped on ([held]), so the lifted lock's own states do not flash up before the app opens.
+     */
+    fun shown(live: LockUi): LockUi = held ?: live.forShowing(showing)
+
+    private var held by mutableStateOf<LockUi?>(null)
+
+    /**
+     * "Mark today's {activity} done" on the weekly variant (issue #165): logs today's session and,
+     * if that lifted the lock for the app this screen covers, calls [openApp], so one tap leads
+     * back to the app. If something still holds it (another goal's must-do session, night
+     * lockdown) the screen stays and shows what the lock says now. A goal removed elsewhere logs
+     * nothing, and the screen follows the lock as it is without it. One session a day counts: a
+     * second tap stores nothing.
+     *
+     * The write runs on the application scope like a habit tick, so it is not cancelled if the
+     * activity goes away.
+     */
+    fun markWeeklyDone(goalId: Long, openApp: () -> Unit) {
+        if (held != null) return
+        held = shown(state.value)
+        appScope.launch {
+            val stays = runCatching {
+                weeklyGoals.logToday(goalId)
+                val lock = lockRepo.currentState()
+                LockPolicy.lockScreenShouldStay(blockedPackage.value, time.now(), time.localTime(), lock.snapshot(emptySet(), null))
+            }.getOrDefault(true)
+            viewModelScope.launch {
+                // Left held when the app opens: the activity is on its way out, and the lifted
+                // lock's own state must not send it to the launcher on top of the app.
+                if (stays) held = null else openApp()
+            }
+        }
+    }
+
+    /** A "This week" row in the habits list: log or undo today's session, as Home's card does. */
+    fun logWeekly(goalId: Long) = appScope.launch { weeklyGoals.logToday(goalId) }
+    fun undoWeekly(goalId: Long) = appScope.launch { weeklyGoals.undoToday(goalId) }
+
+    /** True while [markWeeklyDone] is deciding where to go: the lifted lock must not send the screen home meanwhile. */
+    val openingApp: Boolean get() = held != null
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val state: StateFlow<LockUi> = showingFlow.flatMapLatest { n ->
@@ -162,8 +233,22 @@ class LockViewModel @Inject constructor(
      * is left pending for KEPT (`momentShown`, issue #130). They run on the application scope, not
      * `viewModelScope` (issue #9): the write must not be cancelled if the activity finishes.
      */
-    fun complete(habitId: Long) { beforeTick(); appScope.launch { afterTick(actions.complete(habitId, momentShown = true)) } }
-    fun completeWithPhoto(habitId: Long, path: String) { beforeTick(); appScope.launch { afterTick(actions.complete(habitId, path, momentShown = true)) } }
+    fun complete(habitId: Long) = tick(habitId, null)
+    fun completeWithPhoto(habitId: Long, path: String) = tick(habitId, path)
+
+    /**
+     * A habit tick. While a weekly goal's must-do session still holds the lock (issue #165) a
+     * tick that finishes the habits does not open this screen, so the moment cannot play here:
+     * it is left pending for KEPT like a day finished on Home, and nothing is claimed.
+     */
+    private fun tick(habitId: Long, photoPath: String?) {
+        val playsHere = shown(state.value).weeklyMustDo.isEmpty()
+        if (playsHere) beforeTick()
+        appScope.launch {
+            val event = actions.complete(habitId, photoPath, momentShown = playsHere)
+            if (playsHere) afterTick(event)
+        }
+    }
     fun undo(habitId: Long) = appScope.launch { actions.undo(habitId) }
 
     /**

@@ -138,6 +138,7 @@ class RetiredPresetMigrationTest {
         return LockRepository(
             db.allowedAppDao(), db.lockBreakDao(), db.protectionGapDao(), db.dayRecordDao(), prefs,
             habitRepository(), SprigRepository(prefs, db.galleryDao(), db.dayRecordDao(), time), time,
+            com.example.kept.core.data.WeeklyGoalRepository(db.weeklyGoalDao(), db.weeklyGoalEntryDao(), time),
         )
     }
 

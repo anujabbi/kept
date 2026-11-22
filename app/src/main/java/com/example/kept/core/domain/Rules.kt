@@ -170,9 +170,9 @@ enum class LockReason { DAILY, NIGHT }
  * Decides whether a foreground package must be intercepted. Pure function of a snapshot so
  * the service stays thin and this stays unit-testable.
  *
- * Two independent locks combine with OR (issue #164): the daily habit lock (a habit left, inside
- * the lock window) and night lockdown (switched on, inside the night window, habits or no
- * habits). A break pauses both.
+ * Two independent locks combine with OR (issue #164): the daily lock (a habit left, or a weekly
+ * goal's must-do session not logged, inside the lock window) and night lockdown (switched on,
+ * inside the night window, habits or no habits). A break pauses both.
  */
 object LockPolicy {
     data class Snapshot(
@@ -189,6 +189,11 @@ object LockPolicy {
         val nightEnabled: Boolean = false,
         val nightFromMinute: Int = NightWindow.DEFAULT_FROM,
         val nightUntilMinute: Int = NightWindow.DEFAULT_UNTIL,
+        /**
+         * A weekly goal's must-do session is not logged today (issue #165). It holds the daily
+         * lock inside the lock window exactly as a habit left does. Off unless a goal says so.
+         */
+        val weeklyMustDoIncomplete: Boolean = false,
     )
 
     /** Start inclusive, end exclusive; a start after the end wraps midnight (22:00 -> 06:00). */
@@ -206,11 +211,12 @@ object LockPolicy {
     private fun onBreak(now: Instant, s: Snapshot): Boolean = s.breakActiveUntil?.let { now.isBefore(it) } == true
 
     /**
-     * The daily habit lock: a habit left inside the lock window. Protection gaps are judged by
-     * this one alone (issue #164): night lockdown is optional and is not part of the habit promise.
+     * The daily lock: a habit left, or a weekly goal's must-do session not logged (issue #165),
+     * inside the lock window. Protection gaps are judged by this one alone (issue #164): night
+     * lockdown is optional and is not part of the promise; a must-do session is part of it.
      */
     fun isDailyLockActive(now: Instant, localTime: LocalTime, s: Snapshot): Boolean =
-        s.onboardingDone && !onBreak(now, s) && s.habitsIncomplete && isWindowActive(localTime, s)
+        s.onboardingDone && !onBreak(now, s) && (s.habitsIncomplete || s.weeklyMustDoIncomplete) && isWindowActive(localTime, s)
 
     /** Night lockdown: switched on and inside its window, whatever the day's habits say. */
     fun isNightLockActive(now: Instant, localTime: LocalTime, s: Snapshot): Boolean =

@@ -30,6 +30,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -79,9 +80,22 @@ private val D = DaybreakColors
 /**
  * The weekly goal setup screen (issue #165, mockup 1): a new goal, or an existing one when
  * [goalId] is set. Saving or deleting returns to the list. Deleting asks first.
+ *
+ * While the goal holds the lock (today is its must-do day and the daily lock is in force),
+ * lowering its days a week or deleting it goes through the lock-change confirm instead
+ * ([SettingsViewModel.requestWeeklyGoalChange], issue #165): Cancel keeps the goal as it is and
+ * the page open.
+ *
+ * A goal removed elsewhere while this page is open closes the page: nothing is left to edit, and
+ * a save would change nothing.
  */
 @Composable
-fun WeeklyGoalEditScreen(goalId: Long?, onClose: () -> Unit, vm: WeeklyGoalsViewModel = hiltViewModel()) {
+fun WeeklyGoalEditScreen(
+    goalId: Long?,
+    onClose: () -> Unit,
+    vm: WeeklyGoalsViewModel = hiltViewModel(),
+    settings: SettingsViewModel = hiltViewModel(),
+) {
     val s by vm.state.collectAsStateWithLifecycle()
     // Close once: a second tap while the page is leaving must not save, delete or pop again.
     var closed by remember { mutableStateOf(false) }
@@ -89,17 +103,34 @@ fun WeeklyGoalEditScreen(goalId: Long?, onClose: () -> Unit, vm: WeeklyGoalsView
     val sprig = SetupSprig(s.form, s.wilted)
     // The goals load after the first frame; wait for this one rather than open an empty form.
     val goal = s.goals.firstOrNull { it.id == goalId }
+    // Seen once, then gone: removed from somewhere else (or by this page, which is closing anyway).
+    val seen = remember { booleanArrayOf(false) }
+    if (goal != null) seen[0] = true
+    val gone = WeeklyGoalEditGone.of(s.loaded, goalId, goal != null, seen[0])
+    LaunchedEffect(gone) { if (gone) close() }
     when {
         !s.loaded || (goalId != null && goal == null) -> Box(Modifier.fillMaxSize().background(D.cream))
         goal == null -> WeeklyGoalEditPage(WeeklyGoalDraft(), onClose = close, onSave = { vm.add(it); close() }, sprig = sprig)
         else -> WeeklyGoalEditPage(
             WeeklyGoalDraft(goal.title, goal.daysPerWeek),
             onClose = close,
-            onSave = { vm.save(goal.id, it); close() },
+            onSave = { d -> settings.requestWeeklyGoalChange(goal.id, goal.daysPerWeek, d.days) { if (!closed) { vm.save(goal.id, d); close() } } },
             sprig = sprig,
-            onDelete = { if (!closed) { vm.remove(goal.id); close() } },
+            onDelete = { settings.requestWeeklyGoalChange(goal.id, goal.daysPerWeek, null) { if (!closed) { vm.remove(goal.id); close() } } },
+            asksFirst = { d -> settings.weeklyGoalConfirm(goal.id, goal.daysPerWeek, d?.days) != null },
         )
     }
+    LockChangeConfirmDialog(settings)
+}
+
+/**
+ * Whether the edit page's goal has gone away under it: the goals are loaded, the page is for an
+ * existing goal, that goal was there and no longer is. Before it has been seen the page is still
+ * waiting for its first read, and an unknown id simply stays blank, as before.
+ */
+object WeeklyGoalEditGone {
+    fun of(loaded: Boolean, goalId: Long?, present: Boolean, seenBefore: Boolean): Boolean =
+        loaded && goalId != null && !present && seenBefore
 }
 
 /** Sprig beside the title, in the person's current form. */
@@ -115,6 +146,11 @@ private val DraftSaver = listSaver<WeeklyGoalDraft, Any>(
  * "+ Custom") and how many days a week (chips 1 to 7), then the summary card that follows both.
  * The rules live in [WeeklyGoalDraft]. Under a close button the questions scroll; "Save goal"
  * (and, for an existing goal, a red quiet "Delete goal", [onDelete]) stay fixed at the bottom.
+ *
+ * [asksFirst] says whether saving a draft (or deleting, for null) will be held for the
+ * lock-change confirm rather than done at once. Such a tap does not close the page or latch it:
+ * the caller's confirm may be cancelled, and the page has to go on working. A held delete also
+ * skips this page's own "Delete this weekly goal?", so the person is asked once.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -125,6 +161,7 @@ fun WeeklyGoalEditPage(
     modifier: Modifier = Modifier,
     sprig: SetupSprig? = null,
     onDelete: (() -> Unit)? = null,
+    asksFirst: (WeeklyGoalDraft?) -> Boolean = { false },
 ) {
     var draft by rememberSaveable(stateSaver = DraftSaver) { mutableStateOf(initial) }
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
@@ -219,9 +256,17 @@ fun WeeklyGoalEditPage(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                PrimaryButton(WeeklyGoalCopy.SAVE, onClick = { finish { onSave(draft) } }, enabled = draft.canSave, modifier = Modifier.testTag("goal_save"))
+                PrimaryButton(
+                    WeeklyGoalCopy.SAVE,
+                    onClick = { if (asksFirst(draft)) { if (!done) onSave(draft) } else finish { onSave(draft) } },
+                    enabled = draft.canSave, modifier = Modifier.testTag("goal_save"),
+                )
                 if (onDelete != null) {
-                    QuietButton(WeeklyGoalCopy.DELETE, onClick = { if (!done) confirmDelete = true }, color = D.danger, modifier = Modifier.testTag("goal_delete"))
+                    QuietButton(
+                        WeeklyGoalCopy.DELETE,
+                        onClick = { if (!done) { if (asksFirst(null)) onDelete() else confirmDelete = true } },
+                        color = D.danger, modifier = Modifier.testTag("goal_delete"),
+                    )
                 }
             }
         }
