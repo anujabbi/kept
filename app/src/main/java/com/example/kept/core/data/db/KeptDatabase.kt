@@ -104,8 +104,31 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
     }
 }
 
+/**
+ * v6 -> v7: weekly goals (issue #165). Two new tables, `weekly_goals` and `weekly_goal_entries`;
+ * no existing table or row is touched. The unique index on (`goalId`, `date`) is what holds a
+ * goal to one session a day. The SQL is the exported schema 7's, so Room's validation passes.
+ */
+val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `weekly_goals` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `title` TEXT NOT NULL, `iconKey` TEXT NOT NULL, " +
+                "`daysPerWeek` INTEGER NOT NULL, `isActive` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, " +
+                "`effectiveFrom` TEXT NOT NULL, `sortOrder` INTEGER NOT NULL)",
+        )
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `weekly_goal_entries` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `goalId` INTEGER NOT NULL, `date` TEXT NOT NULL, " +
+                "`completedAt` INTEGER NOT NULL)",
+        )
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_weekly_goal_entries_goalId_date` ON `weekly_goal_entries` (`goalId`, `date`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_weekly_goal_entries_date` ON `weekly_goal_entries` (`date`)")
+    }
+}
+
 /** Every migration, in order. The app and the migration tests both use this list. */
-val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
 
 @Database(
     entities = [
@@ -116,8 +139,10 @@ val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRAT
         LockBreakEntity::class,
         ProtectionGapEntity::class,
         GalleryEntryEntity::class,
+        WeeklyGoalEntity::class,
+        WeeklyGoalEntryEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -129,4 +154,6 @@ abstract class KeptDatabase : RoomDatabase() {
     abstract fun lockBreakDao(): LockBreakDao
     abstract fun protectionGapDao(): ProtectionGapDao
     abstract fun galleryDao(): GalleryDao
+    abstract fun weeklyGoalDao(): WeeklyGoalDao
+    abstract fun weeklyGoalEntryDao(): WeeklyGoalEntryDao
 }

@@ -69,6 +69,8 @@ object AppModule {
     @Provides fun lockBreakDao(db: KeptDatabase) = db.lockBreakDao()
     @Provides fun protectionGapDao(db: KeptDatabase) = db.protectionGapDao()
     @Provides fun galleryDao(db: KeptDatabase) = db.galleryDao()
+    @Provides fun weeklyGoalDao(db: KeptDatabase) = db.weeklyGoalDao()
+    @Provides fun weeklyGoalEntryDao(db: KeptDatabase) = db.weeklyGoalEntryDao()
 
     @Provides @Singleton
     fun recapNotifier(n: KeptNotifications): RecapNotifier = RecapNotifier { summary, unlocks -> n.recap(summary, unlocks) }

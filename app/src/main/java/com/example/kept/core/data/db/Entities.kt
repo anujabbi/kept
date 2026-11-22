@@ -88,3 +88,34 @@ data class GalleryEntryEntity(
     val streakAtUnlock: Int,
     val seen: Boolean = false,
 )
+
+/** A weekly goal (issue #165): an activity done on [daysPerWeek] days of a Sunday-to-Saturday week. */
+@Entity(tableName = "weekly_goals")
+data class WeeklyGoalEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val title: String,
+    val iconKey: String,
+    /** 1 to 7. */
+    val daysPerWeek: Int,
+    val isActive: Boolean = true,
+    val createdAt: Long,
+    /** ISO local date the goal starts counting: the day it was set. */
+    val effectiveFrom: String,
+    val sortOrder: Int = 0,
+)
+
+/**
+ * One logged session. A row exists only for a day with a session, and the unique index allows
+ * one per goal per day; undo deletes the row. The week's progress is counted from these rows.
+ */
+@Entity(
+    tableName = "weekly_goal_entries",
+    indices = [Index(value = ["goalId", "date"], unique = true), Index("date")],
+)
+data class WeeklyGoalEntryEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val goalId: Long,
+    /** ISO local date, e.g. 2026-11-25. */
+    val date: String,
+    val completedAt: Long,
+)

@@ -214,7 +214,7 @@ class RetiredPresetMigrationTest {
 
         val db = upgrade()
 
-        assertEquals(6, db.version)
+        assertEquals(7, db.version)
         val left = mutableListOf<String>()
         db.query("SELECT id, title, unit FROM habits ORDER BY id").use { while (it.moveToNext()) left += "${it.getLong(0)} ${it.getString(1)} ${it.getString(2)}" }
         assertEquals(listOf("3 sleep by 11 check-in", "4 Sleep by 11 min", "5 Lights out check-in", "6 Exercise min"), left)
