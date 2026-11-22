@@ -20,8 +20,8 @@ import com.example.kept.core.data.SprigRepository
 import com.example.kept.core.data.prefs.KeptPreferences
 import com.example.kept.core.domain.GiveUpTime
 import com.example.kept.core.domain.LockPolicy
-import com.example.kept.core.domain.LockReason
 import com.example.kept.core.domain.NightNotice
+import com.example.kept.core.domain.PermissionGap
 import com.example.kept.core.domain.minuteOfDayLabel
 import com.example.kept.core.notify.KeptNotifications
 import com.example.kept.feature.lock.LockActivity
@@ -177,23 +177,24 @@ class ForegroundWatcherService : LifecycleService() {
         val launchable = apps.launchablePackages()
         val snapshot = s.snapshot(hard, launchable)
         val clock = LocalTime.now()
-        val reason = LockPolicy.lockReason(Instant.ofEpochMilli(now), clock, snapshot)
-        val lockActive = reason != null
+        val lockActive = LockPolicy.isLockActive(Instant.ofEpochMilli(now), clock, snapshot)
         val dailyActive = LockPolicy.isDailyLockActive(Instant.ofEpochMilli(now), clock, snapshot)
 
         // Protection monitoring: lock should be active but we cannot see the foreground app. The
         // notification shows for either lock; a gap is only timed, and so only recorded, while the
-        // daily habit lock is the one that should be holding (issue #164).
-        if (lockActive && !permissions.lockPermissionsGranted()) {
+        // daily habit lock is the one that should be holding (issue #164). It is closed on the
+        // tick the daily lock stops, even if night lockdown holds on with the permission still off.
+        val granted = permissions.lockPermissionsGranted()
+        val gap = PermissionGap.step(gapStart, dailyLockActive = dailyActive, permissionsGranted = granted, now = now)
+        gap.closed?.let { lockRepo.recordProtectionGap(it.startMillis, it.endMillis, "A lock permission was off") }
+        gapStart = gap.openSince
+        if (lockActive && !granted) {
             if (!protectionLostShown) {
                 protectionLostShown = true
                 notifications.protectionLost(if (!permissions.usageAccessGranted()) "Usage access was turned off" else "Display over other apps was turned off")
             }
-            if (gapStart == null && dailyActive) gapStart = now
             return
-        } else if (protectionLostShown || gapStart != null) {
-            gapStart?.let { lockRepo.recordProtectionGap(it, now, "A lock permission was off") }
-            gapStart = null
+        } else if (protectionLostShown) {
             protectionLostShown = false
             notifications.clearProtection()
         }
@@ -232,11 +233,7 @@ class ForegroundWatcherService : LifecycleService() {
             // duplicates an OEM can cause (issue #10). The blocked package is deliberately *not*
             // a property: every privacy surface promises that the apps you open never leave the
             // device, and one event property would make all of them false.
-            // `reason` says which lock stepped in; `minutes_to_due` is about the daily window only.
-            analytics.capture(
-                "lock_shown",
-                mapOf("minutes_to_due" to minutesToDue(s, now), "reason" to if (reason == LockReason.NIGHT) "night" else "daily"),
-            )
+            analytics.capture("lock_shown", mapOf("minutes_to_due" to minutesToDue(s, now)))
             LockActivity.show(this, fg, apps.label(fg))
         }
     }

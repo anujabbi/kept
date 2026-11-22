@@ -1218,8 +1218,6 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
   - *Night lockdown adds no locked time to the day.* #164 says it writes nothing to
     `day_records`, so the service accrues `lockedMillis` only while the daily habit lock holds.
     The recap's locked time is the habit lock's, as before.
-  - *`lock_shown` carries `reason` (`daily` or `night`).* Its `minutes_to_due` is about the daily
-    window and means nothing at night; without `reason` the two could not be told apart.
   - *When night lockdown ends on a day already finished in time, a lock screen that is still up
     turns gold with "Open {App}"* instead of going away. That is #127's rule for a lifted lock on
     a finished day, left as it is; with habits left it becomes the daily lock screen, and

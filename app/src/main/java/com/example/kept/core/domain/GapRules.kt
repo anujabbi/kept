@@ -122,3 +122,34 @@ object GapRules {
         else -> Verdict.DOZE_NOT_A_GAP
     }
 }
+
+/**
+ * The watcher service's own gap: a lock permission is off while the daily habit lock should be
+ * holding. The service calls [step] on every tick and keeps [Step.openSince] for the next one.
+ *
+ * Only the daily habit lock can open a gap or keep one open (issue #164). Night lockdown goes on
+ * holding the phone after the daily lock ends, with the permission possibly still off, so the gap
+ * is closed on the first tick where the daily lock is no longer active rather than when the
+ * permission comes back: otherwise a night-only stretch would be filed as a gap on the new day.
+ * If the daily lock becomes active again with the permission still off, a fresh gap starts there.
+ */
+object PermissionGap {
+
+    /** A finished gap, ready for `recordProtectionGap`. */
+    data class Closed(val startMillis: Long, val endMillis: Long)
+
+    data class Step(
+        /** Start of the gap still running after this tick, or null when none is. */
+        val openSince: Long?,
+        /** The gap this tick ended, or null. */
+        val closed: Closed?,
+    )
+
+    fun step(openSince: Long?, dailyLockActive: Boolean, permissionsGranted: Boolean, now: Long): Step {
+        val shouldBeOpen = dailyLockActive && !permissionsGranted
+        return when {
+            shouldBeOpen -> Step(openSince ?: now, null)
+            else -> Step(null, openSince?.let { Closed(it, now) })
+        }
+    }
+}
