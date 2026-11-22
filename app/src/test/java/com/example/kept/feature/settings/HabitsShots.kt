@@ -33,12 +33,12 @@ object HabitsFixtures {
         item(3, "Practice guitar", ProofType.MANUAL, 20, "min"),
         item(4, "Study", ProofType.MANUAL, 45, "min"),
         item(5, "Tidy room", ProofType.PHOTO, 1, "photo"),
-        item(6, "Sleep by 11", ProofType.MANUAL, 1, "check-in"),
+        item(6, "Drink water", ProofType.MANUAL, 8, "glasses"),
     )
 
-    /** At the limit: four more, one of each other unit. */
+    /** At the limit: four more. */
     val TEN: List<HabitItem> = SIX + listOf(
-        item(7, "Drink water", ProofType.MANUAL, 8, "glasses"),
+        item(7, "Journal", ProofType.MANUAL, 2, "pages"),
         item(8, "Meditate", ProofType.MANUAL, 10, "min"),
         item(9, "Call grandma", ProofType.MANUAL, 1, "times"),
         item(10, "Push-ups", ProofType.MANUAL, 3, "times"),

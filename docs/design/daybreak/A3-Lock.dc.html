@@ -62,11 +62,11 @@ class Component extends DCLogic {
       { id: 'pr', title: 'Practice guitar', detail: '20 min' },
       { id: 'st', title: 'Study', detail: '45 min' },
       { id: 'td', title: 'Tidy room', detail: 'Photo' },
-      { id: 'sl', title: 'Sleep by 11', detail: 'Check in' },
       { id: 'wa', title: 'Drink water', detail: '8 glasses' },
       { id: 'dg', title: 'Walk the dog', detail: '20 min' },
       { id: 'jn', title: 'Journal', detail: '5 min' },
-      { id: 'sr', title: 'Stretch', detail: '10 min' }
+      { id: 'sr', title: 'Stretch', detail: '10 min' },
+      { id: 'md', title: 'Meditate', detail: '10 min' }
     ];
     const count = Math.max(1, Math.min(10, Number(this.props.habitCount ?? 6)));
     const src = all10.slice(0, count);

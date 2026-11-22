@@ -22,7 +22,7 @@ import java.io.File
 
 /**
  * Weekly looks are removed (issue #125), and with them `gallery.variantId`. These run on the JVM
- * (Robolectric), so the upgrade from the current release (schema 4) is checked on every
+ * (Robolectric), so the upgrade from the release that had them (schema 4) is checked on every
  * `testDebugUnitTest`, not only on a device (`androidTest/MigrationTest` covers the same on one).
  *
  * Robolectric cannot see test assets, so `MigrationTestHelper` cannot read the schemas here. The
@@ -103,12 +103,12 @@ class GalleryMigrationTest {
     }
 
     @Test
-    fun migrate4To5_dropsVariantIdAndKeepsEveryGalleryRow() {
+    fun migrate4To6_dropsVariantIdAndKeepsEveryGalleryRow() {
         createReleaseDatabase()
 
-        val db = open(MIGRATION_4_5)
+        val db = open(MIGRATION_4_5, MIGRATION_5_6)
 
-        assertEquals(5, db.version)
+        assertEquals(6, db.version)
         assertFalse(db.columns("gallery").contains("variantId"))
         val rows = mutableListOf<List<Any>>()
         db.query("SELECT id, formId, unlockedDate, streakAtUnlock, seen FROM gallery ORDER BY id").use {
@@ -141,7 +141,7 @@ class GalleryMigrationTest {
             close()
         }
 
-        val db = open(MIGRATION_4_5)
+        val db = open(MIGRATION_4_5, MIGRATION_5_6)
 
         db.query("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'gallery'").use {
             assertTrue(it.moveToFirst())
@@ -160,7 +160,7 @@ class GalleryMigrationTest {
     @Test
     fun anEmptyCollectionUpgradesAndStartsAtOne() = runTest {
         createDatabase(4) {}
-        open(MIGRATION_4_5)
+        open(MIGRATION_4_5, MIGRATION_5_6)
 
         val id = room!!.galleryDao().insert(GalleryEntryEntity(formId = 1, unlockedDate = "2026-11-21", streakAtUnlock = 0))
         assertEquals(1L, id)
@@ -177,9 +177,9 @@ class GalleryMigrationTest {
         assertEquals(listOf(3L), room!!.galleryDao().observeUnseen().first().map { it.id })
     }
 
-    /** The path an installed v1 build that never updated takes, end to end, to schema 5. */
+    /** The path an installed v1 build that never updated takes, end to end, to the current schema. */
     @Test
-    fun migrate1To5_runsEveryMigration() {
+    fun migrate1ToCurrent_runsEveryMigration() {
         createDatabase(1) {
             execSQL(
                 "INSERT INTO habits (id, title, iconKey, proofType, targetValue, unit, sortOrder, isActive, createdAt) " +
@@ -190,7 +190,7 @@ class GalleryMigrationTest {
 
         val db = open(*ALL_MIGRATIONS)
 
-        assertEquals(5, db.version)
+        assertEquals(6, db.version)
         db.query("SELECT proofType FROM habits WHERE id = 1").use { assertTrue(it.moveToFirst()); assertEquals("MANUAL", it.getString(0)) }
         db.query("SELECT formId, streakAtUnlock FROM gallery WHERE id = 1").use {
             assertTrue(it.moveToFirst())

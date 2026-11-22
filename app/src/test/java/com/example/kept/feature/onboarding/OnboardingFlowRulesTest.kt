@@ -67,10 +67,10 @@ class OnboardingFlowRulesTest {
     @Test fun `the ten habit limit holds for presets and added habits`() {
         var s = OnboardingState()
         HabitTemplates.list.drop(2).forEach { s = OnboardingFlow.toggle(s, it) }
-        (1..4).forEach { s = OnboardingFlow.addCustom(s, custom(it)) }
+        (1..5).forEach { s = OnboardingFlow.addCustom(s, custom(it)) }
         assertEquals(HabitLimits.MAX_HABITS, s.chosen.size)
         assertTrue(s.atLimit)
-        assertEquals(s, OnboardingFlow.addCustom(s, custom(5)))
+        assertEquals(s, OnboardingFlow.addCustom(s, custom(6)))
         assertEquals(s, OnboardingFlow.openAddHabit(s))
         // Unpicking one makes room again.
         val fewer = OnboardingFlow.toggle(s, HabitTemplates.list[0])

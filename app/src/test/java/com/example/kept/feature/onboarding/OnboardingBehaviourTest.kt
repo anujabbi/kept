@@ -97,7 +97,7 @@ class OnboardingBehaviourTest {
         listOf("Exercise", "Read", "Practice").forEach { rule.onNodeWithTag("onboarding_habit_$it").performClick() }
         rule.onNodeWithTag("onboarding_habit_count").assertTextEquals("Pick at least one")
         rule.onNodeWithTag("onboarding_next").assertIsNotEnabled()
-        rule.onNodeWithTag("onboarding_habit_Sleep by 11").performScrollTo().performClick()
+        rule.onNodeWithTag("onboarding_habit_Tidy room").performScrollTo().performClick()
         rule.onNodeWithTag("onboarding_habit_count").assertTextEquals("1 habit picked")
         rule.onNodeWithTag("onboarding_next").assertIsEnabled()
     }

@@ -1,5 +1,7 @@
 package com.example.kept.feature.lock
 
+import android.content.Context
+import android.net.Uri
 import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.activity.result.ActivityResultRegistry
 import androidx.activity.result.ActivityResultRegistryOwner
@@ -20,6 +22,7 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
 import androidx.core.app.ActivityOptionsCompat
 import androidx.core.content.FileProvider
+import androidx.test.core.app.ApplicationProvider
 import com.example.kept.core.ui.shots.Shot
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -30,6 +33,8 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import java.io.File
+import java.lang.reflect.Proxy
 
 /** What the lock screen does when touched (issue #127). */
 @RunWith(RobolectricTestRunner::class)
@@ -77,11 +82,53 @@ class LockBehaviourTest {
      * `FileProvider` keeps its path roots in a static cache keyed by authority. Robolectric reuses
      * a sandbox (and so that cache) across tests but gives each test a new files directory, so a
      * cached root from an earlier test would not contain this test's proof file. Clear it.
+     *
+     * Then, only on a JVM whose path separator is not `/` (the agents' Windows machine): androidx
+     * `FileProvider` 1.15.0 decides whether a file is under a root with `startsWith(root + '/')`,
+     * which is right on a device and can never be true for `C:\...\files\proof\proof_1.jpg`.
+     * [separatorAwareStrategy] stands in for that one comparison and nothing else.
      */
-    @Before fun clearFileProviderCache() {
+    @Before fun prepareFileProvider() {
         val f = FileProvider::class.java.getDeclaredField("sCache").apply { isAccessible = true }
-        val cache = f.get(null) as MutableMap<*, *>
+        @Suppress("UNCHECKED_CAST")
+        val cache = f.get(null) as MutableMap<String, Any>
         synchronized(cache) { cache.clear() }
+        if (File.separatorChar == '/') return
+        val ctx = ApplicationProvider.getApplicationContext<Context>()
+        val authority = "${ctx.packageName}.files"
+        // The library's own strategy, built from the manifest and `file_paths.xml` for this
+        // test's files directory, so the configured roots are still the real ones.
+        val real = FileProvider::class.java
+            .getDeclaredMethod("getPathStrategy", Context::class.java, String::class.java, Int::class.javaPrimitiveType)
+            .apply { isAccessible = true }
+            .invoke(null, ctx, authority, 0)!!
+        synchronized(cache) { cache[authority] = separatorAwareStrategy(real, authority) }
+    }
+
+    /**
+     * `FileProvider`'s `SimplePathStrategy.getUriForFile` with the host's separator in place of
+     * the hard-coded `/`: same roots (read from [real]), same longest-root rule, same
+     * `content://authority/root-name/relative/path` result, same error when no root matches.
+     * Everything else goes to [real].
+     */
+    private fun separatorAwareStrategy(real: Any, authority: String): Any {
+        val strategy = Class.forName("androidx.core.content.FileProvider\$PathStrategy", true, FileProvider::class.java.classLoader)
+        val rootsField = real.javaClass.getDeclaredField("mRoots").apply { isAccessible = true }
+        return Proxy.newProxyInstance(strategy.classLoader, arrayOf(strategy)) { _, method, args ->
+            if (method.name != "getUriForFile") {
+                return@newProxyInstance method.apply { isAccessible = true }.invoke(real, *(args ?: emptyArray()))
+            }
+            @Suppress("UNCHECKED_CAST")
+            val roots = rootsField.get(real) as Map<String, File>
+            val path = (args[0] as File).canonicalPath
+            val root = roots.entries
+                .filter { path == it.value.path || path.startsWith(it.value.path + File.separator) }
+                .maxByOrNull { it.value.path.length }
+                ?: throw IllegalArgumentException("Failed to find configured root that contains $path")
+            val relative = path.substring(root.value.path.length).trimStart(File.separatorChar).replace(File.separatorChar, '/')
+            Uri.Builder().scheme("content").authority(authority)
+                .encodedPath(Uri.encode(root.key) + '/' + Uri.encode(relative, "/")).build()
+        }
     }
 
     private fun show(calls: Calls = Calls(), system: FakeSystem = FakeSystem(), label: String = "Chrome"): Calls {
@@ -121,15 +168,16 @@ class LockBehaviourTest {
         rule.waitForIdle()
         assertEquals("permission:android.permission.CAMERA", system.launched.first())
         assertTrue("the camera was opened: ${system.launched}", system.launched.getOrNull(1)?.startsWith("camera:content://") == true)
+        assertTrue("with a URI under the configured proof root: ${system.launched}", system.launched[1].contains(".files/proof/proof_"))
         assertTrue("a photo tap is not a plain tick", calls.completed.isEmpty())
         val (id, path) = calls.photos.single()
         assertEquals(5L, id)
-        assertTrue("saved under files/proof like Home: $path", path.contains("/proof/proof_") && path.endsWith(".jpg"))
+        assertTrue("saved under files/proof like Home: $path", path.replace(File.separatorChar, '/').contains("/proof/proof_") && path.endsWith(".jpg"))
     }
 
     /**
      * A second photo in the same JVM. `FileProvider` caches its roots statically, and a reused
-     * Robolectric sandbox gives each test a new files directory, so without [clearFileProviderCache]
+     * Robolectric sandbox gives each test a new files directory, so without [prepareFileProvider]
      * whichever photo test ran second failed ("Failed to find configured root").
      */
     @Test fun aPhotoHabitWorksWhateverRanBefore() {

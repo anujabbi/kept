@@ -34,6 +34,7 @@ class RolloverRunner @Inject constructor(
     private val breakDao: LockBreakDao,
     private val gapDao: ProtectionGapDao,
     private val sprig: SprigRepository,
+    private val habits: HabitRepository,
     private val time: TimeSource,
     private val recap: RecapNotifier,
     private val analytics: Analytics,
@@ -57,8 +58,12 @@ class RolloverRunner @Inject constructor(
             state = out.state
             outputs += out
         }
-        // Make sure today has a live record so the service can accumulate into it.
-        dayDao.insertIfAbsent(DayRecordEntity(date = time.todayKey(), habitsTotal = habitDao.active().size))
+        // Make sure today has a live record so the service can accumulate into it, and that its
+        // counts match the habits as they are now. A tick or an undo keeps them in step, but a
+        // migration that deletes a habit (issue #163) does not, and tomorrow's rollover reads
+        // `habitsTotal` from this row: left stale, a day with every remaining habit done would
+        // not count. Today's row is never finalized, so no closed day is rewritten here.
+        habits.syncCounts(time.todayKey())
         if (notify && outputs.isNotEmpty()) {
             // After a gap, surface the day the streak was lost or shielded, not the last one (issue #16).
             val shown = RolloverEngine.recapDayFor(outputs)

@@ -105,7 +105,7 @@ data class HabitDraft(
         const val GLASSES = "glasses"
         const val PHOTO_UNIT = "photo"
 
-        /** The unit of the old "Sleep by 11" preset: one tap a day, no amount. */
+        /** Legacy one-tap unit, no amount; no longer offered for new habits. */
         const val CHECK_IN = "check-in"
 
         /** The old editor's limits: 28 characters, three digits. */

@@ -52,6 +52,5 @@ object HabitTemplates {
         HabitTemplate("Practice", "music", ProofType.MANUAL, 20, "min"),
         HabitTemplate("Study", "study", ProofType.MANUAL, 45, "min"),
         HabitTemplate("Tidy room", "tidy", ProofType.PHOTO, 1, "photo"),
-        HabitTemplate("Sleep by 11", "sleep", ProofType.MANUAL, 1, "check-in"),
     )
 }
