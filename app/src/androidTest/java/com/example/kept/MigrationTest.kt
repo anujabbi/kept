@@ -21,8 +21,9 @@ import org.junit.runner.RunWith
  * Verifies the Room migrations. `fallbackToDestructiveMigration` is gone (issue #5), so a user on
  * any shipped schema must be able to reach the current one without losing a row: 1 -> 2 (the
  * timer removal, issue #3), 2 -> 3 (the points removal, issue #8), 3 -> 4 (the buddy removal,
- * issue #13), 4 -> 5 (the weekly looks removal, issue #125), and 1 -> 5 end to end, which is the
- * path an installed-but-never-updated build actually takes.
+ * issue #13), 4 -> 5 (the weekly looks removal, issue #125), and 1 -> 6 end to end, which is the
+ * path an installed-but-never-updated build actually takes. 5 -> 6 (the retired preset, issue
+ * #163) changes rows, not tables; `RetiredPresetMigrationTest` covers its rows on the JVM.
  */
 @RunWith(AndroidJUnit4::class)
 class MigrationTest {
@@ -196,7 +197,7 @@ class MigrationTest {
     }
 
     @Test
-    fun migrate1To5_runsEveryMigrationAndKeepsData() {
+    fun migrate1To6_runsEveryMigrationAndKeepsData() {
         helper.createDatabase(dbName, 1).apply {
             execSQL(
                 "INSERT INTO habits (id, title, iconKey, proofType, targetValue, unit, sortOrder, isActive, createdAt) " +
@@ -206,7 +207,7 @@ class MigrationTest {
             close()
         }
 
-        val migrated = helper.runMigrationsAndValidate(dbName, 5, true, *ALL_MIGRATIONS)
+        val migrated = helper.runMigrationsAndValidate(dbName, 6, true, *ALL_MIGRATIONS)
 
         migrated.query("SELECT proofType FROM habits WHERE id = 1").use {
             assertTrue(it.moveToFirst())

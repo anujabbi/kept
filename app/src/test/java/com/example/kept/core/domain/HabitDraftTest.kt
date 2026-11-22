@@ -144,14 +144,18 @@ class HabitDraftTest {
 class HabitIconRulesTest {
 
     @Test fun the_design_habits_get_the_design_icons() {
-        // A8-Habits: run, book, music, cap, broom, moon.
+        // A8-Habits: run, book, music, cap, broom.
         assertEquals("run", HabitIconRules.forName("Exercise"))
         assertEquals("book", HabitIconRules.forName("Read"))
         assertEquals("music", HabitIconRules.forName("Practice guitar"))
         assertEquals("music", HabitIconRules.forName("Practice"))
         assertEquals("study", HabitIconRules.forName("Study"))
         assertEquals("tidy", HabitIconRules.forName("Tidy room"))
-        assertEquals("sleep", HabitIconRules.forName("Sleep by 11"))
+    }
+
+    @Test fun a_sleep_like_name_still_gets_the_moon() {
+        assertEquals("sleep", HabitIconRules.forName("Bedtime routine"))
+        assertEquals("sleep", HabitIconRules.forName("Nap"))
     }
 
     @Test fun keywords_match_the_start_of_any_word_ignoring_case() {

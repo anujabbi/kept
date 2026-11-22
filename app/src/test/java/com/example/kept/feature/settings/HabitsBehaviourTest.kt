@@ -70,7 +70,7 @@ class HabitsBehaviourTest {
         assertEquals("30 min, tap when done", text("habit_detail_1"))
         assertEquals("10 pages, tap when done", text("habit_detail_2"))
         assertEquals("Photo check-in", text("habit_detail_5"))
-        assertEquals("Tap when done", text("habit_detail_6"))
+        assertEquals("8 glasses, tap when done", text("habit_detail_6"))
         rule.onNodeWithTag("habit_row_3").performClick()
         rule.onNodeWithTag("page_body").performScrollToNode(hasTestTag("habit_row_6"))
         rule.onNodeWithTag("habit_row_6").performClick()
@@ -276,7 +276,7 @@ class HabitsBehaviourTest {
         assertEquals(h.copy(title = "Drink water", iconKey = "water", targetValue = 8, unit = "glasses"), renamed)
         val photo = editedHabit(h, HabitDraft("Read", 15, "pages", photo = true))
         assertEquals(h.copy(proofType = ProofType.PHOTO, targetValue = 1, unit = "photo"), photo)
-        val sleep = HabitEntity(id = 6, title = "Sleep by 11", iconKey = "sleep", proofType = ProofType.MANUAL, targetValue = 1, unit = "check-in", createdAt = 1)
+        val sleep = HabitEntity(id = 6, title = "Lights out", iconKey = "sleep", proofType = ProofType.MANUAL, targetValue = 1, unit = "check-in", createdAt = 1)
         assertEquals("an untouched habit saves unchanged", sleep, editedHabit(sleep, HabitDraft.of(sleep.title, sleep.proofType, sleep.targetValue, sleep.unit)))
     }
 

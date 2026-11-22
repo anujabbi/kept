@@ -48,16 +48,16 @@ class OnboardingFlowTest {
             compose.waitUntil(5_000) { compose.onAllNodes(androidx.compose.ui.test.hasTestTag("onboarding_habits")).fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText("Exercise").assertIsDisplayed()
             compose.onNodeWithContentDescription("Step 1 of 5").assertExists()
-            // Past the old cap of four (issue #38): tick every template, six in all, and the
+            // Past the old cap of four (issue #38): tick every template, five in all, and the
             // "Add your own" row must still be offered because the cap is now ten.
-            listOf("Practice", "Study", "Tidy room", "Sleep by 11").forEach {
+            listOf("Practice", "Study", "Tidy room").forEach {
                 compose.onNodeWithTag("page_body").performScrollToNode(androidx.compose.ui.test.hasTestTag("onboarding_habit_$it"))
                 compose.onNodeWithTag("onboarding_habit_$it").performClick()
             }
             compose.onNodeWithTag("page_body").performScrollToNode(androidx.compose.ui.test.hasTestTag("onboarding_add_own"))
             compose.onNodeWithTag("onboarding_add_own").assertIsDisplayed()
             compose.onNodeWithTag("onboarding_habit_limit").assertDoesNotExist()
-            compose.onNodeWithTag("onboarding_habit_count").assertTextEquals("6 habits picked")
+            compose.onNodeWithTag("onboarding_habit_count").assertTextEquals("5 habits picked")
             compose.onNodeWithTag("onboarding_next").performClick()          // habits -> lock window
             compose.waitUntil(5_000) { compose.onAllNodes(androidx.compose.ui.test.hasTestTag("onboarding_lock_window")).fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithTag("lock_from_value").assertTextEquals("7:00\u00A0am")
@@ -85,7 +85,7 @@ class OnboardingFlowTest {
             assertEquals(21 * 60, settings.dueMinute)
             assertEquals(30, settings.breakDurationMin)
             val today = runBlocking { habits.today() }
-            assertEquals(6, today.total)
+            assertEquals(5, today.total)
 
             // First landing (issue #41): the one-time card sits at the top of Home, and its
             // reminder line follows the live notifications grant rather than onboarding's answer.

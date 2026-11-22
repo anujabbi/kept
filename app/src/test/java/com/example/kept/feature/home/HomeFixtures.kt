@@ -40,10 +40,10 @@ internal object HomeFixtures {
         Spec("Practice guitar", 20, "min"),
         Spec("Study", 45, "min"),
         Spec("Tidy room", 1, "", photo = true),
-        Spec("Sleep by 11", 1, ""),
+        Spec("Drink water", 8, "glasses"),
         Spec("Stretch", 10, "min"),
         Spec("Journal", 1, ""),
-        Spec("Water", 8, "glasses"),
+        Spec("Meditate", 10, "min"),
         Spec("Walk the dog", 20, "min"),
     )
 

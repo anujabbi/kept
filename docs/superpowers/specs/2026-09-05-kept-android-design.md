@@ -155,7 +155,7 @@ week grid shows a hollow square. Home shows a banner with a Fix button.
 
 Habit: title, iconKey, proofType (TIMER|MANUAL|PHOTO), targetValue, unit.
 Templates in onboarding: Exercise 30 min (TIMER), Read 10 pages (MANUAL),
-Sleep by 11 (MANUAL), Practice 20 min (TIMER), Tidy room (PHOTO), Custom.
+Practice 20 min (TIMER), Tidy room (PHOTO), Custom.
 - TIMER: foreground timer screen, progress persisted every 15 s so a kill does
   not lose progress; completes at target. Pause allowed. Runs while locked.
 - MANUAL: tap to mark done; long-press to undo within 5 min.

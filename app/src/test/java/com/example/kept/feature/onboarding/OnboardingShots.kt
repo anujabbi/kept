@@ -39,10 +39,10 @@ object OnboardingFixtures {
     /** Step 1 as it opens: Exercise and Read picked. */
     val habits = OnboardingState(step = OnboardingStep.HABITS)
 
-    /** Ten picked: every preset and four of their own. */
+    /** Ten picked: every preset and five of their own. */
     val habitsAtLimit = OnboardingState(
         step = OnboardingStep.HABITS,
-        chosen = HabitTemplates.list + (1..4).map { HabitTemplate("Own habit $it", "star", ProofType.MANUAL, 5, "min") },
+        chosen = HabitTemplates.list + (1..5).map { HabitTemplate("Own habit $it", "star", ProofType.MANUAL, 5, "min") },
     )
 
     val window = LockWindowRules.Window(7 * 60, 21 * 60)

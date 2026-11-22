@@ -89,8 +89,23 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
     }
 }
 
+/**
+ * v5 -> v6: the bedtime check-in preset is retired (issue #163). A habit that can only honestly
+ * be ticked at night kept the phone locked for the whole lock window, so saved copies of the
+ * preset are deleted, active or already removed. The match is the exact title and the preset's
+ * unit: a renamed copy, a different case, or the same name with an amount is the person's own
+ * habit and stays. `habit_entries` and `day_records` are left alone; today's open day record is
+ * brought back in line by `RolloverRunner.runPending` on the first launch after the upgrade.
+ * No table changes shape, so schema 6 is schema 5 with a new version.
+ */
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("DELETE FROM habits WHERE title = 'Sleep by 11' AND unit = 'check-in'")
+    }
+}
+
 /** Every migration, in order. The app and the migration tests both use this list. */
-val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
 
 @Database(
     entities = [
@@ -102,7 +117,7 @@ val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRAT
         ProtectionGapEntity::class,
         GalleryEntryEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
