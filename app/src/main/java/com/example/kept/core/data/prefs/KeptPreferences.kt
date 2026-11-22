@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.example.kept.core.domain.NightWindow
 import com.example.kept.core.domain.SprigState
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -54,6 +55,14 @@ data class Settings(
      * onboarding finished before the card existed never sees it.
      */
     val firstLandingPending: Boolean = false,
+    /**
+     * Night lockdown (issue #164): apps lock from [nightFromMinute] until [nightUntilMinute] every
+     * night, habits done or not. Off for a new install and for an upgrade (an absent key reads as
+     * off); midnight is minute 0.
+     */
+    val nightLockEnabled: Boolean = false,
+    val nightFromMinute: Int = NightWindow.DEFAULT_FROM,
+    val nightUntilMinute: Int = NightWindow.DEFAULT_UNTIL,
 )
 
 @Singleton
@@ -74,6 +83,9 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
         val SHOWN_CELEBRATION = stringPreferencesKey("shown_celebration_date")
         val ANALYTICS = booleanPreferencesKey("analytics_enabled")
         val FIRST_LANDING_PENDING = booleanPreferencesKey("first_landing_pending")
+        val NIGHT_ENABLED = booleanPreferencesKey("night_lock_enabled")
+        val NIGHT_FROM = intPreferencesKey("night_from_minute")
+        val NIGHT_UNTIL = intPreferencesKey("night_until_minute")
 
         val LEVEL = intPreferencesKey("sprig_level")
         val STREAK = intPreferencesKey("sprig_streak")
@@ -100,6 +112,9 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
         celebrationShownDate = this[K.SHOWN_CELEBRATION],
         analyticsEnabled = this[K.ANALYTICS] ?: true,
         firstLandingPending = this[K.FIRST_LANDING_PENDING] ?: false,
+        nightLockEnabled = this[K.NIGHT_ENABLED] ?: false,
+        nightFromMinute = this[K.NIGHT_FROM] ?: NightWindow.DEFAULT_FROM,
+        nightUntilMinute = this[K.NIGHT_UNTIL] ?: NightWindow.DEFAULT_UNTIL,
     )
 
     private fun Preferences.toSprig() = SprigState(
@@ -136,6 +151,9 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
             if (n.celebrationShownDate == null) p.remove(K.SHOWN_CELEBRATION) else p[K.SHOWN_CELEBRATION] = n.celebrationShownDate
             p[K.ANALYTICS] = n.analyticsEnabled
             p[K.FIRST_LANDING_PENDING] = n.firstLandingPending
+            p[K.NIGHT_ENABLED] = n.nightLockEnabled
+            p[K.NIGHT_FROM] = n.nightFromMinute
+            p[K.NIGHT_UNTIL] = n.nightUntilMinute
         }
     }
 

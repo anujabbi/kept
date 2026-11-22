@@ -19,6 +19,8 @@ import com.example.kept.core.domain.HabitDraft
 import com.example.kept.core.domain.HabitsCopy
 import com.example.kept.core.domain.LockWindowEdit
 import com.example.kept.core.domain.LockWindowField
+import com.example.kept.core.domain.NightEdit
+import com.example.kept.core.domain.NightSetting
 import com.example.kept.core.domain.ProofType
 import com.example.kept.core.domain.SprigState
 import com.example.kept.core.lock.AllowlistResolver
@@ -87,6 +89,16 @@ enum class LockAffectingSetting(val eventValue: String) {
     LOCK_WINDOW("lock_window"),
     HABIT_REMOVED("habit_removed"),
     EXCEPTION_ON("exception_on"),
+    NIGHT_LOCK("night_lock"),
+}
+
+/**
+ * Which locks are holding the phone right now. A guarded change asks only while the lock it would
+ * open is one of them (issue #164): during night lockdown alone, moving the give-up time or
+ * removing a habit opens nothing, so it is not asked about.
+ */
+data class LockHold(val daily: Boolean = false, val night: Boolean = false) {
+    val any: Boolean get() = daily || night
 }
 
 /** A guarded change waiting on the user to confirm it while a lock is active. */
@@ -118,9 +130,12 @@ class SettingsViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUi())
 
     /** Re-checked every 30s in addition to whenever the underlying lock state changes (issue #1). */
-    val lockActive: StateFlow<Boolean> = combine(lockRepo.observeState(), time.ticker(30_000)) { s, _ ->
-        s.isLockActiveNow(time.now(), time.localTime())
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    val lockHold: StateFlow<LockHold> = combine(lockRepo.observeState(), time.ticker(30_000)) { s, _ ->
+        LockHold(
+            daily = s.isDailyLockActiveNow(time.now(), time.localTime()),
+            night = s.isNightLockActiveNow(time.now(), time.localTime()),
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LockHold())
 
     private val _pendingLockChange = MutableStateFlow<PendingLockChange?>(null)
     val pendingLockChange: StateFlow<PendingLockChange?> = _pendingLockChange
@@ -172,6 +187,7 @@ class SettingsViewModel @Inject constructor(
         guard(
             LockAffectingSetting.EXCEPTION_ON,
             "Your apps are locked right now. Adding ${app.label} as an exception opens it early. Still add it?",
+            held = { it.any },
         ) { toggleException(app, true) }
     }
 
@@ -188,6 +204,21 @@ class SettingsViewModel @Inject constructor(
     fun requestSetLockWindow(field: LockWindowField, picked: Int, from: Int, due: Int) {
         val edit = LockWindowEdit.of(field, picked, from, due) ?: return
         guard(LockAffectingSetting.LOCK_WINDOW, edit.confirm) { setLockWindow(edit.from, edit.due) }
+    }
+
+    /**
+     * A change in the Night lockdown group (issue #164). While night lockdown is holding the phone,
+     * one that can open it (off, a later start, an earlier end) asks first, in its own words; any
+     * other applies at once. Null is a change with nothing to store: see [NightEdit].
+     */
+    fun requestNightEdit(edit: NightEdit?) {
+        edit ?: return
+        val apply = { setNightLock(edit.result) }
+        if (edit.confirm == null) apply() else guard(LockAffectingSetting.NIGHT_LOCK, edit.confirm, held = { it.night }) { apply() }
+    }
+
+    private fun setNightLock(n: NightSetting) = viewModelScope.launch {
+        prefs.updateSettings { it.copy(nightLockEnabled = n.enabled, nightFromMinute = n.fromMinute, nightUntilMinute = n.untilMinute) }
     }
 
     fun setBreakDuration(min: Int) = viewModelScope.launch { prefs.updateSettings { it.copy(breakDurationMin = min) } }
@@ -226,12 +257,18 @@ class SettingsViewModel @Inject constructor(
     ) { removeHabit(id); onRemoved() }
 
     /**
-     * Runs [action] immediately unless a lock is active right now, in which case it is held until
-     * the user confirms via [confirmPendingLockChange] (issue #1). No cost, no delay: this is
-     * friction and self-awareness, not enforcement.
+     * Runs [action] immediately unless the lock it would open is holding right now ([held]; the
+     * daily habit lock unless said otherwise), in which case it is kept until the user confirms
+     * via [confirmPendingLockChange] (issue #1). No cost, no delay: this is friction and
+     * self-awareness, not enforcement.
      */
-    private fun guard(setting: LockAffectingSetting, message: String, action: () -> Unit) {
-        if (lockActive.value) _pendingLockChange.value = PendingLockChange(setting, message, action) else action()
+    private fun guard(
+        setting: LockAffectingSetting,
+        message: String,
+        held: (LockHold) -> Boolean = { it.daily },
+        action: () -> Unit,
+    ) {
+        if (held(lockHold.value)) _pendingLockChange.value = PendingLockChange(setting, message, action) else action()
     }
 
     fun confirmPendingLockChange() {

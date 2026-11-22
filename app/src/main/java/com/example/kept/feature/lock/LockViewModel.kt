@@ -18,6 +18,8 @@ import com.example.kept.core.data.SprigRepository
 import com.example.kept.core.data.TimeSource
 import com.example.kept.core.domain.LockMode
 import com.example.kept.core.domain.LockPolicy
+import com.example.kept.core.domain.LockReason
+import com.example.kept.core.domain.NightWindow
 import com.example.kept.core.domain.MomentRules
 import com.example.kept.core.domain.SprigState
 import com.example.kept.core.domain.minuteOfDayLabel
@@ -46,6 +48,8 @@ data class LockUi(
      */
     val blockedStillLocked: Boolean = true,
     val breaking: Boolean = false,
+    /** Which lock is holding the phone, or null when none is (issue #164). */
+    val reason: LockReason? = null,
     /**
      * Which showing of the lock screen this state was computed for (`LockViewModel.onShown`). A
      * state from an earlier showing is stale (issue #127): see [forShowing].
@@ -56,7 +60,16 @@ data class LockUi(
      * Locked, open (every habit done in time, issue #127) or gone. Read from one emission, so the
      * screen can never show the open state for a reason [shouldDismiss] disagrees with.
      */
-    val mode: LockMode get() = LockMode.of(loaded, lockActive, blockedStillLocked, finishedToday)
+    val mode: LockMode get() = LockMode.of(loaded, lockActive, blockedStillLocked, finishedToday, night)
+
+    /**
+     * Night lockdown is what holds the phone (issue #164): the screen shows its night variant, with
+     * no habit list and no "Open {App}", and a finished day does not open it.
+     */
+    val night: Boolean get() = reason == LockReason.NIGHT
+
+    /** When night lockdown ends, as a minute of the day, for "Apps open at 7:00 am." */
+    val nightUntilMinute: Int get() = lock?.settings?.nightUntilMinute ?: NightWindow.DEFAULT_UNTIL
 
     /** True once the lock screen has nothing left to cover and should get out of the way. */
     val shouldDismiss: Boolean get() = mode == LockMode.DISMISS
@@ -278,11 +291,12 @@ internal fun lockUiFlow(
     showing: Int = 0,
 ): Flow<LockUi> = combine(lockState, sprig, ticker, blockedPackage) { lock, sprigState, _, blocked ->
     val snapshot = lock.snapshot(emptySet(), null)
-    val active = LockPolicy.isLockActive(time.now(), time.localTime(), snapshot)
+    val reason = LockPolicy.lockReason(time.now(), time.localTime(), snapshot)
     LockUi(
         loaded = true, lock = lock, sprig = sprigState,
-        lockActive = active,
+        lockActive = reason != null,
         blockedStillLocked = LockPolicy.lockScreenShouldStay(blocked, time.now(), time.localTime(), snapshot),
+        reason = reason,
         showing = showing,
     )
 }

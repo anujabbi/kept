@@ -92,15 +92,24 @@ private val D = DaybreakColors
  * lock". Only the habit list scrolls. When the last habit is ticked in time the screen turns
  * gold, Sprig cheers, and the footer becomes one "Open {App}" button.
  *
+ * While night lockdown holds the phone (`LockUi.night`, issue #164) the same frame shows its night
+ * variant: "It's shutdown time." and "Apps open at {end}.", Sprig asleep, "Phone" and "Break the
+ * lock", and neither the habit list nor "Open {App}". Finishing habits does not lift it, so the
+ * habits stay in KEPT, where they can still be ticked.
+ *
  * [appLabel] is the locked app's label from the package manager.
  */
 @Composable
 fun LockScreen(state: LockUi, appLabel: String, actions: LockActions, modifier: Modifier = Modifier) {
     val app = LockCopy.appName(appLabel)
     val open = state.open
+    val night = state.night
     val today = state.lock?.today ?: TodaySummary(emptyList())
-    val done = today.done
-    val total = today.total
+    // Night lockdown is not about the day's progress: it keeps the darkest sky of the lock ramp.
+    val done = if (night) 0 else today.done
+    val total = if (night) 0 else today.total
+    val headline = if (night) LockCopy.NIGHT_HEADLINE else LockCopy.headline(app, open)
+    val line = if (night) LockCopy.nightLine(state.nightUntilMinute) else LockCopy.line(open)
 
     val ink by animateColorAsState(if (open) D.ink else D.skyTextLight, keptTween(Motion.SKY_MS), label = "lock-ink")
     val soft by animateColorAsState(if (open) D.inkSoft else LockPalette.soft, keptTween(Motion.SKY_MS), label = "lock-soft")
@@ -130,7 +139,7 @@ fun LockScreen(state: LockUi, appLabel: String, actions: LockActions, modifier: 
             skyContent = {
                 SprigView(
                     state.sprig.form,
-                    LockCopy.pose(open),
+                    if (night) LockCopy.NIGHT_POSE else LockCopy.pose(open),
                     Modifier.align(Alignment.TopEnd).padding(end = HomeSprig.COMPACT_SPRIG_END_DP.dp)
                         .offset(y = sprigTop).size(widths.sprigDp.dp).testTag("lock_sprig"),
                     wilted = state.sprig.wilted,
@@ -138,7 +147,7 @@ fun LockScreen(state: LockUi, appLabel: String, actions: LockActions, modifier: 
                 // Where the hill's crest is, for tests; takes no space and draws nothing.
                 Box(Modifier.offset(y = inset + crest.dp).size(0.dp).testTag("lock_crest"))
                 Headline(
-                    app, open, ink, soft, widths.textDp.dp,
+                    headline, line, ink, soft, widths.textDp.dp,
                     Modifier.wrapContentHeight(Alignment.Top, unbounded = true)
                         .padding(top = inset + LockSprig.TEXT_TOP_DP.dp, start = HomeSprig.TEXT_SIDE_DP.dp)
                         .onSizeChanged { textHeightPx = it.height },
@@ -146,7 +155,7 @@ fun LockScreen(state: LockUi, appLabel: String, actions: LockActions, modifier: 
             },
         ) {
             Column(Modifier.fillMaxSize()) {
-                Box(Modifier.weight(1f)) { HabitsPage(today, open, ink, soft, actions) }
+                Box(Modifier.weight(1f)) { if (!night) HabitsPage(today, open, ink, soft, actions) }
                 Footer(app, open, rule, actions)
             }
         }
@@ -154,14 +163,13 @@ fun LockScreen(state: LockUi, appLabel: String, actions: LockActions, modifier: 
 }
 
 @Composable
-private fun Headline(app: String, open: Boolean, ink: Color, soft: Color, width: Dp, modifier: Modifier = Modifier) {
-    val headline = LockCopy.headline(app, open)
+private fun Headline(headline: String, line: String, ink: Color, soft: Color, width: Dp, modifier: Modifier = Modifier) {
     val base = DaybreakType.headline.copy(fontSize = 38.sp, lineHeight = 38.sp)
     Column(modifier.width(width)) {
         Text(headline, Modifier.testTag("lock_headline"), style = fitLongestWord(headline, base, width), color = ink)
         Spacer(Modifier.height(8.dp))
         Text(
-            LockCopy.line(open),
+            line,
             Modifier.testTag("lock_line"),
             style = DaybreakType.body.copy(lineHeight = (15 * 1.35).sp),
             color = soft,

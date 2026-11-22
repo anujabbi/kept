@@ -44,16 +44,31 @@ data class LockState(
         userExceptions = userExceptions,
         launchable = launchable,
         onboardingDone = settings.onboardingDone,
+        nightEnabled = settings.nightLockEnabled,
+        nightFromMinute = settings.nightFromMinute,
+        nightUntilMinute = settings.nightUntilMinute,
     )
 
     /**
-     * True when the lock is in force right now (window open, a habit still undone, no active
-     * break). Used to gate the "are you sure" confirmation on lock-affecting settings changes
+     * True when a lock is in force right now: the daily habit lock (window open, a habit still
+     * undone) or night lockdown (issue #164), and no active break. Used to gate the "are you
+     * sure" confirmation on lock-affecting settings changes
      * (issue #1): which package is foreground is irrelevant here, so [hardAllowlist] and
      * [launchable] play no part in [LockPolicy.isLockActive] and are passed empty/null.
      */
     fun isLockActiveNow(now: Instant, localTime: LocalTime): Boolean =
         LockPolicy.isLockActive(now, localTime, snapshot(hardAllowlist = emptySet(), launchable = null))
+
+    /**
+     * The daily habit lock alone. A change to the lock window or the habits can only open apps
+     * early while this one holds; during night lockdown alone it opens nothing (issue #164).
+     */
+    fun isDailyLockActiveNow(now: Instant, localTime: LocalTime): Boolean =
+        LockPolicy.isDailyLockActive(now, localTime, snapshot(hardAllowlist = emptySet(), launchable = null))
+
+    /** Night lockdown alone: what the Night lockdown group's own confirm asks about. */
+    fun isNightLockActiveNow(now: Instant, localTime: LocalTime): Boolean =
+        LockPolicy.isNightLockActive(now, localTime, snapshot(hardAllowlist = emptySet(), launchable = null))
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)

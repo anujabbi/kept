@@ -19,6 +19,9 @@ package com.example.kept.core.domain
  *   usually runs *because* the phone woke, so the wake that triggered the check would otherwise
  *   turn a quiet night into an unprotected day.
  *
+ * - A stale heartbeat while only night lockdown holds the phone is never a gap (issue #164), with
+ *   or without use: see [Input.dailyLockActive].
+ *
  * Pure Doze staleness is not a gap — it is still worth restarting the service, which is a separate
  * question ([Verdict.serviceLooksDead]).
  */
@@ -31,7 +34,7 @@ object GapRules {
     const val WAKE_TAIL_MILLIS: Long = 60_000
 
     data class Input(
-        /** True when the lock window is open, habits are undone and no break is running. */
+        /** True when either lock, the daily habit lock or night lockdown, should be holding the phone. */
         val lockShouldBeActive: Boolean,
         /** False when usage access or the overlay permission is off; the service handles that. */
         val lockPermissionsGranted: Boolean,
@@ -54,6 +57,14 @@ object GapRules {
          * [heartbeatMillis], so a caller with no window to clamp to keeps the old behaviour.
          */
         val evidenceFromMillis: Long = heartbeatMillis,
+        /**
+         * True when the daily habit lock (window open, a habit undone, no break) should be active.
+         * Only that lock can turn a dead service into a gap (issue #164): night lockdown is
+         * optional and no part of the habit promise, so a service frozen at 2 am inside the night
+         * window alone is restarted and nothing is recorded against the day. Defaults to
+         * [lockShouldBeActive], which is the whole answer wherever night lockdown plays no part.
+         */
+        val dailyLockActive: Boolean = lockShouldBeActive,
     ) {
         val heartbeatAgeMillis: Long get() = nowMillis - heartbeatMillis
         val stale: Boolean get() = everHeartbeat && heartbeatAgeMillis > STALE_AFTER_MILLIS
@@ -87,13 +98,16 @@ object GapRules {
 
         /** The only use was the wake that triggered this check. Restart, do not blame the day. */
         WOKE_AT_END_NOT_A_GAP(false, ""),
+
+        /** Stale while only night lockdown holds the phone. Restart, never a gap (issue #164). */
+        NIGHT_ONLY_NOT_A_GAP(false, ""),
         GAP_SCREEN_ON(true, "The lock was off while you were using the phone"),
         GAP_LOCKED_APP_USED(true, "A locked app was opened while the lock was off"),
         ;
 
         /** True when the service should be restarted, whether or not the day is marked. */
         val serviceLooksDead: Boolean
-            get() = this == DOZE_NOT_A_GAP || this == WOKE_AT_END_NOT_A_GAP || isGap
+            get() = this == DOZE_NOT_A_GAP || this == WOKE_AT_END_NOT_A_GAP || this == NIGHT_ONLY_NOT_A_GAP || isGap
     }
 
     fun evaluate(input: Input): Verdict = when {
@@ -101,6 +115,7 @@ object GapRules {
         !input.lockPermissionsGranted -> Verdict.PERMISSION_MISSING
         !input.everHeartbeat -> Verdict.NO_HEARTBEAT_YET
         !input.stale -> Verdict.SERVICE_ALIVE
+        !input.dailyLockActive -> Verdict.NIGHT_ONLY_NOT_A_GAP
         input.lockedAppResumedDuringWindow -> Verdict.GAP_LOCKED_APP_USED
         input.inUseBeforeWakeTail -> Verdict.GAP_SCREEN_ON
         input.inUseOnlyAtWakeTail -> Verdict.WOKE_AT_END_NOT_A_GAP

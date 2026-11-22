@@ -1191,3 +1191,47 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
   and redoes that one comparison with the host separator; elsewhere the real `FileProvider`
   runs untouched. The proof-path assertion compares with separators normalised. Chosen over
   skipping on Windows so both tests keep asserting; drop the stand-in if the library fixes it.
+- **Night lockdown: setting, night lock window and night lock screen (issue #164, story #168).**
+  Built as #164 specifies, on the owner defaults (a night break costs a level and wilts Sprig;
+  presets plus Custom; night-only protection gaps are not recorded). Where the issue was silent or
+  did not match the code:
+  - *"Custom…" uses Settings' existing time picker, to the minute.* #164 calls it "the existing
+    `TimeEditor` (30-minute steps)", but that picker has no steps (the 30-minute stepper is
+    onboarding's). It is used as it is, so a custom start or end can be any minute; the 1 to 12
+    hour rule (`NightWindow.isValid`) is what "Set" checks.
+  - *When the confirm asks.* While night lockdown is holding the phone, a change asks first when
+    the new window no longer covers the old one (`NightWindow.covers`): off, a later start, an
+    earlier end. An earlier start or a later end applies at once. This follows the issue's list
+    literally, so ending earlier asks even though the lock does not lift that minute. The start
+    and end confirms are the dev's wording on the issue's pattern (`SettingsCopy.NIGHT_START_WHILE_LOCKED`,
+    `NIGHT_END_WHILE_LOCKED`); the owner may reword them. All three report
+    `settings_changed_during_lock` with `setting=night_lock`.
+  - *Each confirm now asks about the lock it would open.* `isLockActiveNow` includes night
+    lockdown, as #164 says, but the lock window and habit-removal confirms say "opens them
+    early", which is untrue while only night lockdown holds. They now ask only while the daily
+    habit lock holds, the exception confirm while either lock holds, and the night confirms while
+    night lockdown holds (`SettingsViewModel.lockHold`).
+  - *A preset that cannot be picked is disabled.* With a custom end, a preset start can make the
+    window longer than 12 hours (10:00 pm with an 11:00 am end). That chip is faded and
+    disabled, and the 1 to 12 hours line shows under the chips, rather than changing the end for
+    the user. `KeptChip` gained an `enabled` parameter for this.
+  - *Night lockdown adds no locked time to the day.* #164 says it writes nothing to
+    `day_records`, so the service accrues `lockedMillis` only while the daily habit lock holds.
+    The recap's locked time is the habit lock's, as before.
+  - *`lock_shown` carries `reason` (`daily` or `night`).* Its `minutes_to_due` is about the daily
+    window and means nothing at night; without `reason` the two could not be told apart.
+  - *When night lockdown ends on a day already finished in time, a lock screen that is still up
+    turns gold with "Open {App}"* instead of going away. That is #127's rule for a lifted lock on
+    a finished day, left as it is; with habits left it becomes the daily lock screen, and
+    otherwise it dismisses.
+  - *The foreground notification during a break taken at night reads "Lock paused"* even on a
+    finished day, because apps do re-lock when the break ends.
+  - *The night lock screen reuses the lock frame* (darkest colour of the lock ramp, Sprig's sleep
+    pose); no new night-sky art.
+  - *Tests.* The night cases are in new classes (`NightLockPolicyTest`, `NightWindowTest`,
+    `WatchdogNightTest`, `NightLockRepositoryTest`, `NightLockTest`, `NightLockScreenTest`,
+    `NightSettingsBehaviourTest`); `RulesTest` is untouched. The watchdog rule is tested through
+    `GapRules` (`Input.dailyLockActive`, `Verdict.NIGHT_ONLY_NOT_A_GAP`), fed by `LockPolicy` the
+    way `WatchdogWorker` feeds it, because the worker has no JVM fakes for its dependencies.
+  - *Known gap, not in this story:* Home still says "Apps are open." on a finished day while
+    night lockdown is holding the phone. #164 lists no Home change.

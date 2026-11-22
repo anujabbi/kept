@@ -163,9 +163,16 @@ object LockWindowStart {
     }
 }
 
+/** Which lock is holding the phone, for copy (issue #164). Night wins when both hold. */
+enum class LockReason { DAILY, NIGHT }
+
 /**
  * Decides whether a foreground package must be intercepted. Pure function of a snapshot so
  * the service stays thin and this stays unit-testable.
+ *
+ * Two independent locks combine with OR (issue #164): the daily habit lock (a habit left, inside
+ * the lock window) and night lockdown (switched on, inside the night window, habits or no
+ * habits). A break pauses both.
  */
 object LockPolicy {
     data class Snapshot(
@@ -178,25 +185,45 @@ object LockPolicy {
         /** Packages with a launcher activity. Null means "unknown, treat everything as launchable". */
         val launchable: Set<String>?,
         val onboardingDone: Boolean = true,
+        /** Night lockdown (issue #164). Off unless the setting says otherwise. */
+        val nightEnabled: Boolean = false,
+        val nightFromMinute: Int = NightWindow.DEFAULT_FROM,
+        val nightUntilMinute: Int = NightWindow.DEFAULT_UNTIL,
     )
 
-    fun isWindowActive(localTime: LocalTime, s: Snapshot): Boolean {
+    /** Start inclusive, end exclusive; a start after the end wraps midnight (22:00 -> 06:00). */
+    private fun inWindow(localTime: LocalTime, fromMinute: Int, untilMinute: Int): Boolean {
         val m = localTime.hour * 60 + localTime.minute
-        return if (s.lockFromMinute <= s.dueMinute) {
-            m >= s.lockFromMinute && m < s.dueMinute
-        } else {
-            // window wraps midnight (e.g. 22:00 -> 06:00)
-            m >= s.lockFromMinute || m < s.dueMinute
-        }
+        return if (fromMinute <= untilMinute) m >= fromMinute && m < untilMinute else m >= fromMinute || m < untilMinute
     }
 
-    fun isLockActive(now: Instant, localTime: LocalTime, s: Snapshot): Boolean {
-        if (!s.onboardingDone) return false
-        if (!s.habitsIncomplete) return false
-        if (!isWindowActive(localTime, s)) return false
-        val until = s.breakActiveUntil
-        if (until != null && now.isBefore(until)) return false
-        return true
+    fun isWindowActive(localTime: LocalTime, s: Snapshot): Boolean = inWindow(localTime, s.lockFromMinute, s.dueMinute)
+
+    /** The night window alone, whether or not night lockdown is switched on. */
+    fun isNightWindowActive(localTime: LocalTime, s: Snapshot): Boolean =
+        inWindow(localTime, s.nightFromMinute, s.nightUntilMinute)
+
+    private fun onBreak(now: Instant, s: Snapshot): Boolean = s.breakActiveUntil?.let { now.isBefore(it) } == true
+
+    /**
+     * The daily habit lock: a habit left inside the lock window. Protection gaps are judged by
+     * this one alone (issue #164): night lockdown is optional and is not part of the habit promise.
+     */
+    fun isDailyLockActive(now: Instant, localTime: LocalTime, s: Snapshot): Boolean =
+        s.onboardingDone && !onBreak(now, s) && s.habitsIncomplete && isWindowActive(localTime, s)
+
+    /** Night lockdown: switched on and inside its window, whatever the day's habits say. */
+    fun isNightLockActive(now: Instant, localTime: LocalTime, s: Snapshot): Boolean =
+        s.onboardingDone && !onBreak(now, s) && s.nightEnabled && isNightWindowActive(localTime, s)
+
+    fun isLockActive(now: Instant, localTime: LocalTime, s: Snapshot): Boolean =
+        isDailyLockActive(now, localTime, s) || isNightLockActive(now, localTime, s)
+
+    /** Why the phone is locked, or null when it is not. One lock screen shows: night's, when both hold. */
+    fun lockReason(now: Instant, localTime: LocalTime, s: Snapshot): LockReason? = when {
+        isNightLockActive(now, localTime, s) -> LockReason.NIGHT
+        isDailyLockActive(now, localTime, s) -> LockReason.DAILY
+        else -> null
     }
 
     /**
