@@ -32,7 +32,7 @@ first bug. Treat a review ask or a QA failure on your card as a defect in your o
    Regressions); it is always written and it stays, even if a screen test also covers the
    behaviour. A golden is for a state that takes a different layout branch (width, font scale,
    compact), not for every state at every size. The 22 Nov 2026 audit
-   (`docs/em/2026-11-22.md`) removed 224 tests that broke this rule.
+   (`docs/em/2026-11-22.md`) removed 223 tests that broke this rule.
 7. Make it pass with the smallest change that meets the acceptance list. Follow the module
    layout in `README.md`. If you depart from the issue or the spec, add a line to `DECISIONS.md`.
 8. Self-verify, all of it, before anything else:
