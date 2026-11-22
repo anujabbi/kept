@@ -1182,3 +1182,12 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
   of the deleted habit stay (the issue says so), and the rollover counts a day's done entries
   without joining `habits`, so someone who had ticked "Sleep by 11" today before upgrading and
   leaves another habit undone could have today counted. Finalized days are never rewritten.
+- **The lock's two photo tests run on Windows through a test-only stand-in for one `FileProvider`
+  comparison (issue #163).** `androidx.core` 1.15.0 `FileProvider` matches a file to its root with
+  `startsWith(root + '/')`, which never holds for the `\` paths of a Windows JVM, so
+  `LockBehaviourTest`'s photo tests failed on the agents' machine (and on `main`) while passing
+  on a device or a Linux JVM. No production change: on a non-`/` host only, the test's `@Before`
+  wraps the library's own strategy (roots still parsed from the manifest and `file_paths.xml`)
+  and redoes that one comparison with the host separator; elsewhere the real `FileProvider`
+  runs untouched. The proof-path assertion compares with separators normalised. Chosen over
+  skipping on Windows so both tests keep asserting; drop the stand-in if the library fixes it.
