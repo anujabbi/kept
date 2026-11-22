@@ -21,15 +21,18 @@ first bug. Treat a review ask or a QA failure on your card as a defect in your o
 ## Build
 
 5. `git worktree add ../kept-issue-<N> -b issue-<N>-<slug> origin/main` and work there.
-6. Write the failing test first for each acceptance item that pure Kotlin can cover
-   (`app/src/test`). Domain rules live in `core/domain`; keep them pure so they stay testable.
-   One test per behaviour, at the highest level that can assert it: a `*BehaviourTest` or
-   activity test that drives the screen covers the copy, the state and the wiring in one go,
-   so do not also write a `core/domain` test for the same outcome. Write the small test only
-   for what the screen test cannot reach cheaply: boundaries, midnight and week wraps,
-   migrations, rule branches with no screen. A golden is for a state that takes a different
-   layout branch (width, font scale, compact), not for every state at every size. The
-   22 Nov 2026 audit (`docs/em/2026-11-22.md`) removed 224 tests that broke this rule.
+6. Write one failing test first for each acceptance item, in `app/src/test`, at the highest
+   level that can assert the item. If a `*BehaviourTest` or activity test that drives the
+   screen can assert it, that is the failing-first test: it covers the copy, the state and the
+   wiring in one go, and no `core/domain` test is written for the same outcome. If no screen
+   test can reach it cheaply (boundaries, midnight and week wraps, migrations, rule branches
+   with no screen), the failing-first test is a `core/domain` test. Either way the rules stay
+   in `core/domain` and stay pure. Exception: on a `regression` card the first test reproduces
+   the original failure, at whatever level reproduces it, before any fix (`AGENTS.md`,
+   Regressions); it is always written and it stays, even if a screen test also covers the
+   behaviour. A golden is for a state that takes a different layout branch (width, font scale,
+   compact), not for every state at every size. The 22 Nov 2026 audit
+   (`docs/em/2026-11-22.md`) removed 224 tests that broke this rule.
 7. Make it pass with the smallest change that meets the acceptance list. Follow the module
    layout in `README.md`. If you depart from the issue or the spec, add a line to `DECISIONS.md`.
 8. Self-verify, all of it, before anything else:
