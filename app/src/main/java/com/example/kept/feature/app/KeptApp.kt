@@ -33,6 +33,8 @@ import com.example.kept.feature.recap.RecapScreen
 import com.example.kept.feature.settings.ExceptionsScreen
 import com.example.kept.feature.settings.HabitEditScreen
 import com.example.kept.feature.settings.HabitsScreen
+import com.example.kept.feature.settings.WeeklyGoalEditScreen
+import com.example.kept.feature.settings.WeeklyGoalsScreen
 import com.example.kept.feature.settings.HistoryScreen
 import com.example.kept.feature.settings.PermissionsScreen
 import com.example.kept.feature.settings.SettingsScreen
@@ -47,6 +49,9 @@ object Routes {
     const val HABITS = "habits"
     const val HABIT_ADD = "habits/add"
     const val HABIT_EDIT = "habits/edit/{habitId}"
+    const val WEEKLY_GOALS = "weekly-goals"
+    const val WEEKLY_GOAL_ADD = "weekly-goals/add"
+    const val WEEKLY_GOAL_EDIT = "weekly-goals/edit/{goalId}"
     const val PERMISSIONS = "permissions"
     const val HISTORY = "history"
     const val REVEAL = "reveal/{galleryId}"
@@ -54,6 +59,7 @@ object Routes {
     fun recap(date: String) = "recap/$date"
     fun reveal(id: Long) = "reveal/$id"
     fun habitEdit(id: Long) = "habits/edit/$id"
+    fun weeklyGoalEdit(id: Long) = "weekly-goals/edit/$id"
 }
 
 /**
@@ -72,6 +78,9 @@ fun screenNameFor(route: String?): String? = when (route) {
     Routes.HABITS -> Screens.HABITS
     Routes.HABIT_ADD -> Screens.ADD_HABIT
     Routes.HABIT_EDIT -> Screens.EDIT_HABIT
+    Routes.WEEKLY_GOALS -> Screens.WEEKLY_GOALS
+    Routes.WEEKLY_GOAL_ADD -> Screens.ADD_WEEKLY_GOAL
+    Routes.WEEKLY_GOAL_EDIT -> Screens.EDIT_WEEKLY_GOAL
     Routes.PERMISSIONS -> Screens.PERMISSIONS
     Routes.HISTORY -> Screens.HISTORY
     Routes.REVEAL -> Screens.REVEAL
@@ -164,6 +173,7 @@ fun KeptApp(startDestination: String, pendingRoute: String?, consumeRoute: () ->
                         SettingsScreen(
                             onOpenExceptions = { nav.navigate(Routes.EXCEPTIONS) },
                             onOpenHabits = { nav.navigate(Routes.HABITS) },
+                            onOpenWeeklyGoals = { nav.navigateFrom(Routes.SETTINGS, Routes.WEEKLY_GOALS) },
                             onOpenPermissions = { nav.navigate(Routes.PERMISSIONS) },
                             onOpenHistory = { nav.navigate(Routes.HISTORY) },
                         )
@@ -186,6 +196,17 @@ fun KeptApp(startDestination: String, pendingRoute: String?, consumeRoute: () ->
                     composable(Routes.HABIT_ADD) { HabitEditScreen(habitId = null, onClose = { nav.popFrom(Routes.HABIT_ADD) }) }
                     composable(Routes.HABIT_EDIT, arguments = listOf(navArgument("habitId") { type = NavType.LongType })) {
                         HabitEditScreen(habitId = it.arguments!!.getLong("habitId"), onClose = { nav.popFrom(Routes.HABIT_EDIT) })
+                    }
+                    composable(Routes.WEEKLY_GOALS) {
+                        WeeklyGoalsScreen(
+                            onBack = { nav.popFrom(Routes.WEEKLY_GOALS) },
+                            onAdd = { nav.navigateFrom(Routes.WEEKLY_GOALS, Routes.WEEKLY_GOAL_ADD) },
+                            onEdit = { nav.navigateFrom(Routes.WEEKLY_GOALS, Routes.weeklyGoalEdit(it)) },
+                        )
+                    }
+                    composable(Routes.WEEKLY_GOAL_ADD) { WeeklyGoalEditScreen(goalId = null, onClose = { nav.popFrom(Routes.WEEKLY_GOAL_ADD) }) }
+                    composable(Routes.WEEKLY_GOAL_EDIT, arguments = listOf(navArgument("goalId") { type = NavType.LongType })) {
+                        WeeklyGoalEditScreen(goalId = it.arguments!!.getLong("goalId"), onClose = { nav.popFrom(Routes.WEEKLY_GOAL_EDIT) })
                     }
                     composable(Routes.PERMISSIONS) { PermissionsScreen(onBack = { nav.popBackStack() }) }
                     composable(Routes.HISTORY) {

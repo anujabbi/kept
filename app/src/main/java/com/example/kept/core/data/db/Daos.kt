@@ -151,8 +151,15 @@ interface WeeklyGoalDao {
     suspend fun byId(id: Long): WeeklyGoalEntity?
 
     @Insert suspend fun insert(goal: WeeklyGoalEntity): Long
-    @Update suspend fun update(goal: WeeklyGoalEntity)
     @Query("UPDATE weekly_goals SET isActive = 0 WHERE id = :id") suspend fun deactivate(id: Long)
+
+    /**
+     * Changes an active goal in one statement and returns the rows changed: 1, or 0 when the goal
+     * is unknown or removed. Nothing is read first, so a remove that lands at the same moment
+     * cannot be written over, and `isActive` is never written here.
+     */
+    @Query("UPDATE weekly_goals SET title = :title, iconKey = :iconKey, daysPerWeek = :daysPerWeek WHERE id = :id AND isActive = 1")
+    suspend fun updateActive(id: Long, title: String, iconKey: String, daysPerWeek: Int): Int
 }
 
 @Dao

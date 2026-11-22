@@ -56,6 +56,7 @@ import com.example.kept.core.domain.SettingsCopy
 import com.example.kept.core.domain.SettingsSky
 import com.example.kept.core.domain.SprigForm
 import com.example.kept.core.domain.SprigPose
+import com.example.kept.core.domain.WeeklyGoalCopy
 import com.example.kept.core.lock.PermissionKind
 import com.example.kept.core.ui.DaybreakType
 import com.example.kept.core.ui.Hill
@@ -74,6 +75,8 @@ import com.example.kept.core.ui.DaybreakColors as D
 /** Everything the Settings tab shows, read from the real stores (`A7-Settings`). */
 data class SettingsPage(
     val habits: Int = 0,
+    /** Active weekly goals (issue #165). */
+    val weeklyGoals: Int = 0,
     val lockFromMinute: Int = 7 * 60,
     val dueMinute: Int = 21 * 60,
     val exceptions: Int = 0,
@@ -89,8 +92,9 @@ data class SettingsPage(
     val night: NightSetting = NightSetting(),
 ) {
     companion object {
-        fun of(s: SettingsUi, permissionsOff: Int) = SettingsPage(
+        fun of(s: SettingsUi, permissionsOff: Int, weeklyGoals: Int = 0) = SettingsPage(
             habits = s.habits.size,
+            weeklyGoals = weeklyGoals,
             lockFromMinute = s.settings.lockFromMinute,
             dueMinute = s.settings.dueMinute,
             exceptions = s.exceptions.size,
@@ -109,6 +113,7 @@ data class SettingsPage(
 /** What a row on the Settings tab does when tapped or switched. */
 data class SettingsActions(
     val onOpenHabits: () -> Unit = {},
+    val onOpenWeeklyGoals: () -> Unit = {},
     val onEditLockFrom: () -> Unit = {},
     val onEditGiveUp: () -> Unit = {},
     val onOpenExceptions: () -> Unit = {},
@@ -128,19 +133,23 @@ private enum class Editor { LOCK_FROM, GIVE_UP, BREAK, NIGHT_START, NIGHT_START_
 fun SettingsScreen(
     onOpenExceptions: () -> Unit,
     onOpenHabits: () -> Unit,
+    onOpenWeeklyGoals: () -> Unit,
     onOpenPermissions: () -> Unit,
     onOpenHistory: () -> Unit,
     vm: SettingsViewModel = hiltViewModel(),
+    goalsVm: WeeklyGoalsViewModel = hiltViewModel(),
 ) {
     val s by vm.state.collectAsStateWithLifecycle()
+    val goals by goalsVm.state.collectAsStateWithLifecycle()
     val perms = rememberPermissionStates(vm.permissions, PermissionKind.entries)
     var editor by rememberSaveable { mutableStateOf<Editor?>(null) }
-    val page = SettingsPage.of(s, perms.count { !it.value })
+    val page = SettingsPage.of(s, perms.count { !it.value }, goals.goals.size)
 
     SettingsContent(
         page,
         SettingsActions(
             onOpenHabits = onOpenHabits,
+            onOpenWeeklyGoals = onOpenWeeklyGoals,
             onEditLockFrom = { editor = Editor.LOCK_FROM },
             onEditGiveUp = { editor = Editor.GIVE_UP },
             onOpenExceptions = onOpenExceptions,
@@ -246,6 +255,7 @@ private fun Groups(page: SettingsPage, a: SettingsActions) {
     ) {
         RowGroup(SettingsCopy.GROUP_PROMISE) {
             ValueRow(SettingsCopy.HABITS, RowValue(SettingsCopy.habits(page.habits)), a.onOpenHabits, first = true, tag = "settings_habits")
+            ValueRow(WeeklyGoalCopy.ROW, RowValue(WeeklyGoalCopy.rowValue(page.weeklyGoals)), a.onOpenWeeklyGoals, tag = "settings_weekly_goals")
             ValueRow(SettingsCopy.LOCK_FROM, RowValue(SettingsCopy.time(page.lockFromMinute)), a.onEditLockFrom, tag = "settings_lock_from")
             ValueRow(SettingsCopy.GIVE_UP, RowValue(SettingsCopy.time(page.dueMinute)), a.onEditGiveUp, hint = SettingsCopy.GIVE_UP_HINT, tag = "settings_give_up")
         }

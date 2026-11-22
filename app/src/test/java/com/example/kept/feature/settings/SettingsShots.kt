@@ -35,9 +35,9 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 
 object SettingsFixtures {
-    /** The design's values (`A7-Settings`): 6 habits, 7:00 am to 9:00 pm, 2 exceptions, 30 min. */
+    /** The design's values (`A7-Settings`): 6 habits, 7:00 am to 9:00 pm, 2 exceptions, 30 min; and one weekly goal (#173). */
     val ALL_SET = SettingsPage(
-        habits = 6, lockFromMinute = 7 * 60, dueMinute = 21 * 60, exceptions = 2, breakMinutes = 30,
+        habits = 6, weeklyGoals = 1, lockFromMinute = 7 * 60, dueMinute = 21 * 60, exceptions = 2, breakMinutes = 30,
         permissionsOff = 0, reminders = true, analytics = false, bestStreak = 12, form = SprigForm.BLOOM,
     )
 
@@ -104,7 +104,7 @@ internal val nightRows = listOf("settings_night_start", "settings_night_end")
 
 /** Every row tag on the Settings tab, top to bottom. */
 internal val settingsRows = listOf(
-    "settings_habits", "settings_lock_from", "settings_give_up", "settings_exceptions_row",
+    "settings_habits", "settings_weekly_goals", "settings_lock_from", "settings_give_up", "settings_exceptions_row",
     "settings_break", "settings_permissions_row", "settings_history",
 )
 

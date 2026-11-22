@@ -156,7 +156,7 @@ fun HabitEditPage(
 
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(HabitsCopy.NAME_LABEL, style = LabelStyle, color = D.ink)
-                    NameField(draft.title) { draft = draft.withTitle(it) }
+                    NameField(draft.title, { draft = draft.withTitle(it) })
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         HabitDraft.PRESETS.forEach { p -> QuickPick(p.title) { draft = draft.pick(p) } }
                     }
@@ -208,16 +208,25 @@ private val LabelStyle = DaybreakType.body.copy(fontWeight = FontWeight.Bold)
 private val AmountStyle = DaybreakType.button.copy(fontWeight = FontWeight.ExtraBold, fontFeatureSettings = "tnum")
 private val SignStyle = DaybreakType.button.copy(fontSize = 22.sp, lineHeight = 26.sp)
 
-/** The name field: 60dp, radius 20, white, a 1.5dp `field` border (2dp purple when focused), 19/700. */
+/**
+ * The name field: 60dp, radius 20, white, a 1.5dp `field` border (2dp purple when focused), 19/700.
+ * The weekly goal setup screen asks its own question with the same field ([label], [tag]).
+ */
 @Composable
-private fun NameField(value: String, onChange: (String) -> Unit) {
+internal fun NameField(
+    value: String,
+    onChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    label: String = HabitsCopy.NAME_LABEL,
+    tag: String = "habit_name",
+) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
     val shape = RoundedCornerShape(20.dp)
     BasicTextField(
         value = value,
         onValueChange = onChange,
-        modifier = Modifier.fillMaxWidth().semantics { contentDescription = HabitsCopy.NAME_LABEL }.testTag("habit_name"),
+        modifier = modifier.fillMaxWidth().semantics { contentDescription = label }.testTag(tag),
         singleLine = true,
         textStyle = DaybreakType.button.copy(fontSize = 19.sp, lineHeight = 24.sp, color = D.ink),
         cursorBrush = SolidColor(D.purple),

@@ -1326,3 +1326,63 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     `RetiredPresetMigrationTest` open at the latest version, so they now pass `MIGRATION_6_7`
     and expect version 7, and `migrate4To6_…` is `migrate4To7_…`, as happened for 5 to 6. No
     other existing test changed.
+- **Weekly goals: setup screen and Settings row (issue #165, story #173).** Built from mockup 1
+  with #165's copy. Settings → "Your promise" gains "Weekly goals" under "Habits"; it opens a
+  list on the Your habits frame, and a row or "Add a weekly goal" opens the setup screen. No
+  Home card, lock, notification or streak code reads a goal yet. Choices the issue leaves open,
+  and where the build departs from the mockup:
+  - *The day chips are wider than the mockup's.* Seven chips 6dp apart between 24dp sides are
+    under 48dp wide on every phone (43.7dp at the mockup's 390dp), which fails the app's own
+    touch-target check. Each chip's touch target is its whole cell and the cells touch; the
+    drawn rounds keep the 6dp gap and start at the page's 24dp. Below 380dp wide the row reaches
+    past the 24dp sides (`WeeklyGoalSetupLayout.dayRowSideDp`: 11dp at 360dp) so a cell is still
+    48dp. TalkBack hears a chip as "4 days a week".
+  - *Sprig steps aside at a large font.* The mockup's 84dp Sprig sits beside the title, in the
+    person's current form, waving. From font scale 1.5 it is not drawn, so the title and its
+    line keep the width (`WeeklyGoalSetupLayout.showsSprig`). It sits level with the title
+    rather than reaching up into the close button's row.
+  - *"4 of 7"* beside "How many days a week?" is the mockup's; #165's copy does not list it and
+    does not contradict it, so it is kept.
+  - *The 7-days hint goes under the chips*, as a polite live region. The mockup shows 4 selected
+    and so has no place for it.
+  - *With no activity the summary card reads "3 days a week".* #165 gives "{activity}, {n} days a
+    week" and the acceptance list wants the card on the empty screen; an empty activity and a
+    leading comma would read as a bug.
+  - *The field's placeholder is Add a habit's* ("Read, walk, practice"): the mockup shows the
+    field filled, the issue gives no placeholder, and the field itself is Add a habit's
+    (`NameField`, now shared).
+  - *A lit quick pick.* The pick whose name is exactly the activity is drawn selected, as in the
+    mockup; typing anything else unlights it. Quick picks are `KeptChip`s. "+ Custom" only puts
+    the cursor in the field and raises the keyboard; it does not clear what is there.
+  - *The list.* A row is one line of text, "Exercise · 4 days a week" (the acceptance list's
+    words), with the icon tile and chevron of a Your habits row. The line under the title is
+    the setup screen's "For things you don't need to do every day."; the footer reads "1 of 3
+    weekly goals", and at three the button is disabled and the footer says "That's the limit: 3
+    weekly goals. Remove one to add another." (Your habits' sentence with the number changed).
+    An empty list shows nothing between the title and the button. The Settings row's value is
+    the count, as on "Habits".
+  - *Delete asks every time.* The app's only existing confirm is the lock-change one, which asks
+    only while apps are locked; removing a habit otherwise asks nothing. #173 wants a delete
+    that asks first, so "Delete goal" opens a dialog in that confirm's style: "Delete this weekly
+    goal?", "{activity}, {n} days a week will be removed from your weekly goals.", a red "Delete
+    goal" and "Cancel", both 48dp tall. It names the goal as saved, not an unsaved edit. The
+    lock-change confirm for a goal that holds the lock is #175's. Delete is `removeGoal`: the
+    row and its sessions stay in the database (#172).
+  - *The edit screen keeps the title "Weekly goal"*: "Edit (same screen, prefilled)".
+  - *`updateGoal` is one conditional UPDATE* (`WeeklyGoalDao.updateActive`, `WHERE id = :id AND
+    isActive = 1`), closing the read-then-write the reviewer of #177 found: an edit racing a
+    remove could write `isActive = 1` back, and with three goals added meanwhile pass the limit.
+    The unused `@Update` on `WeeklyGoalDao` is removed so the whole-row write cannot come back
+    by accident. No schema change.
+  - *A goals ViewModel of its own.* `WeeklyGoalsViewModel` serves the list, the setup screen and
+    the Settings row's count. `SettingsViewModel` is untouched, so the instrumented test that
+    builds it by hand is too. Story 4 can route delete and lowering through
+    `SettingsViewModel.guard` when the lock exists.
+  - *Three new `$screen` names*, "Weekly goals", "Add weekly goal" and "Edit weekly goal":
+    `ScreenNamesTest` requires one for every route. They are values of the existing screen view;
+    no event or property is added.
+  - *Goldens.* New: `weekly_goals_*` at 412 and 360dp wide, font 1.0 and 2.0 (list with two
+    goals, empty, at the limit; setup empty, filled, 7 selected, an existing goal). Re-recorded
+    because the Settings tab gained a row: `settings_settings_*`, `settings_settings_missing_*`
+    and their `_360` twins, and at 412dp `settings_night_off_font1.0`, `settings_night_on_font1.0`
+    and `settings_settings_end_font1.0`. Every other golden is byte-identical to `main`.
