@@ -30,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
@@ -350,13 +351,17 @@ fun KeptChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     role: Role = Role.RadioButton,
+    enabled: Boolean = true,
 ) {
     Box(
-        modifier.sizeIn(minWidth = MIN_TOUCH, minHeight = MIN_TOUCH).selectable(selected = selected, role = role, onClick = onClick),
+        modifier.sizeIn(minWidth = MIN_TOUCH, minHeight = MIN_TOUCH)
+            .selectable(selected = selected, enabled = enabled, role = role, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Box(
-            Modifier.heightIn(min = 36.dp).clip(CircleShape).background(if (selected) D.purple else D.purpleTint)
+            // A chip that cannot be picked right now is drawn faded; TalkBack hears "disabled".
+            Modifier.alpha(if (enabled) 1f else 0.4f)
+                .heightIn(min = 36.dp).clip(CircleShape).background(if (selected) D.purple else D.purpleTint)
                 .padding(horizontal = 14.dp, vertical = 6.dp),
             contentAlignment = Alignment.Center,
         ) {

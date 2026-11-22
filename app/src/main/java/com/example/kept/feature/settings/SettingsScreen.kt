@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -37,7 +39,9 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -45,6 +49,9 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.kept.core.domain.LockWindowField
+import com.example.kept.core.domain.NightEdit
+import com.example.kept.core.domain.NightSetting
+import com.example.kept.core.domain.NightWindow
 import com.example.kept.core.domain.SettingsCopy
 import com.example.kept.core.domain.SettingsSky
 import com.example.kept.core.domain.SprigForm
@@ -78,6 +85,8 @@ data class SettingsPage(
     val bestStreak: Int = 0,
     val form: SprigForm = SprigForm.SPRIG,
     val wilted: Boolean = false,
+    /** Night lockdown (issue #164): off, 11:00 pm to 7:00 am, until changed. */
+    val night: NightSetting = NightSetting(),
 ) {
     companion object {
         fun of(s: SettingsUi, permissionsOff: Int) = SettingsPage(
@@ -92,6 +101,7 @@ data class SettingsPage(
             bestStreak = s.sprig.bestStreak,
             form = s.sprig.form,
             wilted = s.sprig.wilted,
+            night = NightSetting(s.settings.nightLockEnabled, s.settings.nightFromMinute, s.settings.nightUntilMinute),
         )
     }
 }
@@ -104,12 +114,15 @@ data class SettingsActions(
     val onOpenExceptions: () -> Unit = {},
     val onEditBreak: () -> Unit = {},
     val onOpenPermissions: () -> Unit = {},
+    val onNightLock: (Boolean) -> Unit = {},
+    val onEditNightStart: () -> Unit = {},
+    val onEditNightEnd: () -> Unit = {},
     val onReminders: (Boolean) -> Unit = {},
     val onAnalytics: (Boolean) -> Unit = {},
     val onOpenHistory: () -> Unit = {},
 )
 
-private enum class Editor { LOCK_FROM, GIVE_UP, BREAK }
+private enum class Editor { LOCK_FROM, GIVE_UP, BREAK, NIGHT_START, NIGHT_START_CUSTOM, NIGHT_END }
 
 @Composable
 fun SettingsScreen(
@@ -133,6 +146,9 @@ fun SettingsScreen(
             onOpenExceptions = onOpenExceptions,
             onEditBreak = { editor = Editor.BREAK },
             onOpenPermissions = onOpenPermissions,
+            onNightLock = { vm.requestNightEdit(NightEdit.switch(page.night, it)) },
+            onEditNightStart = { editor = Editor.NIGHT_START },
+            onEditNightEnd = { editor = Editor.NIGHT_END },
             onReminders = { vm.setReminders(it) },
             onAnalytics = { vm.setAnalyticsEnabled(it) },
             onOpenHistory = onOpenHistory,
@@ -147,6 +163,19 @@ fun SettingsScreen(
             vm.requestSetLockWindow(LockWindowField.GIVE_UP, it, page.lockFromMinute, page.dueMinute)
         }
         Editor.BREAK -> BreakLengthEditor(page.breakMinutes, onDismiss = { editor = null }) { vm.setBreakDuration(it) }
+        Editor.NIGHT_START -> NightStartEditor(
+            page.night,
+            onDismiss = { editor = null },
+            onCustom = { editor = Editor.NIGHT_START_CUSTOM },
+        ) { vm.requestNightEdit(NightEdit.start(page.night, it)) }
+        Editor.NIGHT_START_CUSTOM -> TimeEditor(
+            SettingsCopy.NIGHT_START, page.night.fromMinute, onDismiss = { editor = null },
+            error = { NightWindow.error(it, page.night.untilMinute) },
+        ) { vm.requestNightEdit(NightEdit.start(page.night, it)) }
+        Editor.NIGHT_END -> TimeEditor(
+            SettingsCopy.NIGHT_END, page.night.untilMinute, onDismiss = { editor = null },
+            error = { NightWindow.error(page.night.fromMinute, it) },
+        ) { vm.requestNightEdit(NightEdit.end(page.night, it)) }
         null -> Unit
     }
 
@@ -234,6 +263,14 @@ private fun Groups(page: SettingsPage, a: SettingsActions) {
                 tag = "settings_permissions_row",
             )
         }
+        RowGroup(SettingsCopy.GROUP_NIGHT) {
+            SwitchRow(SettingsCopy.NIGHT, SettingsCopy.NIGHT_HINT, page.night.enabled, a.onNightLock, first = true, tag = "night_toggle")
+            // The two ends of the window only mean something while night lockdown is on.
+            if (page.night.enabled) {
+                ValueRow(SettingsCopy.NIGHT_START, RowValue(SettingsCopy.nightTime(page.night.fromMinute)), a.onEditNightStart, tag = "settings_night_start")
+                ValueRow(SettingsCopy.NIGHT_END, RowValue(SettingsCopy.nightTime(page.night.untilMinute)), a.onEditNightEnd, tag = "settings_night_end")
+            }
+        }
         RowGroup(SettingsCopy.GROUP_REMINDERS) {
             SwitchRow(SettingsCopy.REMINDERS, SettingsCopy.REMINDERS_HINT, page.reminders, a.onReminders, first = true, tag = "reminders_toggle")
             SwitchRow(SettingsCopy.ANALYTICS, SettingsCopy.ANALYTICS_HINT, page.analytics, a.onAnalytics, tag = "analytics_toggle")
@@ -250,33 +287,58 @@ private fun Groups(page: SettingsPage, a: SettingsActions) {
     }
 }
 
-/** The existing time picker for a lock window row, on Daybreak colours. "Set" saves. */
+/**
+ * The existing time picker for a lock window row, on Daybreak colours. "Set" saves. [error] is
+ * what is wrong with the time picked so far, if anything: it shows under the picker and "Set"
+ * stays disabled until the pick may be saved (night lockdown must be 1 to 12 hours long).
+ */
 @Composable
-private fun TimeEditor(title: String, minute: Int, onDismiss: () -> Unit, onSet: (Int) -> Unit) {
+internal fun TimeEditor(
+    title: String,
+    minute: Int,
+    onDismiss: () -> Unit,
+    error: (Int) -> String? = { null },
+    onSet: (Int) -> Unit,
+) {
     val state = rememberTimePickerState(initialHour = minute / 60, initialMinute = minute % 60, is24Hour = false)
+    val problem = error(state.hour * 60 + state.minute)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title, style = DaybreakType.section, color = D.ink) },
         text = {
-            TimePicker(
-                state = state,
-                colors = TimePickerDefaults.colors(
-                    clockDialColor = D.purplePale,
-                    selectorColor = D.purple,
-                    periodSelectorBorderColor = D.field,
-                    periodSelectorSelectedContainerColor = D.purpleTint,
-                    periodSelectorSelectedContentColor = D.ink,
-                    periodSelectorUnselectedContentColor = D.muted,
-                    timeSelectorSelectedContainerColor = D.purpleTint,
-                    timeSelectorSelectedContentColor = D.ink,
-                    timeSelectorUnselectedContainerColor = D.white,
-                    timeSelectorUnselectedContentColor = D.ink,
-                ),
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                TimePicker(
+                    state = state,
+                    colors = TimePickerDefaults.colors(
+                        clockDialColor = D.purplePale,
+                        selectorColor = D.purple,
+                        periodSelectorBorderColor = D.field,
+                        periodSelectorSelectedContainerColor = D.purpleTint,
+                        periodSelectorSelectedContentColor = D.ink,
+                        periodSelectorUnselectedContentColor = D.muted,
+                        timeSelectorSelectedContainerColor = D.purpleTint,
+                        timeSelectorSelectedContentColor = D.ink,
+                        timeSelectorUnselectedContainerColor = D.white,
+                        timeSelectorUnselectedContentColor = D.ink,
+                    ),
+                )
+                if (problem != null) {
+                    Text(
+                        problem,
+                        Modifier.testTag("time_error").semantics { liveRegion = LiveRegionMode.Polite },
+                        style = DaybreakType.bodySmall,
+                        color = D.danger,
+                    )
+                }
+            }
         },
         confirmButton = {
-            TextButton(onClick = { onSet(state.hour * 60 + state.minute); onDismiss() }, Modifier.testTag("time_set")) {
-                Text("Set", style = DaybreakType.button, color = D.purple)
+            TextButton(
+                onClick = { onSet(state.hour * 60 + state.minute); onDismiss() },
+                modifier = Modifier.testTag("time_set"),
+                enabled = problem == null,
+            ) {
+                Text("Set", style = DaybreakType.button, color = if (problem == null) D.purple else D.faint)
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", style = DaybreakType.button, color = D.muted) } },
@@ -310,13 +372,57 @@ internal fun BreakLengthEditor(current: Int, onDismiss: () -> Unit, onPick: (Int
 }
 
 /**
+ * "Starts at" (issue #164): 10:00 pm, 11:00 pm and Midnight as chips, and "Custom…", which opens
+ * the time picker. Picking a chip saves it and closes. A preset that would make the window longer
+ * than 12 hours with the saved end cannot be picked; the line under the chips says why.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun NightStartEditor(current: NightSetting, onDismiss: () -> Unit, onCustom: () -> Unit, onPick: (Int) -> Unit) {
+    val blocked = NightWindow.PRESETS.filterNot { NightWindow.isValid(it, current.untilMinute) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(SettingsCopy.NIGHT_START, style = DaybreakType.section, color = D.ink) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    NightWindow.PRESETS.forEach { m ->
+                        KeptChip(
+                            SettingsCopy.nightTime(m),
+                            selected = m == current.fromMinute,
+                            onClick = { onPick(m); onDismiss() },
+                            modifier = Modifier.testTag("night_start_$m"),
+                            role = Role.RadioButton,
+                            enabled = m !in blocked,
+                        )
+                    }
+                    KeptChip(
+                        SettingsCopy.NIGHT_CUSTOM,
+                        selected = current.fromMinute !in NightWindow.PRESETS,
+                        onClick = onCustom,
+                        modifier = Modifier.testTag("night_start_custom"),
+                        role = Role.RadioButton,
+                    )
+                }
+                if (blocked.isNotEmpty()) {
+                    Text(SettingsCopy.NIGHT_WINDOW_ERROR, Modifier.testTag("night_start_error"), style = DaybreakType.bodySmall, color = D.muted)
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", style = DaybreakType.button, color = D.muted) } },
+        containerColor = D.cream,
+    )
+}
+
+/**
  * Shown on any settings screen that guards a change with [SettingsViewModel.pendingLockChange]
- * (issue #1). Also keeps [SettingsViewModel.lockActive] subscribed while such a screen is on
+ * (issue #1). Also keeps [SettingsViewModel.lockHold] subscribed while such a screen is on
  * screen, since its `WhileSubscribed` StateFlow would otherwise sit on its stale initial value.
  */
 @Composable
 fun LockChangeConfirmDialog(vm: SettingsViewModel) {
-    vm.lockActive.collectAsStateWithLifecycle()
+    vm.lockHold.collectAsStateWithLifecycle()
     val pending by vm.pendingLockChange.collectAsStateWithLifecycle()
     val current = pending ?: return
     LockChangeConfirm(current.message, onConfirm = vm::confirmPendingLockChange, onCancel = vm::cancelPendingLockChange)

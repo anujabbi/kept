@@ -20,6 +20,8 @@ import com.example.kept.core.data.SprigRepository
 import com.example.kept.core.data.prefs.KeptPreferences
 import com.example.kept.core.domain.GiveUpTime
 import com.example.kept.core.domain.LockPolicy
+import com.example.kept.core.domain.NightNotice
+import com.example.kept.core.domain.PermissionGap
 import com.example.kept.core.domain.minuteOfDayLabel
 import com.example.kept.core.notify.KeptNotifications
 import com.example.kept.feature.lock.LockActivity
@@ -57,6 +59,7 @@ class ForegroundWatcherService : LifecycleService() {
     private var lockedSince: Long? = null
     private var lastHeartbeat = 0L
     private var gapStart: Long? = null
+    private var protectionLostShown = false
 
     /**
      * Installing, replacing or removing an app changes which packages the lock can see (issue #4).
@@ -125,9 +128,17 @@ class ForegroundWatcherService : LifecycleService() {
 
     private fun updateNotification(s: LockState) {
         val remaining = s.today.remaining
-        val active = LockPolicy.isLockActive(Instant.now(), LocalTime.now(), s.snapshot(emptySet(), null))
+        val now = Instant.now()
+        val clock = LocalTime.now()
+        val snapshot = s.snapshot(emptySet(), null)
+        val active = LockPolicy.isDailyLockActive(now, clock, snapshot)
+        // Night lockdown (issue #164) holds whatever the habits say, so it is asked first; a break
+        // taken during it reads "Lock paused" even on a finished day, because apps do re-lock.
+        val night = LockPolicy.isNightLockActive(now, clock, snapshot.copy(breakActiveUntil = null))
         val (title, text) = when {
             !s.settings.onboardingDone -> "KEPT" to "Finish setup to start locking"
+            night && s.breakActiveUntil != null -> "Lock paused" to "Apps re-lock at ${timeLabel(s.breakActiveUntil)}"
+            night -> NightNotice.TITLE to NightNotice.text(s.settings.nightUntilMinute)
             s.today.total == 0 -> "KEPT" to "No habits set for today"
             s.today.allDoneOnTime -> "All habits done" to "Apps are open. Promise kept."
             s.today.allDone -> "All habits done" to "Ticked after the give-up time, so today is missed."
@@ -165,18 +176,26 @@ class ForegroundWatcherService : LifecycleService() {
         val hard = allowlist.hardAllowlist()
         val launchable = apps.launchablePackages()
         val snapshot = s.snapshot(hard, launchable)
-        val lockActive = LockPolicy.isLockActive(Instant.ofEpochMilli(now), LocalTime.now(), snapshot)
+        val clock = LocalTime.now()
+        val lockActive = LockPolicy.isLockActive(Instant.ofEpochMilli(now), clock, snapshot)
+        val dailyActive = LockPolicy.isDailyLockActive(Instant.ofEpochMilli(now), clock, snapshot)
 
-        // Protection monitoring: lock should be active but we cannot see the foreground app.
-        if (lockActive && !permissions.lockPermissionsGranted()) {
-            if (gapStart == null) {
-                gapStart = now
+        // Protection monitoring: lock should be active but we cannot see the foreground app. The
+        // notification shows for either lock; a gap is only timed, and so only recorded, while the
+        // daily habit lock is the one that should be holding (issue #164). It is closed on the
+        // tick the daily lock stops, even if night lockdown holds on with the permission still off.
+        val granted = permissions.lockPermissionsGranted()
+        val gap = PermissionGap.step(gapStart, dailyLockActive = dailyActive, permissionsGranted = granted, now = now)
+        gap.closed?.let { lockRepo.recordProtectionGap(it.startMillis, it.endMillis, "A lock permission was off") }
+        gapStart = gap.openSince
+        if (lockActive && !granted) {
+            if (!protectionLostShown) {
+                protectionLostShown = true
                 notifications.protectionLost(if (!permissions.usageAccessGranted()) "Usage access was turned off" else "Display over other apps was turned off")
             }
             return
-        } else if (gapStart != null) {
-            lockRepo.recordProtectionGap(gapStart!!, now, "A lock permission was off")
-            gapStart = null
+        } else if (protectionLostShown) {
+            protectionLostShown = false
             notifications.clearProtection()
         }
 
@@ -188,8 +207,9 @@ class ForegroundWatcherService : LifecycleService() {
             lastHeartbeat = now
         }
 
-        // Accrue locked time in whole-minute chunks.
-        if (lockActive) {
+        // Accrue locked time in whole-minute chunks. Only the daily habit lock counts toward the
+        // day: night lockdown writes nothing to `day_records` (issue #164).
+        if (dailyActive) {
             val since = lockedSince ?: now.also { lockedSince = it }
             if (now - since >= 60_000) {
                 sprigRepo.addLockedTime(now - since)
@@ -203,7 +223,7 @@ class ForegroundWatcherService : LifecycleService() {
         if (fg != lastForeground) lastForeground = fg
         if (fg == packageName) return
 
-        if (LockPolicy.shouldLock(fg, Instant.ofEpochMilli(now), LocalTime.now(), snapshot)) {
+        if (LockPolicy.shouldLock(fg, Instant.ofEpochMilli(now), clock, snapshot)) {
             // Debounce so a slow OEM does not get two LockActivities.
             if (fg == lastLockedPkg && now - lastLockShownAt < 1_500) return
             lastLockedPkg = fg

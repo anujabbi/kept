@@ -12,6 +12,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performScrollTo
@@ -21,6 +22,7 @@ import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.text.TextLayoutResult
 import com.example.kept.core.data.db.DayRecordEntity
 import com.example.kept.core.domain.HillEdge
+import com.example.kept.core.domain.NightSetting
 import com.example.kept.core.domain.SprigForm
 import com.example.kept.core.lock.InstalledApp
 import com.example.kept.core.lock.PermissionKind
@@ -38,6 +40,9 @@ object SettingsFixtures {
         habits = 6, lockFromMinute = 7 * 60, dueMinute = 21 * 60, exceptions = 2, breakMinutes = 30,
         permissionsOff = 0, reminders = true, analytics = false, bestStreak = 12, form = SprigForm.BLOOM,
     )
+
+    /** Night lockdown switched on with nothing else changed (issue #164): 11:00 pm to 7:00 am. */
+    val NIGHT_ON = ALL_SET.copy(night = NightSetting(enabled = true))
 
     /** Two permissions off, reminders off, one exception, a 15 minute break. */
     val MISSING = ALL_SET.copy(permissionsOff = 2, reminders = false, analytics = true, exceptions = 1, breakMinutes = 15)
@@ -86,12 +91,16 @@ internal fun SettingsFrame(page: SettingsPage, actions: SettingsActions = Settin
 internal val settingsScreens: List<Pair<String, @Composable () -> Unit>> = listOf(
     "settings" to { SettingsFrame(SettingsFixtures.ALL_SET) },
     "settings_missing" to { SettingsFrame(SettingsFixtures.MISSING) },
+    "settings_night" to { SettingsFrame(SettingsFixtures.NIGHT_ON) },
     "history" to { HistoryContent(SettingsFixtures.HISTORY, 12, {}, {}) },
     "history_empty" to { HistoryContent(emptyList(), 0, {}, {}) },
     "exceptions" to { ExceptionsContent(BodyMode.SETTINGS, emptyList(), SettingsFixtures.apps, "", {}, { _, _ -> }, {}, {}) },
     "permissions_all" to { PermissionsContent(BodyMode.SETTINGS, PermissionKind.entries, SettingsFixtures.allGranted, {}, {}, {}) },
     "permissions_missing" to { PermissionsContent(BodyMode.SETTINGS, PermissionKind.entries, SettingsFixtures.oneMissing, {}, {}, {}) },
 )
+
+/** The two rows the Night lockdown group shows only while its switch is on (issue #164). */
+internal val nightRows = listOf("settings_night_start", "settings_night_end")
 
 /** Every row tag on the Settings tab, top to bottom. */
 internal val settingsRows = listOf(
@@ -115,6 +124,20 @@ class SettingsShots(private val rule: ComposeContentTestRule, private val prefix
         rule.onNodeWithTag("settings_page").performTouchInput { repeat(3) { swipeUp() } }
         rule.waitForIdle()
         rule.onRoot().captureRoboImage("src/test/screenshots/settings${prefix}_settings_end_font$fontScale.png")
+    }
+
+    /**
+     * The Night lockdown group (issue #164), scrolled into view: [on] false is the switch alone,
+     * true is the switch with "Starts at" and "Ends at" under it.
+     */
+    fun nightShot(on: Boolean, fontScale: Float) {
+        val page = if (on) SettingsFixtures.NIGHT_ON else SettingsFixtures.ALL_SET
+        rule.setContent { Shot(fontScale) { SettingsFrame(page) } }
+        // The row after the group first, so the whole group is on screen above it when it fits.
+        rule.onNodeWithTag("reminders_toggle").performScrollTo()
+        rule.onNodeWithTag(if (on) "settings_night_end" else "night_toggle").performScrollTo()
+        rule.waitForIdle()
+        rule.onRoot().captureRoboImage("src/test/screenshots/settings${prefix}_night_${if (on) "on" else "off"}_font$fontScale.png")
     }
 
     /** History scrolled to its last day. */
@@ -199,7 +222,12 @@ class SettingsShots(private val rule: ComposeContentTestRule, private val prefix
         }
         assertTrue("$at: Sprig's top ${sprig.top} is under the crest $crest", sprig.top < crest)
         assertTrue("$at: the title runs into the hill", title.bottom <= crest)
-        for (row in settingsRows) {
+        val night = rule.onAllNodesWithTag("settings_night_start").fetchSemanticsNodes().isNotEmpty()
+        rule.onNodeWithTag("night_toggle").performScrollTo()
+        rule.waitForIdle()
+        val toggle = bounds("night_toggle")
+        assertTrue("$at: the night switch $toggle is off the screen or too small", toggle.left >= 0f && toggle.right <= w + 0.5f && toggle.height >= 47.9f)
+        for (row in settingsRows + if (night) nightRows else emptyList()) {
             rule.onNodeWithTag(row).performScrollTo()
             rule.waitForIdle()
             assertNoWordSplit(rule, "${row}_title", at, unmerged = true)

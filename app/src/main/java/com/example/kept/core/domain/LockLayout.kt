@@ -23,8 +23,20 @@ enum class LockMode {
          * finished after the give-up time has nothing to celebrate, so it dismisses like any other
          * lifted lock.
          */
-        fun of(loaded: Boolean, lockActive: Boolean, blockedStillLocked: Boolean, allDoneOnTime: Boolean): LockMode = when {
+        /**
+         * [night] is true while night lockdown is the lock holding the phone (issue #164). It
+         * holds whether or not the day's habits are done, so a finished day does not open the
+         * screen then; it stays locked for as long as its app is.
+         */
+        fun of(
+            loaded: Boolean,
+            lockActive: Boolean,
+            blockedStillLocked: Boolean,
+            allDoneOnTime: Boolean,
+            night: Boolean = false,
+        ): LockMode = when {
             !loaded -> LOCKED
+            night -> if (lockActive && blockedStillLocked) LOCKED else DISMISS
             allDoneOnTime -> OPEN
             !lockActive || !blockedStillLocked -> DISMISS
             else -> LOCKED
@@ -54,6 +66,22 @@ object LockCopy {
     fun count(done: Int, total: Int): String = HomeCopy.count(done, total)
 
     fun pose(open: Boolean): SprigPose = if (open) SprigPose.CHEER else SprigPose.GUARD
+
+    // Night lockdown (issue #164): no app name, no habits, Sprig asleep.
+    const val NIGHT_HEADLINE = "It's shutdown time."
+
+    /** "Apps open at 7:00 am." */
+    fun nightLine(untilMinute: Int): String = "Apps open at ${untilMinute.minuteOfDayLabel()}."
+
+    val NIGHT_POSE = SprigPose.SLEEP
+}
+
+/** The foreground notification while night lockdown holds the phone (issue #164). */
+object NightNotice {
+    const val TITLE = "Night lockdown"
+
+    /** "Apps open at 7:00 am" */
+    fun text(untilMinute: Int): String = "Apps open at ${untilMinute.minuteOfDayLabel()}"
 }
 
 /**

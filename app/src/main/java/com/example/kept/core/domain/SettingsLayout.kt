@@ -29,6 +29,24 @@ object SettingsCopy {
     const val PERMISSIONS = "Permissions"
     const val ALL_SET = "All set"
 
+    // Night lockdown (issue #164)
+    const val GROUP_NIGHT = "Night lockdown"
+    const val NIGHT = "Night lockdown"
+    const val NIGHT_HINT = "Apps lock at night so you stop scrolling"
+    const val NIGHT_START = "Starts at"
+    const val NIGHT_END = "Ends at"
+    const val NIGHT_CUSTOM = "Custom…"
+    const val MIDNIGHT = "Midnight"
+    const val NIGHT_WINDOW_ERROR = "Pick an end time 1 to 12 hours after the start."
+
+    /** The confirms when a change would open apps that night lockdown is holding right now. */
+    const val NIGHT_OFF_WHILE_LOCKED = "Your apps are locked right now. Turning off night lockdown opens them. Still turn it off?"
+    const val NIGHT_START_WHILE_LOCKED = "Your apps are locked right now. Starting night lockdown later opens them early. Still change it?"
+    const val NIGHT_END_WHILE_LOCKED = "Your apps are locked right now. Ending night lockdown earlier opens them sooner. Still change it?"
+
+    /** A night lockdown time: "Midnight" for minute 0, else like [time]. */
+    fun nightTime(minute: Int): String = if (minute == 0) MIDNIGHT else time(minute)
+
     const val GROUP_REMINDERS = "Reminders and privacy"
     const val REMINDERS = "Reminders"
     const val REMINDERS_HINT = "Three nudges a day"

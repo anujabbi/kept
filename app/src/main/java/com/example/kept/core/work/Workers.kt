@@ -92,7 +92,10 @@ class WatchdogWorker @AssistedInject constructor(
 
         val lockState = lockRepo.currentState()
         val snapshot = lockState.snapshot(hardAllowlist = emptySet(), launchable = null)
+        // Either lock keeps the service needed; only the daily habit lock can turn a dead service
+        // into a protection gap (issue #164).
         val shouldBeLocking = LockPolicy.isLockActive(time.now(), time.localTime(), snapshot)
+        val dailyLock = LockPolicy.isDailyLockActive(time.now(), time.localTime(), snapshot)
 
         val now = time.nowMillis()
         val heartbeat = settings.lastServiceHeartbeat
@@ -113,10 +116,11 @@ class WatchdogWorker @AssistedInject constructor(
             screenInUseAtMillis = emptyList(),
             lockedAppResumedDuringWindow = false,
             evidenceFromMillis = evidenceFrom,
+            dailyLockActive = dailyLock,
         )
         // Only look at usage events once the heartbeat is actually stale during an enforceable
-        // window: the query is not free and nothing else can turn into a gap.
-        val verdict = if (base.stale && shouldBeLocking && base.lockPermissionsGranted && evidenceFrom < now) {
+        // daily window: the query is not free and nothing else can turn into a gap.
+        val verdict = if (base.stale && dailyLock && base.lockPermissionsGranted && evidenceFrom < now) {
             val activity = probe.activityDuring(evidenceFrom, now, snapshot)
             GapRules.evaluate(
                 base.copy(
