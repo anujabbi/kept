@@ -95,6 +95,12 @@ object WeeklyGoalRules {
          */
         val isMustDay: Boolean,
         /**
+         * Today is a must-do day for this goal, before and after its session is logged: what
+         * [isMustDay] was this morning. The lock screen keeps a logged session's row from it, so
+         * holding the row can undo it (story #175).
+         */
+        val todayCounts: Boolean = isMustDay,
+        /**
          * False when the target is out of reach ("You can't hit {target} this week"): more
          * sessions are needed than there are days left to log one. Must-do days go on regardless.
          */
@@ -118,6 +124,8 @@ object WeeklyGoalRules {
         val doneToday = today in logged
         // Today can take a session only while it has none, so a logged today is not a day left.
         val daysLeftToLog = if (doneToday) remaining - 1 else remaining
+        // What was owed before today's session, if it is logged: that is what made today count.
+        val todayCounts = today != goal.effectiveFrom && cannotSkip(needed(target, if (doneToday) done - 1 else done), remaining)
         return Week(
             weekStart = start,
             today = today,
@@ -126,7 +134,8 @@ object WeeklyGoalRules {
             remaining = remaining,
             needed = needed,
             doneToday = doneToday,
-            isMustDay = !doneToday && today != goal.effectiveFrom && cannotSkip(needed, remaining),
+            isMustDay = !doneToday && todayCounts,
+            todayCounts = todayCounts,
             canStillHitTarget = needed <= daysLeftToLog,
             days = dates.map { date ->
                 val state = when {

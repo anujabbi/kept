@@ -78,6 +78,7 @@ fun PrimaryButton(
     contentPadding: PaddingValues = ButtonDefaults.ContentPadding,
     containerColor: Color = DaybreakColors.ink,
     icon: ImageVector? = null,
+    contentColor: Color = DaybreakColors.cream,
 ) {
     val d = DaybreakColors
     Button(
@@ -86,7 +87,7 @@ fun PrimaryButton(
         modifier = modifier.fillMaxWidth().heightIn(min = 56.dp),
         shape = CircleShape,
         colors = ButtonDefaults.buttonColors(
-            containerColor = containerColor, contentColor = d.cream,
+            containerColor = containerColor, contentColor = contentColor,
             disabledContainerColor = d.disabled, disabledContentColor = d.cream,
         ),
         elevation = null,

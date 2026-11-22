@@ -16,9 +16,11 @@ import com.example.kept.core.data.WeeklyGoalWeek
 import com.example.kept.core.data.db.DayRecordEntity
 import com.example.kept.core.data.prefs.KeptPreferences
 import com.example.kept.core.domain.GiveUpTime
+import com.example.kept.core.domain.HomeDay
 import com.example.kept.core.domain.LockPolicy
 import com.example.kept.core.domain.SprigForm
 import com.example.kept.core.domain.SprigState
+import com.example.kept.core.domain.WeeklyHold
 import com.example.kept.core.lock.PermissionKind
 import com.example.kept.core.lock.Permissions
 import com.example.kept.core.lock.RequiredPermissions
@@ -58,6 +60,14 @@ data class HomeUiState(
     val form: SprigForm get() = sprig.form
     val nextForm: SprigForm? get() = SprigForm.next(form)
     val daysToNext: Int? get() = nextForm?.let { it.streakThreshold - sprig.streakDays }
+
+    /**
+     * What the sky, the headline and Sprig count: the habits plus each weekly goal's must-do
+     * session still holding today (story #175), so Home never says "Promise kept. Apps are open."
+     * while the lock is waiting on a session. With no must-do session it is the habits alone.
+     */
+    val day: HomeDay
+        get() = HomeDay.of(today.total, today.done, today.allDoneOnTime, WeeklyHold.left(weeklyGoals.map { it.week }, pastDue))
 }
 
 @HiltViewModel

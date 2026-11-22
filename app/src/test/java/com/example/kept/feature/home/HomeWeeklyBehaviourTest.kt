@@ -196,10 +196,11 @@ class HomeWeeklyBehaviourTest {
         assertEquals("Exercise · 2 of 4 this week", text("home_weekly_title_1"))
         assertEquals("Read · 1 of 5 this week", text("home_weekly_title_2"))
         assertEquals("Practice · 0 of 2 this week", text("home_weekly_title_3"))
-        // "Today" still counts the two habits, and the headline and its line are the habits' alone.
+        // "Today" still counts the two habits alone. The headline counts what the lock waits for
+        // (story #175): the habit left and Read's must-do session (5 a week, 1 done by Wednesday).
         rule.onNodeWithText("1 of 2").assertExists()
-        assertEquals(headline, text("home_headline"))
         assertEquals("One to go.", headline)
+        assertEquals("Two to go.", text("home_headline"))
         assertEquals(line, text("home_line"))
         rule.onNodeWithTag("home_habit_1").assertExists()
         rule.onNodeWithTag("home_habit_2").assertExists()

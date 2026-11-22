@@ -48,10 +48,11 @@ private val D = DaybreakColors
 
 /**
  * "This week · Sun to Sat", then a card per goal, or the add row when there are no goals.
- * The header is inset by 4dp like "Today" in the roomy layout.
+ * The header is inset by 4dp like "Today" in the roomy layout. [lockEndedToday] is true once
+ * today's give-up time has passed, when a must-do day's card stops promising a lock.
  */
 @Composable
-internal fun WeeklySection(goals: List<WeeklyGoalWeek>, actions: HomeActions, modifier: Modifier = Modifier) {
+internal fun WeeklySection(goals: List<WeeklyGoalWeek>, actions: HomeActions, modifier: Modifier = Modifier, lockEndedToday: Boolean = false) {
     Column(modifier.fillMaxWidth().testTag("home_weekly"), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 4.dp),
@@ -68,7 +69,7 @@ internal fun WeeklySection(goals: List<WeeklyGoalWeek>, actions: HomeActions, mo
             WeeklyGoalCard(
                 id = g.id,
                 activity = g.goal.title,
-                card = WeeklyCard.of(g.goal.title, g.week),
+                card = WeeklyCard.of(g.goal.title, g.week, lockEndedToday),
                 onDone = { actions.onWeeklyDone(g.id) },
                 onUndo = { actions.onWeeklyUndo(g.id) },
             )
@@ -160,6 +161,7 @@ private fun StatusLine(status: WeeklyCardStatus, modifier: Modifier = Modifier) 
         WeeklyCardStatus.ON_TRACK -> Triple(DaybreakIcons.Check, D.green, D.green)
         WeeklyCardStatus.TODAY_COUNTS -> Triple(DaybreakIcons.Clock, D.amber, D.amberLabel)
         WeeklyCardStatus.DONE_TODAY -> Triple(DaybreakIcons.Check, D.muted, D.muted)
+        WeeklyCardStatus.LOCK_ENDED -> Triple(DaybreakIcons.Clock, D.muted, D.muted)
     }
     // The icon grows with the text, so it still sits on the first line at a large font.
     val (iconSize, iconTop) = with(LocalDensity.current) { 14.sp.toDp() to 2.sp.toDp() }

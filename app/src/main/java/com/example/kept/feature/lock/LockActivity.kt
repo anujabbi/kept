@@ -95,6 +95,9 @@ class LockActivity : ComponentActivity() {
                                 onPhone = { dial() },
                                 onBreak = { vm.startBreak() },
                                 onOpenApp = { openBlockedApp() },
+                                onWeeklyDone = { id -> vm.markWeeklyDone(id) { openBlockedApp() } },
+                                onWeeklyLog = { vm.logWeekly(it) },
+                                onWeeklyUndo = { vm.undoWeekly(it) },
                             )
                         },
                     )
@@ -125,7 +128,9 @@ class LockActivity : ComponentActivity() {
     /**
      * "Open {App}" (issue #127): launch the app this screen was covering and leave. The lock is no
      * longer active once every habit is done (`LockPolicy.isLockActive` needs habits left), so the
-     * foreground watcher lets the app through instead of raising this screen again.
+     * foreground watcher lets the app through instead of raising this screen again. The weekly
+     * variant's "Mark today's {activity} done" ends here too, once the session it logged has
+     * lifted the lock (issue #165).
      */
     private fun openBlockedApp() {
         val launch = vm.blockedPackageNow?.takeIf { it.isNotBlank() }?.let { packageManager.getLaunchIntentForPackage(it) }
