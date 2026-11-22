@@ -146,9 +146,11 @@ Instrumented tests (need a running emulator):
 ```
 
 Covers onboarding completing and persisting; home reflecting seeded state; the rollover into the
-recap; exceptions being honoured and the picker staying in sync; and the Room migrations (1 -> 5,
-6 -> 7, and 1 -> 7 end to end, validated against the exported schemas in `app/schemas`). There is no
-destructive-migration fallback, so a broken migration fails here. The lock and break screens are
+recap; exceptions being honoured and the picker staying in sync; and the Room migrations: one
+test per step for 1 -> 2, 2 -> 3, 3 -> 4, 4 -> 5 and 6 -> 7, plus 1 -> 7 end to end, validated
+against the exported schemas in `app/schemas`. 5 -> 6 changes rows, not tables, and is covered on
+the JVM by `RetiredPresetMigrationTest`. There is no destructive-migration fallback, so a broken
+migration fails in these tests. The lock and break screens are
 covered on the JVM (`LockBehaviourTest`, `BreakBehaviourTest`, and the activity tests beside them).
 
 ### Screenshot tests
