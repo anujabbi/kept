@@ -46,6 +46,9 @@ object DaybreakIcons {
     /** Lock screen, "Phone" (`A3-Lock`). */
     val Phone: ImageVector = stroke("Phone", 2.4f, "M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z")
 
+    /** Lock screen, the "Weekly goal" chip (weekly goals mockup 3). */
+    val Lock: ImageVector = stroke("Lock", 2.6f, "M7 11h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2z", "M8 11V8a4 4 0 0 1 8 0v3")
+
     /** The back arrow in a page header (`A10`–`A14`). */
     val Back: ImageVector = stroke("Back", 2.4f, "M15 5l-7 7 7 7")
 

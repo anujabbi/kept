@@ -23,6 +23,7 @@ import com.example.kept.core.domain.NightEdit
 import com.example.kept.core.domain.NightSetting
 import com.example.kept.core.domain.ProofType
 import com.example.kept.core.domain.SprigState
+import com.example.kept.core.domain.WeeklyGoalLockEdit
 import com.example.kept.core.lock.AllowlistResolver
 import com.example.kept.core.lock.ForegroundWatcherService
 import com.example.kept.core.lock.InstalledApp
@@ -90,15 +91,22 @@ enum class LockAffectingSetting(val eventValue: String) {
     HABIT_REMOVED("habit_removed"),
     EXCEPTION_ON("exception_on"),
     NIGHT_LOCK("night_lock"),
+    WEEKLY_GOAL("weekly_goal"),
 }
 
 /**
  * Which locks are holding the phone right now. A guarded change asks only while the lock it would
  * open is one of them (issue #164): during night lockdown alone, moving the give-up time or
  * removing a habit opens nothing, so it is not asked about.
+ *
+ * [mustDoGoals] are the weekly goals whose must-do session is not logged today (issue #165).
+ * One of them holds the lock while the daily lock is in force ([weeklyGoalHolds]), and only then
+ * is lowering or deleting it asked about.
  */
-data class LockHold(val daily: Boolean = false, val night: Boolean = false) {
+data class LockHold(val daily: Boolean = false, val night: Boolean = false, val mustDoGoals: Set<Long> = emptySet()) {
     val any: Boolean get() = daily || night
+
+    fun weeklyGoalHolds(goalId: Long): Boolean = daily && goalId in mustDoGoals
 }
 
 /** A guarded change waiting on the user to confirm it while a lock is active. */
@@ -134,6 +142,7 @@ class SettingsViewModel @Inject constructor(
         LockHold(
             daily = s.isDailyLockActiveNow(time.now(), time.localTime()),
             night = s.isNightLockActiveNow(time.now(), time.localTime()),
+            mustDoGoals = s.weeklyMustDo.map { it.id }.toSet(),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LockHold())
 
@@ -255,6 +264,24 @@ class SettingsViewModel @Inject constructor(
         LockAffectingSetting.HABIT_REMOVED,
         HabitsCopy.REMOVE_WHILE_LOCKED,
     ) { removeHabit(id); onRemoved() }
+
+    /**
+     * What saving weekly goal [goalId] with [newDays] a week (it has [savedDays] now), or
+     * deleting it ([newDays] null), has to ask first: the lock-change question while the goal
+     * holds the lock and the change can open it, else null (issue #165, Edge cases).
+     */
+    fun weeklyGoalConfirm(goalId: Long, savedDays: Int, newDays: Int?): String? =
+        WeeklyGoalLockEdit.confirm(lockHold.value.weeklyGoalHolds(goalId), savedDays, newDays)
+
+    /**
+     * Saves or deletes a weekly goal ([action]) through the lock-change confirm: lowering or
+     * deleting a goal that holds the lock right now asks first, in its own words; raising it,
+     * renaming it, or any change to a goal that does not hold the lock applies at once.
+     */
+    fun requestWeeklyGoalChange(goalId: Long, savedDays: Int, newDays: Int?, action: () -> Unit) {
+        val confirm = weeklyGoalConfirm(goalId, savedDays, newDays)
+        if (confirm == null) action() else guard(LockAffectingSetting.WEEKLY_GOAL, confirm, held = { it.weeklyGoalHolds(goalId) }) { action() }
+    }
 
     /**
      * Runs [action] immediately unless the lock it would open is holding right now ([held]; the

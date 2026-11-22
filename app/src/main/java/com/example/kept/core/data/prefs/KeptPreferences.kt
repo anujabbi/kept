@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.kept.core.domain.NightWindow
 import com.example.kept.core.domain.SprigState
@@ -86,6 +87,7 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
         val NIGHT_ENABLED = booleanPreferencesKey("night_lock_enabled")
         val NIGHT_FROM = intPreferencesKey("night_from_minute")
         val NIGHT_UNTIL = intPreferencesKey("night_until_minute")
+        val MUST_DO_NOTIFIED = stringSetPreferencesKey("weekly_must_do_notified")
 
         val LEVEL = intPreferencesKey("sprig_level")
         val STREAK = intPreferencesKey("sprig_streak")
@@ -179,4 +181,24 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
     suspend fun heartbeat(now: Long) {
         context.dataStore.edit { it[K.HEARTBEAT] = now }
     }
+
+    /**
+     * The must-do notification's once-a-day marks (issue #165): weekly goal id to the ISO date it
+     * was last posted for. Stored, not kept in memory, so a restart of the process in the middle
+     * of a must-do day does not post it a second time. Not part of [Settings]: nothing shows it.
+     */
+    suspend fun mustDoNotified(): Map<Long, String> = context.dataStore.data.first()[K.MUST_DO_NOTIFIED].orEmpty().toMustDoMarks()
+
+    /** Records that [goalId]'s notification was posted for [date]; marks for other dates are dropped. */
+    suspend fun markMustDoNotified(goalId: Long, date: String) {
+        context.dataStore.edit { p ->
+            val kept = p[K.MUST_DO_NOTIFIED].orEmpty().toMustDoMarks().filterValues { it == date }
+            p[K.MUST_DO_NOTIFIED] = (kept + (goalId to date)).map { (id, d) -> "$id=$d" }.toSet()
+        }
+    }
+
+    private fun Set<String>.toMustDoMarks(): Map<Long, String> = mapNotNull { e ->
+        val id = e.substringBefore('=').toLongOrNull() ?: return@mapNotNull null
+        id to e.substringAfter('=')
+    }.toMap()
 }

@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -50,12 +51,14 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.kept.core.data.HabitToday
+import com.example.kept.core.data.WeeklyGoalWeek
 import com.example.kept.core.data.TodaySummary
 import com.example.kept.core.domain.HomeCopy
 import com.example.kept.core.domain.HomeSprig
 import com.example.kept.core.domain.LockCopy
 import com.example.kept.core.domain.LockSprig
 import com.example.kept.core.domain.ProofType
+import com.example.kept.core.domain.WeeklyLockCopy
 import com.example.kept.core.ui.DaybreakColors
 import com.example.kept.core.ui.DaybreakHabitRow
 import com.example.kept.core.ui.DaybreakIcons
@@ -81,6 +84,11 @@ class LockActions(
     val onPhone: () -> Unit = {},
     val onBreak: () -> Unit = {},
     val onOpenApp: () -> Unit = {},
+    /** "Mark today's {activity} done" on the weekly variant: logs the session and opens the app if that lifted the lock. */
+    val onWeeklyDone: (Long) -> Unit = {},
+    /** A "This week" row in the habits list: log or undo today's session. */
+    val onWeeklyLog: (Long) -> Unit = {},
+    val onWeeklyUndo: (Long) -> Unit = {},
 )
 
 private val D = DaybreakColors
@@ -97,6 +105,12 @@ private val D = DaybreakColors
  * lock", and neither the habit list nor "Open {App}". Finishing habits does not lift it, so the
  * habits stay in KEPT, where they can still be ticked.
  *
+ * When a weekly goal's must-do session is the only thing holding the lock (`LockUi.weekly`, issue
+ * #165) the frame shows its weekly variant (weekly goals mockup 3): a "Weekly goal" chip,
+ * "{remaining} days left, {needed} to go.", the week's strip and today's row, and a gold "Mark
+ * today's {activity} done" over "Phone" and "Break the lock". With habits undone as well, the
+ * habits list gains a "This week" row for the session instead.
+ *
  * [appLabel] is the locked app's label from the package manager.
  */
 @Composable
@@ -104,12 +118,25 @@ fun LockScreen(state: LockUi, appLabel: String, actions: LockActions, modifier: 
     val app = LockCopy.appName(appLabel)
     val open = state.open
     val night = state.night
+    val weekly = state.weekly
+    val weeklyGoalId = state.weeklyGoal?.id
     val today = state.lock?.today ?: TodaySummary(emptyList())
-    // Night lockdown is not about the day's progress: it keeps the darkest sky of the lock ramp.
-    val done = if (night) 0 else today.done
-    val total = if (night) 0 else today.total
-    val headline = if (night) LockCopy.NIGHT_HEADLINE else LockCopy.headline(app, open)
-    val line = if (night) LockCopy.nightLine(state.nightUntilMinute) else LockCopy.line(open)
+    // Night lockdown and the weekly variant are not about the day's habits: they keep the
+    // darkest sky of the lock ramp.
+    val fixedSky = night || weekly != null
+    val done = if (fixedSky) 0 else today.done
+    val total = if (fixedSky) 0 else today.total
+    val headline = when {
+        night -> LockCopy.NIGHT_HEADLINE
+        weekly != null -> weekly.headline
+        else -> LockCopy.headline(app, open)
+    }
+    val line = when {
+        night -> LockCopy.nightLine(state.nightUntilMinute)
+        weekly != null -> weekly.line
+        else -> LockCopy.line(open)
+    }
+    val textTop = if (weekly != null) LockSprig.WEEKLY_TEXT_TOP_DP else LockSprig.TEXT_TOP_DP
 
     val ink by animateColorAsState(if (open) D.ink else D.skyTextLight, keptTween(Motion.SKY_MS), label = "lock-ink")
     val soft by animateColorAsState(if (open) D.inkSoft else LockPalette.soft, keptTween(Motion.SKY_MS), label = "lock-soft")
@@ -119,13 +146,15 @@ fun LockScreen(state: LockUi, appLabel: String, actions: LockActions, modifier: 
     val inset = with(density) { WindowInsets.statusBars.getTop(this).toDp() }
     // The headline block's height, measured; a taller block (large font, long app name) moves the hill down.
     var textHeightPx by remember { mutableIntStateOf(0) }
-    val textBottom = LockSprig.TEXT_TOP_DP + with(density) { textHeightPx.toDp() }.value.toInt()
+    val textBottom = textTop + with(density) { textHeightPx.toDp() }.value.toInt()
     val crest = LockSprig.crestDp(textBottom)
     val skyHeight = inset + crest.dp + Hill.RISE
 
     BoxWithConstraints(modifier.fillMaxSize().testTag("lock_screen")) {
         // Like compact Home, the column and Sprig widths come from the real screen width.
         val widths = HomeSprig.compactWidths(maxWidth.value.toInt())
+        val showSprig = weekly == null || LockSprig.weeklyShowsSprig(density.fontScale)
+        val textWidth = if (showSprig) widths.textDp.dp else maxWidth - HomeSprig.TEXT_SIDE_DP.dp * 2
         val sprigTop by animateDpAsState(
             inset + LockSprig.topDp(crest, open, widths.sprigDp).dp,
             keptTween(Motion.RISE_MS, Motion.RiseEasing),
@@ -137,37 +166,59 @@ fun LockScreen(state: LockUi, appLabel: String, actions: LockActions, modifier: 
             ground = if (open) D.cream else Sky.lockGround,
             lightContent = SkyRamp.lockTextIsLight(done, total),
             skyContent = {
-                SprigView(
-                    state.sprig.form,
-                    if (night) LockCopy.NIGHT_POSE else LockCopy.pose(open),
-                    Modifier.align(Alignment.TopEnd).padding(end = HomeSprig.COMPACT_SPRIG_END_DP.dp)
-                        .offset(y = sprigTop).size(widths.sprigDp.dp).testTag("lock_sprig"),
-                    wilted = state.sprig.wilted,
-                )
+                if (showSprig) {
+                    SprigView(
+                        state.sprig.form,
+                        if (night) LockCopy.NIGHT_POSE else LockCopy.pose(open),
+                        Modifier.align(Alignment.TopEnd).padding(end = HomeSprig.COMPACT_SPRIG_END_DP.dp)
+                            .offset(y = sprigTop).size(widths.sprigDp.dp).testTag("lock_sprig"),
+                        wilted = state.sprig.wilted,
+                    )
+                }
                 // Where the hill's crest is, for tests; takes no space and draws nothing.
                 Box(Modifier.offset(y = inset + crest.dp).size(0.dp).testTag("lock_crest"))
                 Headline(
-                    headline, line, ink, soft, widths.textDp.dp,
+                    headline, line, ink, soft, textWidth,
                     Modifier.wrapContentHeight(Alignment.Top, unbounded = true)
-                        .padding(top = inset + LockSprig.TEXT_TOP_DP.dp, start = HomeSprig.TEXT_SIDE_DP.dp)
+                        .padding(top = inset + textTop.dp, start = HomeSprig.TEXT_SIDE_DP.dp)
                         .onSizeChanged { textHeightPx = it.height },
+                    weekly = weekly != null,
                 )
             },
         ) {
             Column(Modifier.fillMaxSize()) {
-                Box(Modifier.weight(1f)) { if (!night) HabitsPage(today, open, ink, soft, actions) }
-                Footer(app, open, rule, actions)
+                val weeklyDone = if (weekly != null && weeklyGoalId != null) ({ actions.onWeeklyDone(weeklyGoalId) }) else null
+                Box(Modifier.weight(1f)) {
+                    when {
+                        night -> Unit
+                        weekly != null && weeklyDone != null -> WeeklyPage(weekly, rule, weeklyDone)
+                        else -> HabitsPage(today, state.weeklyRows, open, ink, soft, actions)
+                    }
+                }
+                // The weekly variant's rule sits over its gold button, which belongs to the page above.
+                Footer(app, open, rule, actions, ruled = weeklyDone == null)
             }
         }
     }
 }
 
+/**
+ * The headline and its line. The [weekly] variant starts with the "Weekly goal" chip and keeps
+ * each clause of its headline whole ("4 days left," / "4 to go.", from the mockup's 36sp): the
+ * size steps down until the longer clause fits the column, as it does for a long word.
+ */
 @Composable
-private fun Headline(headline: String, line: String, ink: Color, soft: Color, width: Dp, modifier: Modifier = Modifier) {
-    val base = DaybreakType.headline.copy(fontSize = 38.sp, lineHeight = 38.sp)
+private fun Headline(headline: String, line: String, ink: Color, soft: Color, width: Dp, modifier: Modifier = Modifier, weekly: Boolean = false) {
+    val base = if (weekly) DaybreakType.headline.copy(fontSize = 36.sp, lineHeight = 37.sp) else DaybreakType.headline.copy(fontSize = 38.sp, lineHeight = 38.sp)
+    val shown = if (weekly) wholeClauses(headline) else headline
     Column(modifier.width(width)) {
-        Text(headline, Modifier.testTag("lock_headline"), style = fitLongestWord(headline, base, width), color = ink)
-        Spacer(Modifier.height(8.dp))
+        if (weekly) {
+            // The chip is not held to the column: at a large font it is wider than the words under it.
+            WeeklyChip(Modifier.wrapContentWidth(Alignment.Start, unbounded = true))
+            Spacer(Modifier.height(16.dp))
+        }
+        Text(shown, Modifier.testTag("lock_headline"), style = fitLongestWord(shown, base, width), color = ink)
+        Spacer(Modifier.height(if (weekly) 10.dp else 8.dp))
         Text(
             line,
             Modifier.testTag("lock_line"),
@@ -183,7 +234,7 @@ private fun Headline(headline: String, line: String, ink: Color, soft: Color, wi
  * scroll together instead, and the list keeps scrolling inside. The footer never scrolls.
  */
 @Composable
-private fun HabitsPage(today: TodaySummary, open: Boolean, ink: Color, soft: Color, actions: LockActions) {
+private fun HabitsPage(today: TodaySummary, weekly: List<WeeklyGoalWeek>, open: Boolean, ink: Color, soft: Color, actions: LockActions) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val viewport = constraints.maxHeight
         Layout(
@@ -207,6 +258,19 @@ private fun HabitsPage(today: TodaySummary, open: Boolean, ink: Color, soft: Col
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     today.habits.forEach { LockHabitRow(it, open, actions) }
+                    // A must-do session holds the lock with the habits (issue #165): one row each,
+                    // ticked and undone like a habit.
+                    weekly.forEach { g ->
+                        DaybreakHabitRow(
+                            title = g.goal.title,
+                            detail = WeeklyLockCopy.ROW_DETAIL,
+                            state = if (g.week.doneToday) HabitRowState.Done else HabitRowState.ToDo,
+                            onTick = { actions.onWeeklyLog(g.id) },
+                            onUndo = { actions.onWeeklyUndo(g.id) },
+                            modifier = Modifier.testTag("lock_weekly_row_${g.id}"),
+                            night = !open,
+                        )
+                    }
                 }
             },
             modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
@@ -256,12 +320,13 @@ private fun LockHabitRow(h: HabitToday, open: Boolean, actions: LockActions) {
 
 /**
  * Locked: "Phone" (outlined, opens the dialer in one tap, always there) and "Break the lock".
- * Open: one "Open {App}" button.
+ * Open: one "Open {App}" button. [ruled] is false on the weekly variant, whose rule is drawn
+ * over the gold button above this pair ([WeeklyPage]).
  */
 @Composable
-private fun Footer(app: String, open: Boolean, rule: Color, actions: LockActions) {
+private fun Footer(app: String, open: Boolean, rule: Color, actions: LockActions, ruled: Boolean = true) {
     Column(Modifier.fillMaxWidth()) {
-        Box(Modifier.fillMaxWidth().height(1.5.dp).background(rule))
+        if (ruled) Box(Modifier.fillMaxWidth().height(1.5.dp).background(rule))
         Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 28.dp)) {
             if (open) {
                 PrimaryButton(

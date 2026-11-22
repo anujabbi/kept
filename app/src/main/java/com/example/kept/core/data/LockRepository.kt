@@ -31,14 +31,25 @@ data class LockState(
     val breaksUsedThisWeek: Int,
     val userExceptions: Set<String>,
     val unprotectedToday: Boolean,
+    /** The active weekly goals with this week's state (issue #165). Empty with no goal. */
+    val weekly: List<WeeklyGoalWeek> = emptyList(),
 ) {
     val breaksRemaining: Int get() = maxOf(0, BreakCap.MAX_PER_ROLLING_WEEK - breaksUsedThisWeek)
     val nextBreakOverCap: Boolean get() = breaksUsedThisWeek >= BreakCap.MAX_PER_ROLLING_WEEK
 
+    /** The goals whose must-do session is not logged today, in the goals' order (issue #165). */
+    val weeklyMustDo: List<WeeklyGoalWeek> get() = weekly.filter { it.week.isMustDay }
+
+    /** Any active goal whose today is a must-do day with no session yet: it holds the daily lock. */
+    val weeklyMustDoIncomplete: Boolean get() = weekly.any { it.week.isMustDay }
+
+    /** A habit is left today: the other thing that holds the daily lock. */
+    val habitsIncomplete: Boolean get() = !today.allDone && today.total > 0
+
     fun snapshot(hardAllowlist: Set<String>, launchable: Set<String>?): LockPolicy.Snapshot = LockPolicy.Snapshot(
         lockFromMinute = settings.lockFromMinute,
         dueMinute = settings.dueMinute,
-        habitsIncomplete = !today.allDone && today.total > 0,
+        habitsIncomplete = habitsIncomplete,
         breakActiveUntil = breakActiveUntil,
         hardAllowlist = hardAllowlist,
         userExceptions = userExceptions,
@@ -47,11 +58,12 @@ data class LockState(
         nightEnabled = settings.nightLockEnabled,
         nightFromMinute = settings.nightFromMinute,
         nightUntilMinute = settings.nightUntilMinute,
+        weeklyMustDoIncomplete = weeklyMustDoIncomplete,
     )
 
     /**
-     * True when a lock is in force right now: the daily habit lock (window open, a habit still
-     * undone) or night lockdown (issue #164), and no active break. Used to gate the "are you
+     * True when a lock is in force right now: the daily lock (window open, a habit or a weekly
+     * goal's must-do session still undone) or night lockdown (issue #164), and no active break. Used to gate the "are you
      * sure" confirmation on lock-affecting settings changes
      * (issue #1): which package is foreground is irrelevant here, so [hardAllowlist] and
      * [launchable] play no part in [LockPolicy.isLockActive] and are passed empty/null.
@@ -60,8 +72,8 @@ data class LockState(
         LockPolicy.isLockActive(now, localTime, snapshot(hardAllowlist = emptySet(), launchable = null))
 
     /**
-     * The daily habit lock alone. A change to the lock window or the habits can only open apps
-     * early while this one holds; during night lockdown alone it opens nothing (issue #164).
+     * The daily lock alone: habits and must-do sessions. A change to the lock window, the habits
+     * or a weekly goal can only open apps early while this one holds; during night lockdown alone it opens nothing (issue #164).
      */
     fun isDailyLockActiveNow(now: Instant, localTime: LocalTime): Boolean =
         LockPolicy.isDailyLockActive(now, localTime, snapshot(hardAllowlist = emptySet(), launchable = null))
@@ -82,6 +94,7 @@ class LockRepository @Inject constructor(
     private val habits: HabitRepository,
     private val sprig: SprigRepository,
     private val time: TimeSource,
+    private val weeklyGoals: WeeklyGoalRepository,
 ) {
     fun observeExceptions(): Flow<List<AllowedAppEntity>> = allowedDao.observeAll()
 
@@ -110,6 +123,9 @@ class LockRepository @Inject constructor(
             unprotectedToday = false,
         )
     }.combine(gapDao.observeForDate(time.todayKey())) { s, gaps -> s.copy(unprotectedToday = gaps.isNotEmpty()) }
+        // Emits again when a session is logged or undone, a goal is edited or removed, and on a
+        // new day, so the lock follows a weekly goal as it follows a habit (issue #165).
+        .combine(weeklyGoals.observeThisWeek()) { s, weekly -> s.copy(weekly = weekly) }
 
     suspend fun currentState(): LockState = observeState().first()
 

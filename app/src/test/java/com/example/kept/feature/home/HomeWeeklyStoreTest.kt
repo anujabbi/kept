@@ -80,7 +80,7 @@ class HomeWeeklyStoreTest {
         habits = habits,
         actions = HabitActions(habits, sprig, prefs, time, NoOpAnalytics(), object : DayCompletionReactor { override suspend fun onDayCompleted() = Unit }),
         sprigRepo = sprig,
-        lockRepo = LockRepository(db.allowedAppDao(), db.lockBreakDao(), db.protectionGapDao(), db.dayRecordDao(), prefs, habits, sprig, time),
+        lockRepo = LockRepository(db.allowedAppDao(), db.lockBreakDao(), db.protectionGapDao(), db.dayRecordDao(), prefs, habits, sprig, time, weekly),
         dayRepo = DayRepository(db.dayRecordDao(), time),
         prefs = prefs,
         permissions = Permissions(ctx),

@@ -124,4 +124,8 @@ object LockPalette {
     /** A done row: fill and border; its dot is [Sky.gold] with an ink check. */
     val rowDone = Color(0xFF3E3895)
     val rowDoneLine = Color(0xFF8B7CF6)
+    /** The weekly variant (weekly goals mockup 3): the "Weekly goal" chip's ground, white at 12%. */
+    val chip = Color(0x1FFFFFFF)
+    /** The dash in a skipped day of the weekly strip. */
+    val dash = Color(0xFF7D77B8)
 }

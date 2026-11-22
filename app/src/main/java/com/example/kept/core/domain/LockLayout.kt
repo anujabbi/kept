@@ -26,7 +26,8 @@ enum class LockMode {
         /**
          * [night] is true while night lockdown is the lock holding the phone (issue #164). It
          * holds whether or not the day's habits are done, so a finished day does not open the
-         * screen then; it stays locked for as long as its app is.
+         * screen then; it stays locked for as long as its app is. [weeklyMustDoIncomplete] is
+         * true while a weekly goal's must-do session is not logged today (issue #165).
          */
         fun of(
             loaded: Boolean,
@@ -34,10 +35,13 @@ enum class LockMode {
             blockedStillLocked: Boolean,
             allDoneOnTime: Boolean,
             night: Boolean = false,
+            weeklyMustDoIncomplete: Boolean = false,
         ): LockMode = when {
             !loaded -> LOCKED
             night -> if (lockActive && blockedStillLocked) LOCKED else DISMISS
-            allDoneOnTime -> OPEN
+            // A must-do session not logged (issue #165) keeps a finished day from opening the
+            // screen: it stays locked while the lock holds, and gets out of the way when it lifts.
+            allDoneOnTime && !weeklyMustDoIncomplete -> OPEN
             !lockActive || !blockedStillLocked -> DISMISS
             else -> LOCKED
         }
@@ -94,6 +98,17 @@ object LockSprig {
     const val SKY_DP = 280
     const val DESIGN_CREST_DP = SKY_DP - 48
     const val TEXT_TOP_DP = 60
+
+    /** The weekly variant's block starts higher, at its "Weekly goal" chip (weekly goals mockup 3). */
+    const val WEEKLY_TEXT_TOP_DP = 40
+
+    /**
+     * The weekly variant says more than the other faces (a chip, a two-clause headline, a longer
+     * line). From this font scale up Sprig steps aside and the words take the screen's width, as
+     * on the weekly goal setup screen; beside Sprig they would push the hill off a small screen.
+     */
+    const val WEEKLY_SPRIG_MAX_FONT_SCALE = WeeklyGoalSetupLayout.SPRIG_MAX_FONT_SCALE
+    fun weeklyShowsSprig(fontScale: Float): Boolean = fontScale < WEEKLY_SPRIG_MAX_FONT_SCALE
     const val SIZE_DP = 180
 
     /** Sprig's top in the design: 80 when open, 116 while guarding. */

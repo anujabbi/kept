@@ -20,6 +20,13 @@ object WeeklyCardCopy {
      */
     const val DONE_TODAY = "Done for today, no lock"
 
+    /**
+     * A must-do day whose session is not logged, after the give-up time: the lock has ended for
+     * the day, so "apps lock until it's done" would be untrue (planner's note on #175). Not in
+     * the issue (DECISIONS.md, #175).
+     */
+    const val LOCK_ENDED = "Past the give-up time, no lock"
+
     /** The detail on the card's today row, as on the weekly lock screen's (mockup 3). */
     const val TODAY_ROW = "Today"
 
@@ -61,10 +68,18 @@ enum class WeeklyCardStatus(val line: String) {
 
     /** Today's session is logged but the week's target can no longer be reached. */
     DONE_TODAY(WeeklyCardCopy.DONE_TODAY),
+
+    /** A must-do day, not logged, after the give-up time: nothing locks any more today. */
+    LOCK_ENDED(WeeklyCardCopy.LOCK_ENDED),
 }
 
 /** One cell of the Su–Sa strip. */
-data class WeeklyCardDay(val label: String, val state: DayState, val isToday: Boolean, val spoken: String)
+data class WeeklyCardDay(val label: String, val state: DayState, val isToday: Boolean, val spoken: String) {
+    companion object {
+        fun of(day: WeeklyGoalRules.Day): WeeklyCardDay =
+            WeeklyCardDay(WeeklyCardCopy.dayLabel(day.date.dayOfWeek), day.state, day.isToday, WeeklyCardCopy.spoken(day))
+    }
+}
 
 /**
  * Everything the card shows for one goal's week, worked out from [WeeklyGoalRules.Week] so the
@@ -84,12 +99,17 @@ data class WeeklyCard(
     val statusLine: String get() = status.line
 
     companion object {
-        fun of(activity: String, week: WeeklyGoalRules.Week): WeeklyCard = WeeklyCard(
+        /**
+         * [lockEndedToday] is true once today's give-up time has passed: a must-do day's status
+         * then stops promising a lock, so it agrees with Home's headline (story #175).
+         */
+        fun of(activity: String, week: WeeklyGoalRules.Week, lockEndedToday: Boolean = false): WeeklyCard = WeeklyCard(
             title = WeeklyCardCopy.title(activity, week.done, week.target),
             segments = week.target,
             filled = week.done.coerceAtMost(week.target),
-            days = week.days.map { WeeklyCardDay(WeeklyCardCopy.dayLabel(it.date.dayOfWeek), it.state, it.isToday, WeeklyCardCopy.spoken(it)) },
+            days = week.days.map(WeeklyCardDay::of),
             status = when {
+                week.isMustDay && lockEndedToday -> WeeklyCardStatus.LOCK_ENDED
                 week.isMustDay -> WeeklyCardStatus.TODAY_COUNTS
                 !week.canStillHitTarget -> WeeklyCardStatus.DONE_TODAY
                 else -> WeeklyCardStatus.ON_TRACK

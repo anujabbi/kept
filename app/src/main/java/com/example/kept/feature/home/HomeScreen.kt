@@ -155,9 +155,11 @@ fun HomeScreen(
  */
 @Composable
 internal fun HomeContent(s: HomeUiState, actions: HomeActions, modifier: Modifier = Modifier) {
-    val total = s.today.total
-    val done = s.today.done
-    val layout = HomeLayout.forHabitCount(total)
+    // The sky and Sprig follow the habits and any must-do session still holding; the layout
+    // follows the number of habits alone, as it did before weekly goals.
+    val total = s.day.total
+    val done = s.day.done
+    val layout = HomeLayout.forHabitCount(s.today.total)
     val light = SkyRamp.homeTextIsLight(done, total)
     val ink by animateColorAsState(SkyRamp.textOn(light), keptTween(Motion.SKY_MS), label = "sky-ink")
     var shieldOpen by rememberSaveable { mutableStateOf(false) }
@@ -235,8 +237,9 @@ private const val COMPACT_TEXT_TOP = 22
 
 @Composable
 private fun BoxScope.HomeSprigOnSky(s: HomeUiState, layout: HomeLayout, top: Dp, size: Dp) {
-    // Only a day finished before the give-up time is worth cheering about (issue #7).
-    val pose = SprigLook.pose(wilted = s.sprig.wilted, allDone = s.today.allDoneOnTime)
+    // Only a day finished before the give-up time is worth cheering about (issue #7), and not
+    // while a weekly goal's must-do session is still holding the lock (story #175).
+    val pose = SprigLook.pose(wilted = s.sprig.wilted, allDone = s.day.keptOnTime)
     val place = when (layout) {
         HomeLayout.ROOMY -> Modifier.align(Alignment.TopCenter)
         HomeLayout.COMPACT -> Modifier.align(Alignment.TopEnd).padding(end = HomeSprig.COMPACT_SPRIG_END_DP.dp)
@@ -248,9 +251,9 @@ private fun BoxScope.HomeSprigOnSky(s: HomeUiState, layout: HomeLayout, top: Dp,
 /** The streak pill and the headline with its line. Roomy: pill top right; compact: top left. */
 @Composable
 private fun HeadlineBlock(s: HomeUiState, layout: HomeLayout, ink: Color, textWidth: Dp, modifier: Modifier = Modifier) {
-    val total = s.today.total
-    val done = s.today.done
-    val headline = HomeCopy.headline(total, done, s.today.allDoneOnTime)
+    val total = s.day.total
+    val done = s.day.done
+    val headline = HomeCopy.headline(total, done, s.day.keptOnTime)
     val giveUp = (s.lock?.settings ?: Settings()).dueMinute.minuteOfDayLabel()
     val line = HomeCopy.line(total, done, giveUp, s.pastDue, s.lock?.breakActiveUntil != null)
     val roomy = layout == HomeLayout.ROOMY
@@ -329,7 +332,7 @@ private fun RoomyPage(s: HomeUiState, actions: HomeActions, shieldOpen: Boolean,
         if (s.today.total == 0) AddFirstHabitRow(actions.onOpenHabits, Modifier.testTag("home_add_first"))
         s.today.habits.forEach { HomeHabitRow(it, roomy = true, actions) }
         val hasGoals = s.weeklyGoals.isNotEmpty()
-        if (hasGoals) WeeklySection(s.weeklyGoals, actions, Modifier.padding(top = 14.dp))
+        if (hasGoals) WeeklySection(s.weeklyGoals, actions, Modifier.padding(top = 14.dp), lockEndedToday = s.pastDue)
         Column(Modifier.padding(start = 4.dp, end = 4.dp, top = 14.dp)) {
             Week(s, shieldOpen, onToggleShield, gapToShield = 12.dp)
         }
@@ -362,7 +365,7 @@ private fun CompactPage(s: HomeUiState, actions: HomeActions, shieldOpen: Boolea
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     s.today.habits.forEach { HomeHabitRow(it, roomy = false, actions) }
-                    WeeklySection(s.weeklyGoals, actions, Modifier.padding(top = 10.dp))
+                    WeeklySection(s.weeklyGoals, actions, Modifier.padding(top = 10.dp), lockEndedToday = s.pastDue)
                 }
                 Column {
                     Box(Modifier.fillMaxWidth().height(1.5.dp).background(DaybreakColors.line))
