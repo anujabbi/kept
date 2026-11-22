@@ -47,6 +47,9 @@ object OnboardingFixtures {
 
     val window = LockWindowRules.Window(7 * 60, 21 * 60)
 
+    /** The shutdown step with 10 PM picked: the first row, so it shows at font 2.0 on a small screen too. */
+    const val SHUTDOWN_PICKED = 22 * 60
+
     /** The design's permissions state: usage access and notifications on, overlay missing. */
     val oneRequiredMissing: (PermissionKind) -> Boolean = { it == PermissionKind.USAGE_ACCESS || it == PermissionKind.NOTIFICATIONS }
     val allGranted: (PermissionKind) -> Boolean = { true }
@@ -59,6 +62,8 @@ val onboardingScreens: List<Pair<String, @Composable () -> Unit>> = listOf(
     "habits" to { HabitsStep(OnboardingFixtures.habits, {}, {}, {}, {}) },
     "habits_limit" to { HabitsStep(OnboardingFixtures.habitsAtLimit, {}, {}, {}, {}) },
     "add_habit" to { AddHabitPage(onBack = {}, onSave = {}) },
+    "shutdown" to { ShutdownStep(null, {}, {}, {}, {}) },
+    "shutdown_picked" to { ShutdownStep(OnboardingFixtures.SHUTDOWN_PICKED, {}, {}, {}, {}) },
     "lock_window" to { LockWindowStep(OnboardingFixtures.window, {}, {}, {}) },
     "exceptions" to { ExceptionsContent(BodyMode.ONBOARDING, emptyList(), OnboardingFixtures.apps, "", {}, { _, _ -> }, {}, {}) },
     "permissions_missing" to { permissions(BodyMode.ONBOARDING, OnboardingFixtures.oneRequiredMissing) },
@@ -121,7 +126,7 @@ class OnboardingShots(private val rule: ComposeContentTestRule, private val pref
     }
 
     /**
-     * At font 1.0, 1.3 and 2.0: headlines never split inside a word; on Welcome and step 5 Sprig
+     * At font 1.0, 1.3 and 2.0: headlines never split inside a word; on Welcome and step 6 Sprig
      * touches no text and its lower body is behind the hill; the welcome text ends above the
      * crest; each step's footer button is on screen, not under the bottom edge.
      */
@@ -154,6 +159,7 @@ class OnboardingShots(private val rule: ComposeContentTestRule, private val pref
                 else -> {
                     assertNoWordSplit(rule, "page_title", at)
                     if (name != "add_habit" && !name.endsWith("_settings")) assertOnScreen(at, "onboarding_next")
+                    if (name.startsWith("shutdown")) assertOnScreen(at, "onboarding_skip")
                 }
             }
             if (name == "lock_window") {

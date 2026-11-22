@@ -175,4 +175,24 @@ class OnboardingLayoutTest {
             for (edge in listOf(right - x.sprigDp, right)) assertTrue("$w at $edge", bottom >= HillEdge.topDp(252f, w.toFloat(), edge) + 1.9f)
         }
     }
+
+    // Shutdown time (#164) ---------------------------------------------------------------------
+
+    @Test fun `the shutdown step offers 10 PM, 11 PM and Midnight as 1320, 1380 and 0`() {
+        assertEquals(listOf(1320, 1380, 0), OnboardingCopy.SHUTDOWN_TIMES)
+        assertEquals(listOf("10 PM", "11 PM", "Midnight"), OnboardingCopy.SHUTDOWN_TIMES.map(OnboardingCopy::shutdownLabel))
+    }
+
+    @Test fun `the shutdown copy is the issue's`() {
+        assertEquals("Pick a shutdown time", OnboardingCopy.SHUTDOWN_TITLE)
+        assertEquals("A shutdown time helps you stop doomscrolling at night.", OnboardingCopy.SHUTDOWN_LINE)
+        assertEquals("Apps lock until 7:00 am. Phone, messages and maps still work.", OnboardingCopy.SHUTDOWN_DETAIL)
+        assertEquals("Skip", OnboardingCopy.SKIP)
+    }
+
+    @Test fun `the progress bar counts six steps`() {
+        assertEquals(6, OnboardingCopy.STEPS)
+        assertEquals("Step 2 of 6", OnboardingCopy.stepOf(2))
+        assertEquals("Step 6 of 6", OnboardingCopy.stepOf(6))
+    }
 }

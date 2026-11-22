@@ -46,17 +46,23 @@ import javax.inject.Inject
 object OnboardingStep {
     const val WELCOME = 0
     const val HABITS = 1
-    const val LOCK_WINDOW = 2
-    const val EXCEPTIONS = 3
-    const val PERMISSIONS = 4
-    const val READY = 5
+    const val SHUTDOWN = 2
+    const val LOCK_WINDOW = 3
+    const val EXCEPTIONS = 4
+    const val PERMISSIONS = 5
+    const val READY = 6
 }
 
 data class OnboardingState(
-    /** [OnboardingStep.WELCOME], or the step number the progress bar shows (1 to 5). */
+    /** [OnboardingStep.WELCOME], or the step number the progress bar shows (1 to 6). */
     val step: Int = OnboardingStep.WELCOME,
     val chosen: List<HabitTemplate> = listOf(HabitTemplates.list[0], HabitTemplates.list[1]),
-    /** Step 2's window: the stored one (brought inside the bar) until the person moves it. */
+    /**
+     * Step 2's shutdown time as a minute of the day, or null while none is picked and after Skip.
+     * Nothing is preselected; "Start today" writes it ([onboardingShutdown]).
+     */
+    val shutdownMinute: Int? = null,
+    /** Step 3's window: the stored one (brought inside the bar) until the person moves it. */
     val window: LockWindowRules.Window = LockWindowRules.normalize(Settings().lockFromMinute, Settings().dueMinute),
     /** True once the person moved the window; only then does "Start today" write it. */
     val windowTouched: Boolean = false,
@@ -89,6 +95,11 @@ object OnboardingFlow {
 
     fun openAddHabit(s: OnboardingState): OnboardingState = if (s.atLimit) s else s.copy(addingHabit = true)
 
+    fun pickShutdown(s: OnboardingState, minute: Int): OnboardingState = s.copy(shutdownMinute = minute)
+
+    /** "Skip" on the shutdown step: no shutdown time, and on to the lock window. */
+    fun skipShutdown(s: OnboardingState): OnboardingState = next(s.copy(shutdownMinute = null))
+
     fun setWindow(s: OnboardingState, w: LockWindowRules.Window): OnboardingState = s.copy(window = w, windowTouched = true)
 
     fun next(s: OnboardingState): OnboardingState = s.copy(step = (s.step + 1).coerceAtMost(ONBOARDING_STEPS), addingHabit = false)
@@ -112,7 +123,7 @@ class OnboardingViewModel @Inject constructor(
     val state: StateFlow<OnboardingState> = _state
 
     init {
-        // Step 2 starts from the stored window, which a re-run of onboarding may have changed.
+        // Step 3 starts from the stored window, which a re-run of onboarding may have changed.
         viewModelScope.launch {
             val s = prefs.currentSettings()
             _state.update { if (it.windowTouched) it else it.copy(window = LockWindowRules.normalize(s.lockFromMinute, s.dueMinute)) }
@@ -123,12 +134,14 @@ class OnboardingViewModel @Inject constructor(
     fun addCustom(t: HabitTemplate) = _state.update { OnboardingFlow.addCustom(it, t) }
     fun openAddHabit() = _state.update(OnboardingFlow::openAddHabit)
     fun closeAddHabit() = _state.update { it.copy(addingHabit = false) }
+    fun pickShutdown(minute: Int) = _state.update { OnboardingFlow.pickShutdown(it, minute) }
+    fun skipShutdown() = _state.update(OnboardingFlow::skipShutdown)
     fun setWindow(w: LockWindowRules.Window) = _state.update { OnboardingFlow.setWindow(it, w) }
     fun next() = _state.update(OnboardingFlow::next)
     fun back() = _state.update(OnboardingFlow::back)
 
     /**
-     * Onboarding is one nav destination but five screens to the person walking it, so the step —
+     * Onboarding is one nav destination but six screens to the person walking it, so the step —
      * not the route — is what a funnel needs (issue #10). Steps are numbered as the progress bar
      * shows them, from 1; the welcome screen before them is not a step.
      */
@@ -145,8 +158,8 @@ class OnboardingViewModel @Inject constructor(
 
     /**
      * Persists habits and the first-use date when leaving step 1 so the exceptions/permission
-     * steps can already use them. The lock window is written on "Start today", and only if it was
-     * moved: see [onboardingLockWindow].
+     * steps can already use them. The shutdown time and the lock window are written on "Start
+     * today" (the window only if it was moved): see [onboardingShutdown] and [onboardingLockWindow].
      */
     fun persistDraft() = viewModelScope.launch {
         val s = _state.value
@@ -158,7 +171,9 @@ class OnboardingViewModel @Inject constructor(
         _state.update { it.copy(saving = true) }
         persistDraft().join()
         val s = _state.value
-        prefs.updateSettings { it.onboardingLockWindow(s.window.takeIf { s.windowTouched }).onboardingFinished(time.today()) }
+        prefs.updateSettings {
+            it.onboardingShutdown(s.shutdownMinute).onboardingLockWindow(s.window.takeIf { s.windowTouched }).onboardingFinished(time.today())
+        }
         ForegroundWatcherService.start(ctx)
         scheduler.scheduleAll()
         analytics.capture("onboarding_completed", mapOf("habit_count" to s.chosen.size))
@@ -167,7 +182,7 @@ class OnboardingViewModel @Inject constructor(
 }
 
 /**
- * Onboarding in Daybreak (spec, Welcome and Onboarding): the welcome screen, then five steps with
+ * Onboarding in Daybreak (spec, Welcome and Onboarding): the welcome screen, then six steps with
  * a progress bar and a back arrow. System back goes back a step (closing Add a habit first) and
  * keeps every choice; on the welcome screen it leaves the app as before.
  */
@@ -192,6 +207,7 @@ fun OnboardingScreen(onDone: () -> Unit, vm: OnboardingViewModel = hiltViewModel
             OnboardingStep.HABITS ->
                 if (s.addingHabit) AddHabitPage(onBack = vm::closeAddHabit, onSave = vm::addCustom)
                 else HabitsStep(s, onToggle = vm::toggle, onAddOwn = vm::openAddHabit, onBack = vm::back, onContinue = { vm.persistDraft(); vm.next() })
+            OnboardingStep.SHUTDOWN -> ShutdownStep(s.shutdownMinute, onPick = vm::pickShutdown, onBack = vm::back, onContinue = vm::next, onSkip = vm::skipShutdown)
             OnboardingStep.LOCK_WINDOW -> LockWindowStep(s.window, onChange = vm::setWindow, onBack = vm::back, onContinue = vm::next)
             OnboardingStep.EXCEPTIONS -> ExceptionsBody(BodyMode.ONBOARDING, onBack = vm::back, onContinue = vm::next)
             OnboardingStep.PERMISSIONS -> {

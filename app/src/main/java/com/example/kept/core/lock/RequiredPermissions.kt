@@ -49,7 +49,7 @@ object RequiredPermissions {
     }
 
     /**
-     * The tag beside a permission card's name (spec, Onboarding step 4): "On" once granted, else
+     * The tag beside a permission card's name (spec, Onboarding step 5): "On" once granted, else
      * "Required" for the onboarding gate, "For photo habits" for the camera, "Recommended" for the rest.
      */
     fun tag(kind: PermissionKind, granted: Boolean): String = when {

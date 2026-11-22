@@ -61,7 +61,7 @@ class RequiredPermissionsTest {
         assertEquals("usage access, display over other apps and notifications", RequiredPermissions.names(m))
     }
 
-    /** Onboarding step 4's tags (#132): "On" once granted, else by what the permission is for. */
+    /** Onboarding step 5's tags (#132): "On" once granted, else by what the permission is for. */
     @Test fun `each card's tag`() {
         for (k in RequiredPermissions.onboardingGate) {
             assertEquals("Required", RequiredPermissions.tag(k, granted = false))
