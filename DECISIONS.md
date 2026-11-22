@@ -1386,3 +1386,56 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     because the Settings tab gained a row: `settings_settings_*`, `settings_settings_missing_*`
     and their `_360` twins, and at 412dp `settings_night_off_font1.0`, `settings_night_on_font1.0`
     and `settings_settings_end_font1.0`. Every other golden is byte-identical to `main`.
+- **Weekly goals: Home weekly card (issue #165, story #174).** Built from mockup 4
+  (`docs/design/weekly-goals/4-home-weekly-card`, PR #166) with #165's copy; the card's words and
+  state mapping are pure Kotlin in `core/domain/WeeklyGoalCard.kt` (`WeeklyCard`,
+  `WeeklyCardCopy`), drawn by `feature/home/HomeWeekly.kt`. No lock, lock screen, notification,
+  streak or rollover code is touched, and `TodaySummary`, the "Today" count, the headline and the
+  roomy/compact choice still come from the daily habits alone. Departures and open choices:
+  - *The status line is #165's, not the mockup's.* The mockup reads "On track. 6 days left for 3
+    more, so no lock."; the issue gives "On track, no lock" and "Today counts: apps lock until
+    it's done", and the issue wins. "Today counts" is shown from `isMustDay` although the lock
+    itself arrives with #175 (planner's note on #174): until that ships the line promises a lock
+    that does not happen yet.
+  - *A third status line, "Done for today, no lock".* The issue has two lines. When today's
+    session is logged in a week whose target is already out of reach (4 a week, first session on
+    Friday), today is no longer a must-do day, but "On track" would be untrue. That one case
+    reads "Done for today, no lock", in muted grey. A complete week reads "On track, no lock".
+  - *Mark done and undo are a habit row inside the card.* Mockup 4 has no control for it. The
+    card ends with the today row of the weekly lock screen (mockup 3): the activity with "Today"
+    on the right, drawn by the shared `DaybreakHabitRow`. A tap logs today's session with the
+    tick haptic; once done the row reads "Done", a tap does nothing, and holding it undoes, as a
+    habit row on Home does. A double tap cannot count twice: the row stops ticking once done,
+    and `WeeklyGoalRepository.logToday` stores nothing the second time.
+  - *Where the section sits.* With at least one goal, "This week" follows the habits and comes
+    before "Last 7 days" (mockup 4's order) in the roomy layout, and ends the scrolling habit
+    list in the compact layout (4 or more habits), where the week row and the shield stay fixed
+    below it. With no goal, the "Add a weekly goal" row is the last thing on the roomy page,
+    after the shield, and the end of the list in compact. An invitation placed after the habits
+    would push "Last 7 days" and the shield off the first screen for everyone with one to three
+    habits, which `shieldIsFullyVisibleWithUpToThreeHabitsAtFontOne` forbids; a card with real
+    progress on it is worth that, the invitation is not. The cost: with two habits the row is
+    half below the fold on a 412 × 915dp screen, and with three or more it needs a scroll.
+    Weekly goals never switch Home to the compact layout.
+  - *The add row is the "Add your first habit" row with other words*: "Add a weekly goal" over
+    "For things you don't need to do every day." (the setup screen's subtitle). `AddFirstHabitRow`
+    now delegates to a shared `AddRow`; its pixels do not change. It shows only while there is no
+    goal; a second and third goal are added from Settings → Weekly goals.
+  - *Days the goal did not count* (`NOT_COUNTED`: before it was set, or the day it was set with
+    nothing logged) are not in the mockup: a small `#CFC8E6` dot with no ring, spoken as
+    "{day}, not counted". A skipped day is the lock screen mockup's dash on the light card: a
+    `#E6E2EE` disc with a `#8D88A8` dash. The other cells are the mockup's; the coming-up ring
+    `#E0D6C8` gets a token, `weekRing`.
+  - *Spoken strip.* Each cell is one node: "Sunday, done", "Monday, skipped", "Wednesday,
+    today, not done yet", "Wednesday, today, done", "Thursday, coming up", "Sunday, not
+    counted". The two-letter labels are not read separately.
+  - *The progress bar has one segment per session of this week's target* (the reduced target in
+    the first partial week; none when it is 0, as for a goal set on a Saturday, whose card reads
+    "0 of 0 this week"). Sessions beyond the target fill no extra segment, but the title counts
+    them ("3 of 2 this week") rather than hiding a logged session.
+  - *Goldens.* New: `home_weekly_*` (on track, today counts, complete week and the add row at
+    font 1.0 and 2.0; first partial week, three goals, compact, no habits) and
+    `home_360_weekly_*`. Re-recorded because Home now shows the add row on the first screen:
+    `home_0of2_font1.0`, `home_1of2_font1.0`, `home_2of2_font1.0`, `home_no_habits_font1.0`,
+    `home_no_habits_font2.0`, `home_shield_open_font1.0` and `home_shield_used_font1.0`. Every
+    other golden is byte-identical to `main`.

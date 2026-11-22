@@ -92,6 +92,10 @@ internal class HomeActions(
     val onOpenPermissions: () -> Unit = {},
     val onOpenHabits: () -> Unit = {},
     val onFirstLandingSeen: () -> Unit = {},
+    /** Logs today's session of a weekly goal; a second call the same day stores nothing. */
+    val onWeeklyDone: (Long) -> Unit = {},
+    val onWeeklyUndo: (Long) -> Unit = {},
+    val onAddWeeklyGoal: () -> Unit = {},
 )
 
 @Composable
@@ -100,6 +104,7 @@ fun HomeScreen(
     onOpenReveal: (Long) -> Unit,
     onOpenPermissions: () -> Unit,
     onOpenHabits: () -> Unit,
+    onAddWeeklyGoal: () -> Unit,
     vm: HomeViewModel = hiltViewModel(),
 ) {
     val s by vm.state.collectAsStateWithLifecycle()
@@ -127,7 +132,7 @@ fun HomeScreen(
 
     HomeContent(
         s,
-        remember(vm, onOpenPermissions, onOpenHabits) {
+        remember(vm, onOpenPermissions, onOpenHabits, onAddWeeklyGoal) {
             HomeActions(
                 onComplete = { vm.complete(it) },
                 onUndo = { vm.undo(it) },
@@ -135,6 +140,9 @@ fun HomeScreen(
                 onOpenPermissions = onOpenPermissions,
                 onOpenHabits = onOpenHabits,
                 onFirstLandingSeen = { vm.firstLandingSeen() },
+                onWeeklyDone = { vm.logWeekly(it) },
+                onWeeklyUndo = { vm.undoWeekly(it) },
+                onAddWeeklyGoal = onAddWeeklyGoal,
             )
         },
     )
@@ -305,7 +313,11 @@ private fun Week(s: HomeUiState, shieldOpen: Boolean, onToggleShield: () -> Unit
     ShieldButton(ready = s.sprig.shieldAvailable, open = shieldOpen, onToggle = onToggleShield)
 }
 
-/** `Main`: everything below the hill scrolls together (it only needs to at large font scales). */
+/**
+ * `Main`: everything below the hill scrolls together. Weekly goal cards follow the habits, as in
+ * weekly goals mockup 4. With no goal, the "Add a weekly goal" row comes last instead, so an
+ * invitation does not push the week and the shield off the first screen.
+ */
 @Composable
 private fun RoomyPage(s: HomeUiState, actions: HomeActions, shieldOpen: Boolean, onToggleShield: () -> Unit, modifier: Modifier = Modifier) {
     Column(
@@ -316,14 +328,18 @@ private fun RoomyPage(s: HomeUiState, actions: HomeActions, shieldOpen: Boolean,
         TodayHeader(s, Modifier.padding(horizontal = 4.dp))
         if (s.today.total == 0) AddFirstHabitRow(actions.onOpenHabits, Modifier.testTag("home_add_first"))
         s.today.habits.forEach { HomeHabitRow(it, roomy = true, actions) }
+        val hasGoals = s.weeklyGoals.isNotEmpty()
+        if (hasGoals) WeeklySection(s.weeklyGoals, actions, Modifier.padding(top = 14.dp))
         Column(Modifier.padding(start = 4.dp, end = 4.dp, top = 14.dp)) {
             Week(s, shieldOpen, onToggleShield, gapToShield = 12.dp)
         }
+        if (!hasGoals) WeeklySection(s.weeklyGoals, actions, Modifier.padding(top = 4.dp, bottom = 20.dp))
     }
 }
 
 /**
  * `A2-Home-6`: the sky, "Today", the week and the shield stay put; only the habit list scrolls.
+ * The weekly goal cards (or the "Add a weekly goal" row) are the end of that list.
  * The list always keeps at least [COMPACT_LIST_MIN] of height: on a small screen at a large font,
  * where the fixed parts would squeeze it to nothing, the whole page below the hill scrolls
  * instead, and the list keeps scrolling inside it.
@@ -346,6 +362,7 @@ private fun CompactPage(s: HomeUiState, actions: HomeActions, shieldOpen: Boolea
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     s.today.habits.forEach { HomeHabitRow(it, roomy = false, actions) }
+                    WeeklySection(s.weeklyGoals, actions, Modifier.padding(top = 10.dp))
                 }
                 Column {
                     Box(Modifier.fillMaxWidth().height(1.5.dp).background(DaybreakColors.line))

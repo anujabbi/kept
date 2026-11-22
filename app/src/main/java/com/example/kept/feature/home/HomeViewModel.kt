@@ -11,6 +11,8 @@ import com.example.kept.core.data.LockState
 import com.example.kept.core.data.SprigRepository
 import com.example.kept.core.data.TimeSource
 import com.example.kept.core.data.TodaySummary
+import com.example.kept.core.data.WeeklyGoalRepository
+import com.example.kept.core.data.WeeklyGoalWeek
 import com.example.kept.core.data.db.DayRecordEntity
 import com.example.kept.core.data.prefs.KeptPreferences
 import com.example.kept.core.domain.GiveUpTime
@@ -50,6 +52,8 @@ data class HomeUiState(
     val firstLanding: Boolean = false,
     /** Read live each render, so the first-landing card's reminder line reflects the current grant. */
     val notificationsGranted: Boolean = true,
+    /** The active weekly goals with this week's state (issue #165). They are not habits: [today] does not count them. */
+    val weeklyGoals: List<WeeklyGoalWeek> = emptyList(),
 ) {
     val form: SprigForm get() = sprig.form
     val nextForm: SprigForm? get() = SprigForm.next(form)
@@ -66,6 +70,7 @@ class HomeViewModel @Inject constructor(
     private val prefs: KeptPreferences,
     private val permissions: Permissions,
     private val time: TimeSource,
+    private val weeklyGoals: WeeklyGoalRepository,
 ) : ViewModel() {
 
     private val core = combine(habits.observeToday(), sprigRepo.state, lockRepo.observeState(), prefs.settings, time.observeToday()) { today, sprig, lock, settings, date ->
@@ -80,20 +85,29 @@ class HomeViewModel @Inject constructor(
     }
 
     val state: StateFlow<HomeUiState> = combine(
-        core, sprigRepo.unseenUnlocks, dayRepo.observeLastSeven(), dayRepo.observeToday(),
-    ) { s, unseen, seven, todayRec ->
+        core, sprigRepo.unseenUnlocks, dayRepo.observeLastSeven(), dayRepo.observeToday(), weeklyGoals.observeThisWeek(),
+    ) { s, unseen, seven, todayRec, weekly ->
         s.copy(
             unseenUnlock = unseen.firstOrNull(),
             missingLockPermissions = permissions.missing(RequiredPermissions.lockGate),
             notificationsGranted = permissions.notificationsGranted(),
             lastSeven = seven,
             todayRecord = todayRec,
+            weeklyGoals = weekly,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 
     fun complete(habitId: Long) = viewModelScope.launch { actions.complete(habitId) }
     fun undo(habitId: Long) = viewModelScope.launch { actions.undo(habitId) }
     fun completeWithPhoto(habitId: Long, path: String) = viewModelScope.launch { actions.complete(habitId, path) }
+
+    /**
+     * Logs today's session of a weekly goal. One session a day counts: the repository stores
+     * nothing on a second call, so a double tap cannot count twice.
+     */
+    fun logWeekly(goalId: Long) = viewModelScope.launch { weeklyGoals.logToday(goalId) }
+    fun undoWeekly(goalId: Long) = viewModelScope.launch { weeklyGoals.undoToday(goalId) }
+
     fun dismissRecap() = viewModelScope.launch { prefs.updateSettings { it.copy(pendingRecapDate = null) } }
 
     /**

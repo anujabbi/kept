@@ -66,6 +66,19 @@ class HomeNarrowScreenTest {
     @Test fun done6of6() = shot("6of6", 1f, HomeFixtures.state(6, 6))
     @Test fun done6of6_font2() = shot("6of6", 2f, HomeFixtures.state(6, 6))
 
+    /** The weekly card (story #174) on the small phone, scrolled into view. */
+    private fun weeklyShot(name: String, fontScale: Float, s: HomeUiState, tag: String) {
+        rule.setContent { Shot(fontScale) { HomeFrame(s) } }
+        rule.onNodeWithTag(tag).performScrollTo()
+        rule.waitForIdle()
+        rule.onRoot().captureRoboImage("src/test/screenshots/home_360_weekly_${name}_font${fontScale}.png")
+    }
+
+    @Test fun weeklyTodayCounts() = weeklyShot("today_counts", 1f, HomeFixtures.state(2, 1, weekly = listOf(HomeFixtures.todayCounts())), "home_weekly_card_1")
+    @Test fun weeklyTodayCounts_font2() = weeklyShot("today_counts", 2f, HomeFixtures.state(2, 1, weekly = listOf(HomeFixtures.todayCounts())), "home_weekly_card_1")
+    @Test fun weeklyAdd() = weeklyShot("add", 1f, HomeFixtures.state(2, 0), "home_weekly_add")
+    @Test fun weeklyAdd_font2() = weeklyShot("add", 2f, HomeFixtures.state(2, 0), "home_weekly_add")
+
     @Test fun headlineNeverBreaksInsideAWord() {
         val current = mutableStateOf(HomeFixtures.state(2, 0))
         val scale = mutableFloatStateOf(1f)
