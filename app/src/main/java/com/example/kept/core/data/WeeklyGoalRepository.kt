@@ -86,12 +86,14 @@ class WeeklyGoalRepository @Inject constructor(
      * Changes a goal's activity and days a week. The new target applies to the current week at
      * once and logged sessions are kept; the day the goal started counting does not move.
      * Returns false when there is no such active goal.
+     *
+     * One conditional UPDATE, not a read and a write of the whole row: an edit racing a remove
+     * used to be able to write `isActive = 1` back over it, bringing the goal back and, with three
+     * others added meanwhile, passing [WeeklyGoalRules.MAX_GOALS] (review on #177).
      */
     suspend fun updateGoal(id: Long, title: String, daysPerWeek: Int): Boolean {
         val name = checked(title, daysPerWeek)
-        val goal = goalDao.byId(id)?.takeIf { it.isActive } ?: return false
-        goalDao.update(goal.copy(title = name, iconKey = HabitIconRules.forName(name), daysPerWeek = daysPerWeek))
-        return true
+        return goalDao.updateActive(id, name, HabitIconRules.forName(name), daysPerWeek) > 0
     }
 
     /** Removes a goal from the active set. Its row and its sessions stay, as a removed habit's do. */

@@ -3,6 +3,8 @@ package com.example.kept.core.data
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.example.kept.core.data.db.KeptDatabase
+import com.example.kept.core.data.db.WeeklyGoalDao
+import com.example.kept.core.data.db.WeeklyGoalEntity
 import com.example.kept.core.data.prefs.KeptPreferences
 import com.example.kept.core.domain.HabitLimits
 import com.example.kept.core.domain.ProofType
@@ -143,6 +145,67 @@ class WeeklyGoalRepositoryTest {
         assertEquals("book", goal.iconKey)
         assertEquals("the start date does not move", "2026-11-16", goal.effectiveFrom)
         assertFalse(goals.updateGoal(id + 99, "Read", 2))
+    }
+
+    // --- an edit racing a remove (review on #177, closed in #173) --------------------------------
+
+    /**
+     * A DAO that removes the goal the moment anything reads it: the gap an edit that reads the
+     * row and then writes it back whole leaves open for a remove.
+     */
+    private inner class RemovedOnRead(private val real: WeeklyGoalDao) : WeeklyGoalDao by real {
+        var removed = false
+        override suspend fun byId(id: Long): WeeklyGoalEntity? = real.byId(id).also { real.deactivate(id); removed = true }
+        override suspend fun active(): List<WeeklyGoalEntity> = real.active().also { rows -> rows.forEach { real.deactivate(it.id) }; removed = true }
+    }
+
+    @Test fun an_edit_that_loses_to_a_remove_does_not_bring_the_goal_back() = runBlocking {
+        val id = goals.addGoal("Exercise", 4)!!
+        val racing = RemovedOnRead(db.weeklyGoalDao())
+        val edited = WeeklyGoalRepository(racing, db.weeklyGoalEntryDao(), time).updateGoal(id, "Read", 2)
+        val row = db.weeklyGoalDao().byId(id)!!
+        if (racing.removed) {
+            assertFalse("the removed goal is active again", row.isActive)
+            assertEquals(emptyList<Long>(), goals.observeGoals().first().map { it.id })
+        } else {
+            // The edit is one statement and read nothing, so there was no gap to remove in.
+            assertTrue(edited)
+            assertEquals("Read", row.title)
+        }
+    }
+
+    @Test fun editing_a_removed_goal_changes_nothing_and_cannot_pass_the_limit() = runBlocking {
+        val first = goals.addGoal("Exercise", 4)!!
+        goals.removeGoal(first)
+        repeat(WeeklyGoalRules.MAX_GOALS) { goals.addGoal("Goal $it", 3) }
+        assertFalse(goals.updateGoal(first, "Read", 2))
+        val row = db.weeklyGoalDao().byId(first)!!
+        assertFalse(row.isActive)
+        assertEquals("a removed goal keeps what it was", "Exercise", row.title)
+        assertEquals(4, row.daysPerWeek)
+        assertEquals(WeeklyGoalRules.MAX_GOALS, db.weeklyGoalDao().active().size)
+    }
+
+    @Test fun edits_and_removes_at_once_never_leave_a_removed_goal_active_or_a_fourth_goal() = runBlocking {
+        repeat(2) { goals.addGoal("Keep $it", 3) }
+        repeat(40) { round ->
+            val id = goals.addGoal("Round $round", 3)!!
+            listOf(
+                async(Dispatchers.IO) { goals.updateGoal(id, "Edited $round", 5) },
+                async(Dispatchers.IO) { goals.removeGoal(id) },
+            ).awaitAll()
+            assertFalse("round $round: the removed goal is active", db.weeklyGoalDao().byId(id)!!.isActive)
+            assertEquals("round $round", 2, db.weeklyGoalDao().active().size)
+        }
+    }
+
+    @Test fun an_edit_keeps_everything_but_the_activity_its_icon_and_the_days() = runBlocking {
+        val a = goals.addGoal("Exercise", 4)!!
+        val b = goals.addGoal("Study", 2)!!
+        val before = db.weeklyGoalDao().byId(b)!!
+        assertTrue(goals.updateGoal(b, "  Tidy room ", 6))
+        assertEquals(before.copy(title = "Tidy room", iconKey = "tidy", daysPerWeek = 6), db.weeklyGoalDao().byId(b))
+        assertEquals("the other goal is untouched", "Exercise", db.weeklyGoalDao().byId(a)!!.title)
     }
 
     // --- sessions ------------------------------------------------------------------------------

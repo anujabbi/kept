@@ -42,6 +42,7 @@ class SettingsBehaviourTest {
         val opened = mutableListOf<String>()
         val actions = SettingsActions(
             onOpenHabits = { opened += "habits" },
+            onOpenWeeklyGoals = { opened += "weekly_goals" },
             onEditLockFrom = { opened += "lock_from" },
             onEditGiveUp = { opened += "give_up" },
             onOpenExceptions = { opened += "exceptions" },
@@ -51,13 +52,15 @@ class SettingsBehaviourTest {
         )
         rule.setContent { Shot(1f) { SettingsFrame(SettingsFixtures.ALL_SET, actions) } }
         for (row in settingsRows) rule.onNodeWithTag(row).performScrollTo().assertHasClickAction().performClick()
-        assertEquals(listOf("habits", "lock_from", "give_up", "exceptions", "break", "permissions", "history"), opened)
+        assertEquals(listOf("habits", "weekly_goals", "lock_from", "give_up", "exceptions", "break", "permissions", "history"), opened)
     }
 
     @Test fun every_value_is_live() {
         var page by mutableStateOf(SettingsFixtures.ALL_SET)
         rule.setContent { Shot(1f) { SettingsFrame(page) } }
         assertEquals("6", text("settings_habits_value"))
+        assertEquals("Weekly goals", text("settings_weekly_goals_title"))
+        assertEquals("1", text("settings_weekly_goals_value"))
         assertEquals("7:00 am", text("settings_lock_from_value"))
         assertEquals("9:00 pm", text("settings_give_up_value"))
         assertEquals("2 apps", text("settings_exceptions_row_value"))
@@ -65,9 +68,10 @@ class SettingsBehaviourTest {
         assertEquals("All set", text("settings_permissions_row_value"))
         assertEquals("Best streak 12", text("settings_history_value"))
 
-        page = page.copy(habits = 1, lockFromMinute = 6 * 60 + 30, dueMinute = 23 * 60 + 30, exceptions = 1, breakMinutes = 60, permissionsOff = 3, bestStreak = 40)
+        page = page.copy(habits = 1, weeklyGoals = 3, lockFromMinute = 6 * 60 + 30, dueMinute = 23 * 60 + 30, exceptions = 1, breakMinutes = 60, permissionsOff = 3, bestStreak = 40)
         rule.waitForIdle()
         assertEquals("1", text("settings_habits_value"))
+        assertEquals("3", text("settings_weekly_goals_value"))
         assertEquals("6:30 am", text("settings_lock_from_value"))
         assertEquals("11:30 pm", text("settings_give_up_value"))
         assertEquals("1 app", text("settings_exceptions_row_value"))
