@@ -1564,3 +1564,10 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     ("One to go." became "Two to go."), `home_weekly_three_font1.0` and
     `home_weekly_three_end_font1.0` (the same), and `home_weekly_no_habits_font1.0` ("Add a
     habit." became "One to go."). Every other golden is byte-identical to `main`.
+- **The weekly-look copy guard is retired (issue #180).** `NoWeeklyLookCopyTest`, recorded above
+  under issue #125 as the copy guard, is deleted by the 22 Nov 2026 test audit
+  (`docs/em/2026-11-22.md`). It guarded against copy for a feature that was removed in #125:
+  the audit classed it as a guard for a removed feature, since no weekly-look code, column
+  (`MIGRATION_4_5` drops `variantId`, which `MigrationTest` still checks) or screen is left
+  to bring the words back. Nothing else scans for that copy now; that is the intent, not an
+  oversight. The #125 entry is left as written because it describes what #125 built.
