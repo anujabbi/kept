@@ -64,4 +64,11 @@ class WatchdogNightTest {
         val v = GapRules.evaluate(input(LocalTime.of(2, 0), s, inUseAt = listOf(ago(20 * 60_000)), lockedAppResumed = false))
         assertTrue(v.isGap)
     }
+
+    @Test fun `a live service during night lockdown is left alone`() {
+        val i = input(LocalTime.of(2, 0), snapshot(habitsIncomplete = false), emptyList(), false).copy(heartbeatMillis = ago(45_000))
+        val v = GapRules.evaluate(i)
+        assertEquals(GapRules.Verdict.SERVICE_ALIVE, v)
+        assertFalse(v.serviceLooksDead)
+    }
 }
