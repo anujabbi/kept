@@ -10,6 +10,7 @@ import com.example.kept.core.data.db.MIGRATION_1_2
 import com.example.kept.core.data.db.MIGRATION_2_3
 import com.example.kept.core.data.db.MIGRATION_3_4
 import com.example.kept.core.data.db.MIGRATION_4_5
+import com.example.kept.core.data.db.MIGRATION_6_7
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -21,9 +22,10 @@ import org.junit.runner.RunWith
  * Verifies the Room migrations. `fallbackToDestructiveMigration` is gone (issue #5), so a user on
  * any shipped schema must be able to reach the current one without losing a row: 1 -> 2 (the
  * timer removal, issue #3), 2 -> 3 (the points removal, issue #8), 3 -> 4 (the buddy removal,
- * issue #13), 4 -> 5 (the weekly looks removal, issue #125), and 1 -> 6 end to end, which is the
- * path an installed-but-never-updated build actually takes. 5 -> 6 (the retired preset, issue
- * #163) changes rows, not tables; `RetiredPresetMigrationTest` covers its rows on the JVM.
+ * issue #13), 4 -> 5 (the weekly looks removal, issue #125), 6 -> 7 (the weekly goal tables, issue
+ * #165), and 1 -> 7 end to end, which is the path an installed-but-never-updated build actually
+ * takes. 5 -> 6 (the retired preset, issue #163) changes rows, not tables;
+ * `RetiredPresetMigrationTest` covers its rows on the JVM.
  */
 @RunWith(AndroidJUnit4::class)
 class MigrationTest {
@@ -196,8 +198,65 @@ class MigrationTest {
         assertFalse(columnNames.contains("variantId"))
     }
 
+    /**
+     * `runMigrationsAndValidate` checks both new tables and their indexes against the exported
+     * schema 7; the rows a release database already holds come through untouched.
+     */
     @Test
-    fun migrate1To6_runsEveryMigrationAndKeepsData() {
+    fun migrate6To7_addsTheWeeklyGoalTablesAndKeepsExistingRows() {
+        helper.createDatabase(dbName, 6).apply {
+            execSQL(
+                "INSERT INTO habits (id, title, iconKey, proofType, targetValue, unit, sortOrder, isActive, createdAt) " +
+                    "VALUES (1, 'Exercise', 'run', 'MANUAL', 30, 'min', 0, 1, 0)",
+            )
+            execSQL("INSERT INTO habit_entries (id, habitId, date, progressValue, completedAt, photoPath) VALUES (1, 1, '2026-11-24', 30, 111, NULL)")
+            execSQL(
+                "INSERT INTO day_records (date, habitsDone, habitsTotal, lockedMillis, breaksUsed, unprotected, broken, " +
+                    "writtenOff, countedForStreak, shieldConsumed, levelEnd, formId, streakEnd, finalized) " +
+                    "VALUES ('2026-11-24', 1, 1, 5400000, 0, 0, 0, 0, 1, 0, 4, 3, 12, 1)",
+            )
+            close()
+        }
+
+        val migrated = helper.runMigrationsAndValidate(dbName, 7, true, MIGRATION_6_7)
+
+        val names = mutableListOf<String>()
+        migrated.query("SELECT name FROM sqlite_master WHERE name LIKE '%weekly_goal%' ORDER BY name").use {
+            while (it.moveToNext()) names += it.getString(0)
+        }
+        assertEquals(
+            listOf("index_weekly_goal_entries_date", "index_weekly_goal_entries_goalId_date", "weekly_goal_entries", "weekly_goals"),
+            names,
+        )
+        migrated.query("SELECT title, targetValue FROM habits WHERE id = 1").use {
+            assertTrue(it.moveToFirst())
+            assertEquals("Exercise", it.getString(0))
+            assertEquals(30, it.getInt(1))
+        }
+        migrated.query("SELECT progressValue, completedAt FROM habit_entries WHERE id = 1").use {
+            assertTrue(it.moveToFirst())
+            assertEquals(30, it.getInt(0))
+            assertEquals(111L, it.getLong(1))
+        }
+        migrated.query("SELECT habitsDone, streakEnd, levelEnd, finalized FROM day_records WHERE date = '2026-11-24'").use {
+            assertTrue(it.moveToFirst())
+            assertEquals(1, it.getInt(0))
+            assertEquals(12, it.getInt(1))
+            assertEquals(4, it.getInt(2))
+            assertEquals(1, it.getInt(3))
+        }
+        // One session a day: the second insert for the same goal and date is refused.
+        migrated.execSQL("INSERT INTO weekly_goal_entries (goalId, date, completedAt) VALUES (1, '2026-11-25', 100)")
+        migrated.execSQL("INSERT OR IGNORE INTO weekly_goal_entries (goalId, date, completedAt) VALUES (1, '2026-11-25', 200)")
+        migrated.query("SELECT COUNT(*), MAX(completedAt) FROM weekly_goal_entries").use {
+            assertTrue(it.moveToFirst())
+            assertEquals(1, it.getInt(0))
+            assertEquals(100L, it.getLong(1))
+        }
+    }
+
+    @Test
+    fun migrate1To7_runsEveryMigrationAndKeepsData() {
         helper.createDatabase(dbName, 1).apply {
             execSQL(
                 "INSERT INTO habits (id, title, iconKey, proofType, targetValue, unit, sortOrder, isActive, createdAt) " +
@@ -207,7 +266,7 @@ class MigrationTest {
             close()
         }
 
-        val migrated = helper.runMigrationsAndValidate(dbName, 6, true, *ALL_MIGRATIONS)
+        val migrated = helper.runMigrationsAndValidate(dbName, 7, true, *ALL_MIGRATIONS)
 
         migrated.query("SELECT proofType FROM habits WHERE id = 1").use {
             assertTrue(it.moveToFirst())

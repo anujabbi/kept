@@ -138,3 +138,35 @@ interface GalleryDao {
     @Query("UPDATE gallery SET seen = 1") suspend fun markAllSeen()
     @Query("DELETE FROM gallery") suspend fun clear()
 }
+
+@Dao
+interface WeeklyGoalDao {
+    @Query("SELECT * FROM weekly_goals WHERE isActive = 1 ORDER BY sortOrder, id")
+    fun observeActive(): Flow<List<WeeklyGoalEntity>>
+
+    @Query("SELECT * FROM weekly_goals WHERE isActive = 1 ORDER BY sortOrder, id")
+    suspend fun active(): List<WeeklyGoalEntity>
+
+    @Query("SELECT * FROM weekly_goals WHERE id = :id")
+    suspend fun byId(id: Long): WeeklyGoalEntity?
+
+    @Insert suspend fun insert(goal: WeeklyGoalEntity): Long
+    @Update suspend fun update(goal: WeeklyGoalEntity)
+    @Query("UPDATE weekly_goals SET isActive = 0 WHERE id = :id") suspend fun deactivate(id: Long)
+}
+
+@Dao
+interface WeeklyGoalEntryDao {
+    @Query("SELECT * FROM weekly_goal_entries WHERE date BETWEEN :from AND :to")
+    fun observeBetween(from: String, to: String): Flow<List<WeeklyGoalEntryEntity>>
+
+    @Query("SELECT * FROM weekly_goal_entries WHERE date BETWEEN :from AND :to")
+    suspend fun between(from: String, to: String): List<WeeklyGoalEntryEntity>
+
+    /** Returns the new row id, or -1 when the goal already has a session on that date. */
+    @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertIfAbsent(entry: WeeklyGoalEntryEntity): Long
+
+    /** Returns the number of rows removed: 1, or 0 when there was no session to undo. */
+    @Query("DELETE FROM weekly_goal_entries WHERE goalId = :goalId AND date = :date")
+    suspend fun delete(goalId: Long, date: String): Int
+}

@@ -1271,3 +1271,58 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     360dp, font 1.0 and 2.0. Re-recorded because the progress bar now has six segments: every
     onboarding step golden with a progress bar (habits, habits limit, lock window, exceptions,
     permissions, ready). Welcome, Add a habit and the settings-mode pages are unchanged.
+
+- **Weekly goals: data, migration and `WeeklyGoalRules` (issue #165, story #172).** Built as
+  #165 specifies, on the owner defaults the planner listed (reduced first-week target and no lock
+  on the creation day; must-do days go on after the target is out of reach; 3 goals; Sunday to
+  Saturday). No screen, lock, notification, Home or rollover code reads any of this yet. Choices
+  #165 leaves open:
+  - *One function answers for a goal's week.* `WeeklyGoalRules.week(goal, sessionDates, today)`
+    returns `Week(weekStart, today, target, done, remaining, needed, doneToday, isMustDay,
+    canStillHitTarget, days)`. It takes local dates and a set of dates; it reads no clock and no
+    zone, which is what makes the DST and zone cases hold. The Home card (#174) and the lock
+    (#175) are meant to read this and nothing else. `weekStart`, `weekEnd`, `remaining`,
+    `targetFor`, `needed` and `cannotSkip` are the parts, public for the tests and for copy.
+  - *`isMustDay` is false once today's session is logged.* #165's test is `needed > 0 &&
+    needed >= remaining`, and its lock adds "and has no entry today". The two are folded into
+    one flag, because the bare test is wrong after a session on a week that is already lost:
+    Example C's Friday (2 days left, 3 needed) is still "2 left, 2 needed" once Friday's session
+    is logged, and must not lock. So `isMustDay` = not logged today, not the creation day, and
+    `cannotSkip(needed, remaining)`. `needed` and `remaining` are reported as #165 defines them
+    (`remaining` always includes today; `done` and `needed` include today's session).
+  - *`canStillHitTarget` counts the days that can still take a session.* #165 gives "can't hit"
+    as `needed > remaining`. That is what is used while today is not logged; once it is, today
+    can take no more, so the test is `needed > remaining - 1`. Without that, the same lost Friday
+    would read as back on target after its session.
+  - *The first-week target follows `effectiveFrom`, and an edit keeps it.* In the week that
+    holds `effectiveFrom` the target is `min(daysPerWeek, days after effectiveFrom)`, worked out
+    from the current `daysPerWeek` on every read, so an edit in the first week is capped the same
+    way. `updateGoal` never moves `effectiveFrom`. A week that ended before `effectiveFrom` has
+    target 0.
+  - *Only this week's sessions up to today count.* `week` ignores dates outside
+    `[weekStart, today]`, so a caller may pass every session a goal has.
+  - *A fifth strip state, `NOT_COUNTED`.* #165 names done, skipped, today and coming up. In the
+    first partial week the days before the goal was set, and the creation day itself when it has
+    no session, are none of those: calling them skipped would blame the person for days the goal
+    did not count. `DayState.NOT_COUNTED` covers them; #174 decides how it is drawn (the mockup
+    shows a goal older than its week, so it has no such day). Each `Day` also carries `isToday`,
+    because a logged today is `DONE` and the strip still marks it.
+  - *An entry row means a session.* `weekly_goal_entries.completedAt` is `NOT NULL` and undo
+    deletes the row, unlike `habit_entries`, which keeps an undone row with a null `completedAt`.
+    The count is then a plain row count. `id` autoincrements, as `habit_entries.id` does.
+    Logging is `INSERT OR IGNORE` against the unique (`goalId`, `date`) index, so two taps, or
+    Home and the lock screen at once, store one row without a read-then-write.
+  - *Removing a goal deactivates it.* `removeGoal` sets `isActive = 0` and keeps the row and its
+    sessions, as removing a habit does; story 5's history can still name it. There is no pause,
+    and no hard delete. A removed goal takes no new session.
+  - *The limit and the input rules hold in the repository.* `addGoal` returns null at 3 active
+    goals, under a mutex like `addHabitWithinLimit`; habits are not counted, and goals are not
+    counted toward `HabitLimits.MAX_HABITS`. A blank name, one over `HabitDraft.MAX_TITLE`, or
+    days outside 1 to 7 throws `IllegalArgumentException`: the setup screen (#173) is expected to
+    make those unreachable. The icon is `HabitIconRules.forName` of the name, set on add and edit.
+  - *No copy yet.* #165's Data model lists "copy" under `WeeklyGoalRules`; #172's scope does not,
+    so the strings come with the screens that show them (#173 to #175).
+  - *Existing migration tests moved to schema 7.* `GalleryMigrationTest` and
+    `RetiredPresetMigrationTest` open at the latest version, so they now pass `MIGRATION_6_7`
+    and expect version 7, and `migrate4To6_…` is `migrate4To7_…`, as happened for 5 to 6. No
+    other existing test changed.
