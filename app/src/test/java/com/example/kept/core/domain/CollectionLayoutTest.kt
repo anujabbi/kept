@@ -33,8 +33,6 @@ class CollectionLayoutTest {
         assertEquals(7, CollectionForms.reachedCount(gallery, CELESTIAL))
     }
 
-    /** QA on #125: the old subtitle counted gallery rows, so a form reached twice counted twice. */
-
     @Test fun `a form reached before a streak reset stays reached`() {
         val gallery = listOf(BUD, BLOOM, THICKET, GROVE)
         val s = statuses(gallery, SPRIG)

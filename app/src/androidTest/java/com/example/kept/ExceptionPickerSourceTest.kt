@@ -145,11 +145,4 @@ class ExceptionPickerSourceTest {
         lockRepo.addException(target!!.packageName, target.label)
         vm.awaitPicker { list -> list.single { it.app.packageName == target.packageName }.allowed }
     }
-
-    /**
-     * Switched-on rows stay pinned at the top (issue #39): what the screen shows is
-     * [orderForPicker] over the picker the view model emits, so after a toggle through the
-     * view model the toggled rows come first, alphabetical among themselves, and a search query
-     * keeps them first within its matches.
-     */
 }

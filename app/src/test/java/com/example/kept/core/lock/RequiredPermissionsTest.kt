@@ -53,8 +53,6 @@ class RequiredPermissionsTest {
         assertEquals("usage access, display over other apps and notifications", RequiredPermissions.names(m))
     }
 
-    /** Onboarding step 5's tags (#132): "On" once granted, else by what the permission is for. */
-
     @Test fun `the lock gate is usage access and overlay only`() {
         // Decision (issue #40): a denied notification permission is not a protection gap, the
         // foreground service still enforces the lock without its visible notification.

@@ -120,11 +120,6 @@ class LockPolicyTest {
         assertTrue(LockPolicy.shouldLock("com.instagram.android", now.plusSeconds(601), LocalTime.of(12, 10), s))
     }
 
-    /**
-     * Issue #4: an exception added while the lock is running must be honoured on the very next
-     * decision, from nothing but the snapshot the service recombines. No restart, no cache.
-     */
-
     /** Issue #4: the lock screen on top of a package must come down when that package is excepted. */
     @Test fun `the lock screen comes down as soon as its package is excepted`() {
         assertTrue(LockPolicy.lockScreenShouldStay("com.instagram.android", now, LocalTime.of(12, 0), base))

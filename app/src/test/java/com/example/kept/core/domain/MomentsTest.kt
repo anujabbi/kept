@@ -115,11 +115,6 @@ class MomentsTest {
         assertTrue("yesterday's stand-in does not count", MomentRules.lockStandsIn(1, yesterday, yesterday, today))
     }
 
-    /**
-     * QA on PR #144: tick, carry on, undo and tick again while the first claim is still being
-     * written, then the two claims land in either order. Nothing may stand in or go up again.
-     */
-
     @Test fun `the claimed moment goes up on the lock screen unless carried on already`() {
         assertTrue(MomentRules.lockRaisesAfterClaim(true, null, today))
         assertTrue(MomentRules.lockRaisesAfterClaim(true, yesterday, today))

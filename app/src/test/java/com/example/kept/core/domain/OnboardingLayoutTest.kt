@@ -154,6 +154,4 @@ class OnboardingLayoutTest {
             for (edge in listOf(right - x.sprigDp, right)) assertTrue("$w at $edge", bottom >= HillEdge.topDp(252f, w.toFloat(), edge) + 1.9f)
         }
     }
-
-    // Shutdown time (#164) ---------------------------------------------------------------------
 }

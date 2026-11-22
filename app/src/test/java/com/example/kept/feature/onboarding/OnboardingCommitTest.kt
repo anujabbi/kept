@@ -96,10 +96,4 @@ class OnboardingCommitTest {
         assertTrue(Settings().onboardingFinished(today).firstLandingPending)
         assertFalse(Settings().onboardingDraft(today).firstLandingPending)
     }
-
-    /**
-     * Migration (issue #41): a user whose onboarding finished before the card existed has
-     * `onboarding_done` stored and no `first_landing_pending` key. The key reads back as false
-     * when absent, so such a Settings must not be pending.
-     */
 }

@@ -106,12 +106,6 @@ class MigrationTest {
         assertFalse(columnNames.contains("pointsEarned"))
     }
 
-    /**
-     * The path a phone that installed v1 and never updated takes. Every migration runs in one go
-     * and `runMigrationsAndValidate` checks the result against the exported schema 4, so a column
-     * or a table the migrations forgot fails here rather than in the field.
-     */
-
     @Test
     fun migrate3To4_dropsTheBuddyTable() {
         helper.createDatabase(dbName, 3).apply {

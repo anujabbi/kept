@@ -212,8 +212,6 @@ class WeeklyGoalRulesTest {
         assertEquals("a week before the goal started", 0, WeeklyGoalRules.targetFor(4, nextSun, sat))
     }
 
-    // --- editing the target --------------------------------------------------------------------
-
     // --- the week strip ------------------------------------------------------------------------
 
     @Test fun strip_isSundayToSaturday_doneSkippedTodayComingUp() {
@@ -246,8 +244,6 @@ class WeeklyGoalRulesTest {
 
     // --- dates: DST and zones ------------------------------------------------------------------
 
-    /** US clocks go forward on Sunday 8 March 2026: that Sunday is 23 hours long. */
-
     /** US clocks go back on Sunday 1 November 2026: that Sunday is 25 hours long. */
     @Test fun dstEndWeek_remainingIsUnchangedByThe25HourDay() {
         val zone = ZoneId.of("America/New_York")
@@ -265,6 +261,4 @@ class WeeklyGoalRulesTest {
         assertFalse(state(g, start.plusDays(2)).isMustDay)
         assertTrue(state(g, start.plusDays(3)).isMustDay)
     }
-
-    // --- limits --------------------------------------------------------------------------------
 }
