@@ -79,6 +79,8 @@ object DaybreakColors {
     /** A day done too late in History: the dot's fill and ring (`A15-History`). */
     val lateTint = Color(0xFFFBE6CC)
     val lateRing = Color(0xFFD9A441)
+    /** A day still to come in a weekly goal's strip (weekly goals mockup 4). */
+    val weekRing = Color(0xFFE0D6C8)
 }
 
 /** The top band of each screen. See [SkyRamp] for which one a screen shows. */

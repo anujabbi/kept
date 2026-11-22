@@ -14,6 +14,9 @@ import androidx.compose.ui.Modifier
 import com.example.kept.core.data.HabitToday
 import com.example.kept.core.data.LockState
 import com.example.kept.core.data.TodaySummary
+import com.example.kept.core.data.WeeklyGoalWeek
+import com.example.kept.core.data.db.WeeklyGoalEntity
+import com.example.kept.core.domain.WeeklyGoalRules
 import com.example.kept.core.data.db.DayRecordEntity
 import com.example.kept.core.data.db.HabitEntity
 import com.example.kept.core.data.db.HabitEntryEntity
@@ -82,6 +85,7 @@ internal object HomeFixtures {
         firstLanding: Boolean = false,
         shieldReady: Boolean = true,
         week: List<Pair<LocalDate, DayRecordEntity?>> = lastSeven(),
+        weekly: List<WeeklyGoalWeek> = emptyList(),
     ): HomeUiState {
         val t = habits(total, done, late)
         return HomeUiState(
@@ -94,8 +98,50 @@ internal object HomeFixtures {
             missingLockPermissions = if (lockOff) listOf(PermissionKind.USAGE_ACCESS) else emptyList(),
             lastSeven = week,
             firstLanding = firstLanding,
+            weeklyGoals = weekly,
         )
     }
+
+    /** The Sunday of [today]'s week: 22 November 2026. */
+    val sunday: LocalDate = WeeklyGoalRules.weekStart(today)
+
+    /**
+     * A weekly goal's week as [on] (Wednesday unless said), with a session on each of [sessions],
+     * counted as days after Sunday (0 = Sunday). Set long ago unless [from] says when.
+     */
+    fun goal(
+        id: Long,
+        title: String,
+        daysPerWeek: Int,
+        vararg sessions: Int,
+        on: LocalDate = today,
+        from: LocalDate = LocalDate.of(2026, 11, 1),
+    ): WeeklyGoalWeek {
+        val start = WeeklyGoalRules.weekStart(on)
+        return WeeklyGoalWeek(
+            WeeklyGoalEntity(id = id, title = title, iconKey = "run", daysPerWeek = daysPerWeek, createdAt = 0, effectiveFrom = from.toString()),
+            WeeklyGoalRules.week(WeeklyGoalRules.Goal(daysPerWeek, from), sessions.map { start.plusDays(it.toLong()) }.toSet(), on),
+        )
+    }
+
+    /** Wednesday, sessions on Sunday and Tuesday, 4 a week: on track, with a skipped Monday. */
+    fun onTrack(): WeeklyGoalWeek = goal(1, "Exercise", 4, 0, 2)
+
+    /** Worked example A: 4 a week, nothing logged, Wednesday. */
+    fun todayCounts(): WeeklyGoalWeek = goal(1, "Exercise", 4)
+
+    /** 3 a week, done on Sunday, Monday and today. */
+    fun completeWeek(): WeeklyGoalWeek = goal(1, "Exercise", 3, 0, 1, 3)
+
+    /** Worked example B: 4 a week, one session on Sunday, the clock on Monday. */
+    fun exampleB(): WeeklyGoalWeek = goal(1, "Exercise", 4, 0, on = sunday.plusDays(1))
+
+    /** Three goals, the limit: on track, today counts, and one set this Tuesday. */
+    fun threeGoals(): List<WeeklyGoalWeek> = listOf(
+        onTrack(),
+        goal(2, "Read", 5, 0),
+        goal(3, "Practice", 2, from = sunday.plusDays(2)),
+    )
 
     /** Every day kind once: missed, lock off, shielded, kept, kept, kept, today. */
     fun everyDayKind(): List<Pair<LocalDate, DayRecordEntity?>> = (6 downTo 0).map { back ->

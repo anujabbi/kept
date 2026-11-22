@@ -288,7 +288,12 @@ fun DaybreakHabitRow(
 
 /** No habits yet (`A18-Parts`): a dashed row that opens Add a habit. */
 @Composable
-fun AddFirstHabitRow(onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun AddFirstHabitRow(onClick: () -> Unit, modifier: Modifier = Modifier) =
+    AddRow("Add your first habit", "Apps lock until it is done each day.", onClick, modifier)
+
+/** The dashed "add" row of `A18-Parts`: a plus tile, a title and one line under it. */
+@Composable
+fun AddRow(title: String, line: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(20.dp)
     Row(
         modifier.fillMaxWidth().heightIn(min = 64.dp).clip(shape).dashedBorder(2.dp, D.ring, 20.dp)
@@ -301,8 +306,8 @@ fun AddFirstHabitRow(onClick: () -> Unit, modifier: Modifier = Modifier) {
             Icon(DaybreakIcons.Plus, null, Modifier.size(20.dp), tint = D.purple)
         }
         Column {
-            Text("Add your first habit", style = DaybreakType.rowTitle, color = D.ink)
-            Text("Apps lock until it is done each day.", style = DaybreakType.caption, color = D.muted)
+            Text(title, style = DaybreakType.rowTitle, color = D.ink)
+            Text(line, style = DaybreakType.caption, color = D.muted)
         }
     }
 }
