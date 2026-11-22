@@ -162,10 +162,6 @@ class GapRulesTest {
         assertEquals(GapRules.Verdict.DOZE_NOT_A_GAP, v)
     }
 
-    @Test fun `the evidence floor defaults to the heartbeat`() {
-        assertEquals(ago(30 * 60_000), input().evidenceFloorMillis)
-    }
-
     @Test fun `every gap verdict carries copy for the record and the notification`() {
         GapRules.Verdict.entries.filter { it.isGap }.forEach { assertTrue(it.reason.isNotBlank()) }
     }

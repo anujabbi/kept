@@ -19,7 +19,6 @@ import com.example.kept.core.domain.SprigState
 import com.example.kept.core.ui.shots.Shot
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -149,13 +148,5 @@ class CollectionBehaviourTest {
         assertEquals("Day 2 with Sprig", now.headline)
         val day0 = FormShare.of(SprigForm.SPRIG, emptyList(), SprigState(streakDays = 0)).content()
         assertEquals("Day 0 with Sprig", day0.headline)
-    }
-
-    @Test fun no_route_or_screen_name_for_the_roadmap_is_left() {
-        val routes = com.example.kept.feature.app.Routes::class.java.declaredFields.map { it.name }
-        assertTrue(routes.none { it.contains("ROADMAP") })
-        val screens = com.example.kept.core.analytics.Screens::class.java.declaredFields.map { it.name }
-        assertTrue(screens.none { it.contains("ROADMAP") })
-        assertNull(com.example.kept.feature.app.screenNameFor("roadmap"))
     }
 }

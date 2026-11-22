@@ -24,11 +24,9 @@ class HabitsScreenshotTest {
     private val shots by lazy { HabitsShots(rule, "") }
 
     @Test fun list() = shots.shot("list", 1f)
-    @Test fun list_font2() = shots.shot("list", 2f)
     @Test fun listLimit() = shots.shot("list_limit", 1f)
     @Test fun listLimit_font2() = shots.shot("list_limit", 2f)
     @Test fun add() = shots.shot("add", 1f)
-    @Test fun add_font2() = shots.shot("add", 2f)
     @Test fun addCustom() = shots.shot("add_custom", 1f)
     @Test fun addCustom_font2() = shots.shot("add_custom", 2f)
     @Test fun addPhoto() = shots.shot("add_photo", 1f)

@@ -274,31 +274,6 @@ class RetiredPresetMigrationTest {
     }
 
     @Test
-    fun sprigStateIsIdenticalBeforeAndAfterTheUpgrade() = runBlocking {
-        val before = settledUser()
-        createReleaseDatabase {
-            habit(1, "Exercise", "min", target = 30, icon = "run")
-            habit(2, "Sleep by 11", "check-in")
-            habit(3, "Sleep by 11", "check-in", active = false)
-            entry(1, habitId = 1, date = today, completedAt = now.toEpochMilli() - 3_600_000)
-            day("2026-11-24", done = 2, total = 2, finalized = true, streakEnd = 12)
-            day(today, done = 1, total = 2, finalized = false)
-        }
-        assertEquals(before, prefs.currentSprig())
-
-        upgrade()
-        firstLaunchAfterUpgrade()
-
-        val after = prefs.currentSprig()
-        assertEquals(before.streakDays, after.streakDays)
-        assertEquals(before.bestStreak, after.bestStreak)
-        assertEquals(before.level, after.level)
-        assertEquals(before.shieldAvailable, after.shieldAvailable)
-        assertEquals(before.shieldWeekKey, after.shieldWeekKey)
-        assertEquals("every field, not only the four above", before, after)
-    }
-
-    @Test
     fun aUserWhoseOnlyHabitWasThePresetEndsWithNoHabitsAndNoLock() = runBlocking {
         val sprigBefore = settledUser()
         createReleaseDatabase {

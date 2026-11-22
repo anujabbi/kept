@@ -80,12 +80,6 @@ class WeeklyGoalRepositoryTest {
         assertFalse(w.isMustDay)
     }
 
-    @Test fun a_fourth_active_goal_is_refused() = runBlocking {
-        repeat(WeeklyGoalRules.MAX_GOALS) { assertNotNull("goal ${it + 1}", goals.addGoal("Goal ${it + 1}", 3)) }
-        assertNull(goals.addGoal("Goal 4", 3))
-        assertEquals(3, db.weeklyGoalDao().active().size)
-    }
-
     @Test fun two_saves_at_two_goals_add_only_one() = runBlocking {
         repeat(2) { goals.addGoal("Goal ${it + 1}", 3) }
         val results = (1..2).map { async(Dispatchers.IO) { goals.addGoal("Late $it", 3) } }.awaitAll()

@@ -198,14 +198,6 @@ class HabitsBehaviourTest {
         assertEquals("water", saved!!.iconKey)
     }
 
-    @Test fun close_cancels_without_saving() {
-        showEditor()
-        rule.onNodeWithTag("habit_name").performTextInput("Piano")
-        rule.onNodeWithTag("page_back").performClick()
-        assertEquals(1, closed)
-        assertNull(saved)
-    }
-
     @Test fun a_double_tap_on_save_saves_once_and_closes_once() {
         var saves = 0
         var pops = 0

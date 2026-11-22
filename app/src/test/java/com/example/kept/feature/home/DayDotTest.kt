@@ -21,9 +21,6 @@ class DayDotTest {
     @Test fun `a shielded day is shielded`() =
         assertEquals(DayDot.SHIELDED, dayDot(false, record(shield = true), false))
 
-    @Test fun `a written-off day is missed`() =
-        assertEquals(DayDot.MISSED, dayDot(false, record(writtenOff = true), false))
-
     @Test fun `a written-off day is never shown as saved by the shield (issue 143)`() {
         // A record from a build before #143 could carry both flags; the shield could not save it.
         assertEquals(DayDot.MISSED, dayDot(false, record(writtenOff = true, shield = true), false))

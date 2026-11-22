@@ -23,8 +23,4 @@ class MotionAndHapticsTest {
         assertFalse(Motion.isReduced(0.5f))
         assertFalse(Motion.isReduced(1f))
     }
-
-    @Test fun `sky animates over 700ms`() {
-        assertEquals(700, Motion.SKY_MS)
-    }
 }

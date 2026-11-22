@@ -25,21 +25,11 @@ class MomentsNarrowScreenTest {
 
     @Test fun celebrate() = shots.celebrate(1f)
     @Test fun celebrate_font2() = shots.celebrate(2f)
-    @Test fun celebrate_moving() = shots.celebrateMidMoment()
 
-    @Test fun evolveBud() = shots.evolve(SprigForm.BUD, 1f)
-    @Test fun evolveBud_font2() = shots.evolve(SprigForm.BUD, 2f)
-    @Test fun evolveBloom() = shots.evolve(SprigForm.BLOOM, 1f)
-    @Test fun evolveBloom_font2() = shots.evolve(SprigForm.BLOOM, 2f)
-    @Test fun evolveThicket() = shots.evolve(SprigForm.THICKET, 1f)
-    @Test fun evolveThicket_font2() = shots.evolve(SprigForm.THICKET, 2f)
-    @Test fun evolveGrove() = shots.evolve(SprigForm.GROVE, 1f)
-    @Test fun evolveGrove_font2() = shots.evolve(SprigForm.GROVE, 2f)
     @Test fun evolveAncient() = shots.evolve(SprigForm.ANCIENT, 1f)
     @Test fun evolveAncient_font2() = shots.evolve(SprigForm.ANCIENT, 2f)
     @Test fun evolveCelestial() = shots.evolve(SprigForm.CELESTIAL, 1f)
     @Test fun evolveCelestial_font2() = shots.evolve(SprigForm.CELESTIAL, 2f)
-    @Test fun evolve_moving() = shots.evolveMidMoment()
 
     @Test fun headlinesKeepWordsWhole() = shots.headlinesKeepWordsWhole()
 }

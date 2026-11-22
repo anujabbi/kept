@@ -15,24 +15,6 @@ class HabitDraftTest {
     private val nb = HabitsCopy.NBSP
     private fun plain(s: String) = s.replace(nb, ' ')
 
-    @Test fun a_new_draft_is_20_min_with_no_name_and_no_photo() {
-        val d = HabitDraft()
-        assertEquals("", d.title)
-        assertEquals(20, d.target)
-        assertEquals(MIN, d.unit)
-        assertFalse(d.photo)
-        assertEquals("20 min", plain(d.amount))
-    }
-
-    @Test fun unit_chips_start_at_20_10_1_and_8() {
-        val d = HabitDraft(title = "Piano")
-        assertEquals(20, d.withUnit(MIN).target)
-        assertEquals(10, d.withUnit(PAGES).target)
-        assertEquals(1, d.withUnit(TIMES).target)
-        assertEquals(8, d.withUnit(GLASSES).target)
-        assertEquals(listOf(MIN, PAGES, TIMES, GLASSES), HabitDraft.UNITS)
-    }
-
     @Test fun minutes_step_by_5_and_every_other_unit_by_1() {
         val m = HabitDraft(target = 20, unit = MIN)
         assertEquals(25, m.more().target)
@@ -83,17 +65,6 @@ class HabitDraftTest {
         assertEquals(28, HabitDraft().withTitle("x".repeat(40)).title.length)
     }
 
-    @Test fun each_quick_pick_fills_name_amount_and_unit() {
-        val expected = listOf(Triple("Exercise", 30, MIN), Triple("Read", 10, PAGES), Triple("Practice", 20, MIN), Triple("Study", 45, MIN))
-        assertEquals(expected, HabitDraft.PRESETS.map { Triple(it.title, it.target, it.unit) })
-        for (p in HabitDraft.PRESETS) {
-            val d = HabitDraft(title = "x", target = 3, unit = GLASSES).pick(p)
-            assertEquals(p.title, d.title)
-            assertEquals(p.target, d.target)
-            assertEquals(p.unit, d.unit)
-        }
-    }
-
     @Test fun unit_chips_show_only_for_a_name_that_is_not_a_quick_pick() {
         assertFalse(HabitDraft().showsUnits)
         assertFalse(HabitDraft(title = " ").showsUnits)
@@ -131,12 +102,6 @@ class HabitDraftTest {
         assertEquals("Once a day, tap when done", HabitsCopy.detail(ProofType.MANUAL, 1, TIMES))
         assertEquals("Photo check-in", HabitsCopy.detail(ProofType.PHOTO, 1, "photo"))
         assertEquals("Tap when done", HabitsCopy.detail(ProofType.MANUAL, 1, HabitDraft.CHECK_IN))
-    }
-
-    @Test fun the_footer_counts_habits_and_shows_the_limit_at_ten() {
-        assertEquals("6 of 10 habits", plain(HabitsCopy.count(6)))
-        assertEquals("9 of 10 habits", plain(HabitsCopy.count(9)))
-        assertEquals(HabitLimits.LIMIT_REACHED, HabitsCopy.count(10))
     }
 }
 

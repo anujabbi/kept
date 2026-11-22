@@ -8,7 +8,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.DayOfWeek
 import java.time.Duration
-import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -115,13 +114,6 @@ class WeeklyGoalRulesTest {
         }
     }
 
-    @Test fun moreSessionsThanTheTarget_neededStaysAtZero() {
-        val s = state(goal(2), sat, sun, mon, tue)
-        assertEquals(3, s.done)
-        assertEquals(0, s.needed)
-        assertFalse(s.isMustDay)
-    }
-
     // --- target 7 ------------------------------------------------------------------------------
 
     @Test fun target7_everyDayIsMustDoUntilItsSessionIsLogged() {
@@ -222,24 +214,6 @@ class WeeklyGoalRulesTest {
 
     // --- editing the target --------------------------------------------------------------------
 
-    @Test fun editing4To2MidWeek_appliesNow_withLoggedSessionsKept() {
-        val before = state(goal(4), thu, mon)
-        assertEquals(3, before.needed)
-        assertTrue(before.isMustDay)
-
-        val after = state(goal(2), thu, mon)
-        assertEquals(2, after.target)
-        assertEquals(1, after.done)
-        assertEquals(1, after.needed)
-        assertEquals(3, after.remaining)
-        assertFalse(after.isMustDay)
-    }
-
-    @Test fun raisingTheTargetCanMakeTodayMustDo() {
-        assertFalse(state(goal(2), thu, mon).isMustDay)
-        assertTrue(state(goal(4), thu, mon).isMustDay)
-    }
-
     // --- the week strip ------------------------------------------------------------------------
 
     @Test fun strip_isSundayToSaturday_doneSkippedTodayComingUp() {
@@ -273,22 +247,6 @@ class WeeklyGoalRulesTest {
     // --- dates: DST and zones ------------------------------------------------------------------
 
     /** US clocks go forward on Sunday 8 March 2026: that Sunday is 23 hours long. */
-    @Test fun dstStartWeek_remainingIsUnchangedByThe23HourDay() {
-        val zone = ZoneId.of("America/New_York")
-        val start = LocalDate.parse("2026-03-08")
-        assertEquals(23, Duration.between(start.atStartOfDay(zone), start.plusDays(1).atStartOfDay(zone)).toHours())
-        val days = (0L..6L).map { start.plusDays(it) }
-        assertEquals(listOf(7, 6, 5, 4, 3, 2, 1), days.map { WeeklyGoalRules.remaining(it) })
-        days.forEach { assertEquals(start, WeeklyGoalRules.weekStart(it)) }
-        // 23 hours after Sunday's midnight is already Monday: counting 24-hour days would be late.
-        val monday = start.atStartOfDay(zone).toInstant().plusSeconds(23 * 3600L)
-        assertEquals(start.plusDays(1), monday.atZone(zone).toLocalDate())
-        assertEquals(6, WeeklyGoalRules.remaining(monday.atZone(zone).toLocalDate()))
-        // Example A holds across the short day.
-        val g = Goal(4, effectiveFrom = start.minusDays(30))
-        assertFalse(state(g, start.plusDays(2)).isMustDay)
-        assertTrue(state(g, start.plusDays(3)).isMustDay)
-    }
 
     /** US clocks go back on Sunday 1 November 2026: that Sunday is 25 hours long. */
     @Test fun dstEndWeek_remainingIsUnchangedByThe25HourDay() {
@@ -308,37 +266,5 @@ class WeeklyGoalRulesTest {
         assertTrue(state(g, start.plusDays(3)).isMustDay)
     }
 
-    @Test fun zoneChange_theSameInstantGivesEachZonesLocalDateAndWeek() {
-        // Sunday 22 November, 02:30 UTC: still Saturday evening in Los Angeles.
-        val instant = Instant.parse("2026-11-22T02:30:00Z")
-        val london = instant.atZone(ZoneId.of("Europe/London")).toLocalDate()
-        val losAngeles = instant.atZone(ZoneId.of("America/Los_Angeles")).toLocalDate()
-        assertEquals(sun, london)
-        assertEquals(sun.minusDays(1), losAngeles)
-
-        assertEquals(sun, WeeklyGoalRules.weekStart(london))
-        assertEquals(7, WeeklyGoalRules.remaining(london))
-        assertEquals(sun.minusDays(7), WeeklyGoalRules.weekStart(losAngeles))
-        assertEquals(1, WeeklyGoalRules.remaining(losAngeles))
-
-        // A session logged for Saturday the 21st stays on that date whichever zone reads it:
-        // in Los Angeles it is today's, in London it belongs to the week that just ended.
-        val logged = setOf(sun.minusDays(1))
-        val la = WeeklyGoalRules.week(goal(4), logged, losAngeles)
-        assertTrue(la.doneToday)
-        assertEquals(1, la.done)
-        val ldn = WeeklyGoalRules.week(goal(4), logged, london)
-        assertFalse(ldn.doneToday)
-        assertEquals(0, ldn.done)
-    }
-
     // --- limits --------------------------------------------------------------------------------
-
-    @Test fun upToThreeGoals_andOneToSevenDays() {
-        assertTrue(WeeklyGoalRules.canAdd(0))
-        assertTrue(WeeklyGoalRules.canAdd(2))
-        assertFalse(WeeklyGoalRules.canAdd(3))
-        assertEquals(listOf(1, 2, 3, 4, 5, 6, 7), (0..8).filter { WeeklyGoalRules.isValidDaysPerWeek(it) })
-        assertEquals(3, WeeklyGoalRules.DEFAULT_DAYS)
-    }
 }

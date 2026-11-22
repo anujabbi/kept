@@ -123,6 +123,7 @@ class BreakBehaviourTest {
         rule.setContent {
             Shot { BreakLockScreen(BreakFixtures.state(breakMinutes = 15), secondsLeft = left.intValue, onCancel = { cancels++ }, onConfirm = { confirms++ }) }
         }
+        rule.onNodeWithTag("break_headline").assertTextEquals("Break the lock?")
         rule.onNodeWithTag("break_clock_label").assertTextEquals("You can unlock in")
         rule.onNodeWithTag("break_countdown").assertTextEquals("1:00")
         rule.onNodeWithTag("unlock_anyway").assertTextEquals("Unlock anyway (60s)").assertIsNotEnabled().performClick()

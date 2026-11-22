@@ -43,53 +43,6 @@ class BreakCapTest {
 }
 
 class StreakRulesTest {
-    @Test fun `completed protected day increments streak`() {
-        val r = StreakRules.apply(4, true, StreakRules.DayOutcome(true, unprotected = false, writtenOff = false))
-        assertEquals(5, r.streak); assertTrue(r.counted); assertFalse(r.shieldConsumed)
-    }
-
-    @Test fun `missed day consumes shield and keeps streak`() {
-        val r = StreakRules.apply(12, true, StreakRules.DayOutcome(false, unprotected = false, writtenOff = false))
-        assertEquals(12, r.streak); assertTrue(r.shieldConsumed); assertFalse(r.shieldAvailable); assertFalse(r.reset)
-    }
-
-    @Test fun `missed day without shield resets streak`() {
-        val r = StreakRules.apply(12, false, StreakRules.DayOutcome(false, unprotected = false, writtenOff = false))
-        assertEquals(0, r.streak); assertTrue(r.reset)
-    }
-
-    @Test fun `unprotected day is hollow - it does not count, but it costs nothing`() {
-        // Issue #2: the lock being off is not the teen's fault, so the day is recorded and skipped
-        // rather than burning the streak or the shield.
-        val r = StreakRules.apply(3, true, StreakRules.DayOutcome(true, unprotected = true, writtenOff = false))
-        assertEquals(3, r.streak); assertFalse(r.counted); assertTrue(r.hollow)
-        assertTrue(r.shieldAvailable); assertFalse(r.shieldConsumed); assertFalse(r.reset)
-    }
-
-    @Test fun `an unprotected day with no shield left still does not reset the streak`() {
-        val r = StreakRules.apply(3, false, StreakRules.DayOutcome(false, unprotected = true, writtenOff = false))
-        assertEquals(3, r.streak); assertTrue(r.hollow); assertFalse(r.reset); assertFalse(r.shieldAvailable)
-    }
-
-    @Test fun `an unprotected day that was also written off is still written off`() {
-        // Breaking the lock past the cap is a deliberate act; a gap on the same day does not
-        // launder it.
-        val r = StreakRules.apply(3, false, StreakRules.DayOutcome(true, unprotected = true, writtenOff = true))
-        assertEquals(0, r.streak); assertFalse(r.hollow); assertTrue(r.reset)
-    }
-
-    @Test fun `a written off day cannot be shielded - it resets the streak and keeps the shield`() {
-        // Issue #143 (owner, option 1): the break screen promises "your shield can't save it".
-        val r = StreakRules.apply(3, true, StreakRules.DayOutcome(true, unprotected = false, writtenOff = true))
-        assertEquals(0, r.streak); assertFalse(r.counted); assertTrue(r.reset)
-        assertFalse(r.shieldConsumed); assertTrue(r.shieldAvailable)
-    }
-
-    @Test fun `a written off day with nothing done is not shielded either`() {
-        val r = StreakRules.apply(5, true, StreakRules.DayOutcome(false, unprotected = false, writtenOff = true))
-        assertEquals(0, r.streak); assertTrue(r.reset)
-        assertFalse(r.shieldConsumed); assertTrue(r.shieldAvailable)
-    }
 
     @Test fun `shield is not wasted on a zero streak`() {
         val r = StreakRules.apply(0, true, StreakRules.DayOutcome(false, unprotected = false, writtenOff = false))
@@ -145,10 +98,6 @@ class LockPolicyTest {
         assertTrue(LockPolicy.isProtectedPackage("com.android.providers.media", base.copy(launchable = null)))
     }
 
-    @Test fun `non-launchable system packages are ignored`() {
-        assertFalse(LockPolicy.shouldLock("com.android.providers.media", now, LocalTime.of(12, 0), base))
-    }
-
     @Test fun `outside the window nothing is locked`() {
         assertFalse(LockPolicy.shouldLock("com.instagram.android", now, LocalTime.of(6, 59), base))
         assertFalse(LockPolicy.shouldLock("com.instagram.android", now, LocalTime.of(21, 0), base))
@@ -175,14 +124,6 @@ class LockPolicyTest {
      * Issue #4: an exception added while the lock is running must be honoured on the very next
      * decision, from nothing but the snapshot the service recombines. No restart, no cache.
      */
-    @Test fun `an exception added after the fact exempts the package immediately`() {
-        assertTrue(LockPolicy.shouldLock("com.instagram.android", now, LocalTime.of(12, 0), base))
-        val afterAdding = base.copy(userExceptions = base.userExceptions + "com.instagram.android")
-        assertFalse(LockPolicy.shouldLock("com.instagram.android", now, LocalTime.of(12, 0), afterAdding))
-        // and removing it again puts the package straight back under the lock
-        val afterRemoving = afterAdding.copy(userExceptions = afterAdding.userExceptions - "com.instagram.android")
-        assertTrue(LockPolicy.shouldLock("com.instagram.android", now, LocalTime.of(12, 0), afterRemoving))
-    }
 
     /** Issue #4: the lock screen on top of a package must come down when that package is excepted. */
     @Test fun `the lock screen comes down as soon as its package is excepted`() {

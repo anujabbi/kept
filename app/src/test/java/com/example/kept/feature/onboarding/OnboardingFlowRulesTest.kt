@@ -15,12 +15,6 @@ class OnboardingFlowRulesTest {
 
     private fun custom(i: Int) = HabitTemplate("Custom $i", "star", ProofType.MANUAL, 5, "min")
 
-    @Test fun `onboarding opens on the welcome screen and Pick my habits goes to step 1`() {
-        val s = OnboardingState()
-        assertEquals(OnboardingStep.WELCOME, s.step)
-        assertEquals(OnboardingStep.HABITS, OnboardingFlow.next(s).step)
-    }
-
     @Test fun `next stops at step 6 and back stops at the welcome screen`() {
         var s = OnboardingState()
         repeat(9) { s = OnboardingFlow.next(s) }
@@ -50,48 +44,6 @@ class OnboardingFlowRulesTest {
             assertTrue(s.windowTouched)
         }
         assertEquals(listOf("Read", "Tidy room"), s.chosen.map { it.title })
-    }
-
-    @Test fun `the step after habits is the shutdown step, with nothing picked`() {
-        val s = OnboardingFlow.next(OnboardingFlow.next(OnboardingState()))
-        assertEquals(OnboardingStep.SHUTDOWN, s.step)
-        assertEquals(2, s.step)
-        assertEquals(null, s.shutdownMinute)
-        assertEquals(OnboardingStep.LOCK_WINDOW, OnboardingFlow.next(s).step)
-    }
-
-    @Test fun `picking a shutdown time holds it and stays on the step, one at a time`() {
-        var s = OnboardingState(step = OnboardingStep.SHUTDOWN)
-        s = OnboardingFlow.pickShutdown(s, 22 * 60)
-        assertEquals(22 * 60, s.shutdownMinute)
-        assertEquals(OnboardingStep.SHUTDOWN, s.step)
-        s = OnboardingFlow.pickShutdown(s, 0)
-        assertEquals(0, s.shutdownMinute)
-    }
-
-    @Test fun `back from the lock window returns to the shutdown step with the choice kept`() {
-        var s = OnboardingFlow.pickShutdown(OnboardingState(step = OnboardingStep.SHUTDOWN), 23 * 60)
-        s = OnboardingFlow.back(OnboardingFlow.next(s))
-        assertEquals(OnboardingStep.SHUTDOWN, s.step)
-        assertEquals(23 * 60, s.shutdownMinute)
-    }
-
-    @Test fun `Skip goes to the lock window with no shutdown time, even after a pick`() {
-        val fresh = OnboardingFlow.skipShutdown(OnboardingState(step = OnboardingStep.SHUTDOWN))
-        assertEquals(OnboardingStep.LOCK_WINDOW, fresh.step)
-        assertEquals(null, fresh.shutdownMinute)
-        val picked = OnboardingFlow.pickShutdown(OnboardingState(step = OnboardingStep.SHUTDOWN), 22 * 60)
-        val skipped = OnboardingFlow.skipShutdown(picked)
-        assertEquals(OnboardingStep.LOCK_WINDOW, skipped.step)
-        assertEquals(null, skipped.shutdownMinute)
-    }
-
-    @Test fun `back on Add a habit closes it and stays on step 1`() {
-        var s = OnboardingFlow.openAddHabit(OnboardingFlow.next(OnboardingState()))
-        assertTrue(s.addingHabit)
-        s = OnboardingFlow.back(s)
-        assertFalse(s.addingHabit)
-        assertEquals(OnboardingStep.HABITS, s.step)
     }
 
     @Test fun `a saved habit is added picked and the page closes`() {

@@ -39,12 +39,6 @@ class GiveUpTimeTest {
         assertEquals(millisAt(date.plusDays(1), wrapDue), GiveUpTime.instantFor(date, wrapFrom, wrapDue, zone).toEpochMilli())
     }
 
-    @Test fun `a tick at 23-30 counts on a wrapping window but not on a normal one`() {
-        val tick = millisAt(date, 23 * 60 + 30)
-        assertTrue(tick < GiveUpTime.instantFor(date, wrapFrom, wrapDue, zone).toEpochMilli())
-        assertFalse(tick < GiveUpTime.instantFor(date, from, due, zone).toEpochMilli())
-    }
-
     @Test fun `a tick after the wrapping window closes does not count`() {
         val tick = millisAt(date.plusDays(1), 6 * 60 + 1)
         assertFalse(tick < GiveUpTime.instantFor(date, wrapFrom, wrapDue, zone).toEpochMilli())

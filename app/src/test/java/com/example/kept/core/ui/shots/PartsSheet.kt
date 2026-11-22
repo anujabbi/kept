@@ -5,11 +5,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -32,8 +29,6 @@ import com.example.kept.core.ui.LockOffBanner
 import com.example.kept.core.ui.PrimaryButton
 import com.example.kept.core.ui.QuietButton
 import com.example.kept.core.ui.SecondaryButton
-import com.example.kept.core.ui.SkyScaffold
-import com.example.kept.core.ui.SkyRamp
 import com.example.kept.core.ui.TooLateBanner
 
 /** Theme, cream page and a font scale, the way every screenshot is taken. */
@@ -106,35 +101,4 @@ fun ControlsSheet() = Box(Modifier.fillMaxSize()) {
         }
     }
     KeptTabBar(KeptTab.Today, onSelect = {}, modifier = Modifier.align(androidx.compose.ui.Alignment.BottomCenter))
-}
-
-/** A sky screen shaped like `Main`: headline on the sky, rows on the cream hill. */
-@Composable
-fun SkySheet(done: Int, total: Int) {
-    val light = SkyRamp.homeTextIsLight(done, total)
-    val ink = SkyRamp.textOn(light)
-    SkyScaffold(
-        sky = SkyRamp.homeSky(done, total),
-        skyHeight = 400.dp,
-        lightContent = light,
-        skyContent = {
-            Column(Modifier.statusBarsPadding().padding(start = 24.dp, end = 24.dp, top = 42.dp)) {
-                Text(if (done == total) "Promise kept." else "Two to go.", style = DaybreakType.headline, color = ink)
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    if (done == total) "Apps are open. See you tomorrow." else "Apps unlock when you finish, or at 9:00 pm.",
-                    Modifier.padding(top = 8.dp),
-                    style = DaybreakType.body,
-                    color = ink,
-                )
-            }
-        },
-    ) {
-        Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Today", Modifier.padding(horizontal = 4.dp), style = DaybreakType.section, color = DaybreakColors.ink)
-            val s = if (done == total) HabitRowState.Done else HabitRowState.ToDo
-            DaybreakHabitRow("Exercise", "30 min", s, onTick = {}, onUndo = {})
-            DaybreakHabitRow("Read", "10 pages", s, onTick = {}, onUndo = {})
-        }
-    }
 }

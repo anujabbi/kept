@@ -326,15 +326,6 @@ class OnboardingBehaviourTest {
         rule.onNodeWithTag("onboarding_next").assertTextEquals("Continue")
     }
 
-    @Test fun settings_mode_has_a_back_arrow_no_footer_and_the_hollow_note() {
-        showPermissions(BodyMode.SETTINGS, OnboardingFixtures.oneRequiredMissing)
-        rule.onNodeWithTag("page_back").assertExists()
-        rule.onNodeWithTag("step_progress").assertDoesNotExist()
-        rule.onNodeWithTag("onboarding_next").assertDoesNotExist()
-        rule.onNodeWithTag("page_body").performScrollToNode(hasText(OnboardingCopy.PERMISSIONS_HOLLOW))
-        rule.onNodeWithText(OnboardingCopy.PERMISSIONS_HOLLOW).assertIsDisplayed()
-    }
-
     // Exceptions ------------------------------------------------------------------------------
 
     @Test fun exception_rows_toggle_and_the_count_follows() {

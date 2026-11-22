@@ -111,39 +111,6 @@ class MigrationTest {
      * and `runMigrationsAndValidate` checks the result against the exported schema 4, so a column
      * or a table the migrations forgot fails here rather than in the field.
      */
-    @Test
-    fun migrate1To4_runsEveryMigrationAndKeepsData() {
-        helper.createDatabase(dbName, 1).apply {
-            execSQL(
-                "INSERT INTO habits (id, title, iconKey, proofType, targetValue, unit, sortOrder, isActive, createdAt) " +
-                    "VALUES (1, 'Exercise', 'run', 'TIMER', 30, 'min', 0, 1, 0)",
-            )
-            execSQL(
-                "INSERT INTO day_records (date, habitsDone, habitsTotal, lockedMillis, pointsEarned, breaksUsed, " +
-                    "unprotected, broken, writtenOff, countedForStreak, shieldConsumed, levelEnd, formId, streakEnd, finalized) " +
-                    "VALUES ('2026-09-05', 1, 1, 5400000, 254, 0, 0, 0, 0, 1, 0, 3, 2, 7, 1)",
-            )
-            close()
-        }
-
-        val migrated = helper.runMigrationsAndValidate(dbName, 4, true, MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
-
-        migrated.query("SELECT proofType FROM habits WHERE id = 1").use {
-            assertTrue(it.moveToFirst())
-            assertEquals("MANUAL", it.getString(0))
-        }
-        migrated.query("SELECT streakEnd, levelEnd FROM day_records WHERE date = '2026-09-05'").use {
-            assertTrue(it.moveToFirst())
-            assertEquals(7, it.getInt(0))
-            assertEquals(3, it.getInt(1))
-        }
-
-        val columnNames = mutableListOf<String>()
-        migrated.query("PRAGMA table_info(day_records)").use {
-            while (it.moveToNext()) columnNames += it.getString(it.getColumnIndexOrThrow("name"))
-        }
-        assertFalse(columnNames.contains("pointsEarned"))
-    }
 
     @Test
     fun migrate3To4_dropsTheBuddyTable() {

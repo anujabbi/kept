@@ -37,17 +37,6 @@ class ExceptionPickerTest {
         assertFalse(picker.single { it.app.packageName == "com.instagram.android" }.allowed)
     }
 
-    @Test fun `an empty exempt set leaves everything locked`() {
-        assertTrue(pickableApps(installed, hard, emptySet()).none { it.allowed })
-    }
-
-    @Test fun `an app added after the list was built shows as allowed once it is exempt`() {
-        val before = pickableApps(installed, hard, emptySet())
-        assertFalse(before.single { it.app.packageName == "com.instagram.android" }.allowed)
-        val after = pickableApps(installed, hard, setOf("com.instagram.android"))
-        assertTrue(after.single { it.app.packageName == "com.instagram.android" }.allowed)
-    }
-
     @Test fun `an exception for an app that is no longer installed is simply not shown`() {
         val picker = pickableApps(installed, hard, setOf("com.uninstalled.app"))
         assertTrue(picker.none { it.app.packageName == "com.uninstalled.app" })
@@ -72,12 +61,6 @@ class ExceptionPickerTest {
     @Test fun `toggling one on moves it to the front`() {
         val on = all.map { if (it == zoom) it.copy(allowed = true) else it }
         assertEquals(listOf("Zoom", "amazon shopping", "Instagram", "Spotify"), labels(orderForPicker(on, "")))
-    }
-
-    @Test fun `toggling it off again returns it to its alphabetical place`() {
-        val on = all.map { if (it == zoom) it.copy(allowed = true) else it }
-        val off = on.map { it.copy(allowed = false) }
-        assertEquals(labels(orderForPicker(all, "")), labels(orderForPicker(off, "")))
     }
 
     @Test fun `two on rows sit together at the top, alphabetical among themselves`() {

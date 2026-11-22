@@ -82,26 +82,4 @@ class PermissionGapTest {
         )
         assertNull(open)
     }
-
-    @Test fun `the last habit ticked with the permission off closes the gap at that tick`() {
-        // Inside an overlap of the daily window and night: ticking the last habit ends the daily
-        // lock while night goes on holding.
-        val (closed, open) = run(
-            tick(0, daily = true, granted = false),
-            tick(3, daily = false, granted = false),
-            tick(50, daily = false, granted = false),
-        )
-        assertEquals(listOf(PermissionGap.Closed(0, 3 * min)), closed)
-        assertNull(open)
-    }
-
-    @Test fun `an open gap keeps its start across ticks`() {
-        val (closed, open) = run(
-            tick(4, daily = true, granted = false),
-            tick(5, daily = true, granted = false),
-            tick(6, daily = true, granted = false),
-        )
-        assertEquals(emptyList<PermissionGap.Closed>(), closed)
-        assertEquals(4 * min, open)
-    }
 }

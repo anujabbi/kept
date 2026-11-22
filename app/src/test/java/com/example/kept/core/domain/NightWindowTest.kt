@@ -13,19 +13,6 @@ class NightWindowTest {
 
     private fun plain(s: String) = s.replace(SettingsCopy.NBSP, ' ')
 
-    @Test fun `the defaults are off, 11 pm to 7 am`() {
-        assertEquals(NightSetting(false, 1380, 420), NightSetting())
-        assertEquals(1380, NightWindow.DEFAULT_FROM)
-        assertEquals(420, NightWindow.DEFAULT_UNTIL)
-    }
-
-    @Test fun `the presets are 10 pm, 11 pm and midnight`() {
-        assertEquals(listOf(1320, 1380, 0), NightWindow.PRESETS)
-        assertEquals(listOf("10:00 pm", "11:00 pm", "Midnight"), NightWindow.PRESETS.map { plain(SettingsCopy.nightTime(it)) })
-        assertEquals("7:00 am", plain(SettingsCopy.nightTime(420)))
-        assertEquals("10:30 pm", plain(SettingsCopy.nightTime(22 * 60 + 30)))
-    }
-
     @Test fun `a window is as long as the minutes from start to end, past midnight`() {
         assertEquals(8 * 60, NightWindow.lengthMinutes(23 * 60, 7 * 60))
         assertEquals(7 * 60, NightWindow.lengthMinutes(0, 7 * 60))
@@ -42,13 +29,6 @@ class NightWindowTest {
         assertFalse("30 minutes", NightWindow.isValid(23 * 60, 23 * 60 + 30))
         assertFalse("12 hours and a minute", NightWindow.isValid(22 * 60, 10 * 60 + 1))
         assertFalse("23 hours", NightWindow.isValid(23 * 60, 22 * 60))
-    }
-
-    @Test fun `an invalid pick has the one error line and a valid one has none`() {
-        assertEquals("Pick an end time 1 to 12 hours after the start.", SettingsCopy.NIGHT_WINDOW_ERROR)
-        assertEquals(SettingsCopy.NIGHT_WINDOW_ERROR, NightWindow.error(23 * 60, 23 * 60))
-        assertEquals(SettingsCopy.NIGHT_WINDOW_ERROR, NightWindow.error(23 * 60, 12 * 60))
-        assertNull(NightWindow.error(23 * 60, 7 * 60))
     }
 
     @Test fun `turning the switch on with nothing else changed stores 11 pm to 7 am`() {

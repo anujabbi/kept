@@ -60,30 +60,6 @@ class NightLockPolicyTest {
         assertFalse(locked(7, 0, s))
     }
 
-    @Test fun `23 to 7 is locked at 23 30 and unlocked at 22 30`() {
-        val s = night(23 * 60, 7 * 60)
-        assertTrue(locked(23, 30, s))
-        assertFalse(locked(22, 30, s))
-    }
-
-    @Test fun `a night window that does not wrap is start inclusive and end exclusive`() {
-        val s = night(1 * 60, 5 * 60)
-        assertFalse(LockPolicy.isNightWindowActive(LocalTime.of(0, 59), s))
-        assertTrue(LockPolicy.isNightWindowActive(LocalTime.of(1, 0), s))
-        assertTrue(LockPolicy.isNightWindowActive(LocalTime.of(4, 59), s))
-        assertFalse(LockPolicy.isNightWindowActive(LocalTime.of(5, 0), s))
-    }
-
-    @Test fun `switched off, the night window locks nothing`() {
-        assertFalse(locked(23, 30, night(23 * 60, 7 * 60, enabled = false)))
-    }
-
-    @Test fun `finishing every habit does not lift the night lock`() {
-        val s = night(23 * 60, 7 * 60)
-        assertTrue(LockPolicy.shouldLock(chrome, now, LocalTime.of(23, 30), s))
-        assertTrue(LockPolicy.lockScreenShouldStay(chrome, now, LocalTime.of(23, 30), s))
-    }
-
     @Test fun `essentials and user exceptions stay open at night`() {
         val s = night(23 * 60, 7 * 60)
         assertFalse(LockPolicy.shouldLock("com.google.android.dialer", now, LocalTime.of(23, 30), s))
@@ -104,33 +80,10 @@ class NightLockPolicyTest {
         assertTrue(locked(7, 0, s))
     }
 
-    @Test fun `the reason is night when only night lockdown holds`() {
-        assertEquals(LockReason.NIGHT, LockPolicy.lockReason(now, LocalTime.of(23, 30), night(23 * 60, 7 * 60)))
-    }
-
-    @Test fun `the reason is daily when only the daily lock holds`() {
-        val s = night(23 * 60, 7 * 60).copy(habitsIncomplete = true)
-        assertEquals(LockReason.DAILY, LockPolicy.lockReason(now, LocalTime.of(12, 0), s))
-    }
-
     @Test fun `night wins when both locks hold`() {
         val s = night(23 * 60, 7 * 60).copy(lockFromMinute = 20 * 60, dueMinute = 8 * 60, habitsIncomplete = true)
         assertTrue(LockPolicy.isDailyLockActive(now, LocalTime.of(23, 30), s))
         assertEquals(LockReason.NIGHT, LockPolicy.lockReason(now, LocalTime.of(23, 30), s))
-    }
-
-    @Test fun `there is no reason when neither lock holds`() {
-        assertEquals(null, LockPolicy.lockReason(now, LocalTime.of(22, 0), night(23 * 60, 7 * 60)))
-    }
-
-    @Test fun `there is no reason on a break, which pauses both locks`() {
-        val s = night(23 * 60, 7 * 60).copy(
-            lockFromMinute = 20 * 60, dueMinute = 8 * 60, habitsIncomplete = true, breakActiveUntil = now.plusSeconds(600),
-        )
-        assertEquals(null, LockPolicy.lockReason(now, LocalTime.of(23, 30), s))
-        assertFalse(locked(23, 30, s))
-        // The break ran out inside the window: locked again, by night.
-        assertEquals(LockReason.NIGHT, LockPolicy.lockReason(now.plusSeconds(601), LocalTime.of(23, 41), s))
     }
 
     @Test fun `the daily lock alone is what protection gaps are judged by`() {

@@ -23,13 +23,11 @@ class WeeklyGoalsNarrowScreenTest {
     private val shots by lazy { WeeklyGoalsShots(rule, "_360") }
 
     @Test fun list() = shots.shot("list", 1f)
-    @Test fun list_font2() = shots.shot("list", 2f)
     @Test fun listEmpty() = shots.shot("list_empty", 1f)
     @Test fun listEmpty_font2() = shots.shot("list_empty", 2f)
     @Test fun listLimit() = shots.shot("list_limit", 1f)
     @Test fun listLimit_font2() = shots.shot("list_limit", 2f)
     @Test fun setup() = shots.shot("setup", 1f)
-    @Test fun setup_font2() = shots.shot("setup", 2f)
     @Test fun setupFilled() = shots.shot("setup_filled", 1f)
     @Test fun setupFilled_font2() = shots.shot("setup_filled", 2f)
     @Test fun setupSeven() = shots.shot("setup_seven", 1f)

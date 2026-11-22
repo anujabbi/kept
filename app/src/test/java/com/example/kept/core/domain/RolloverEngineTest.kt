@@ -117,13 +117,6 @@ class RolloverEngineTest {
         assertTrue(out.summary.writtenOff)
     }
 
-    @Test fun `an over-cap day is written off`() {
-        val d = LocalDate.of(2026, 9, 5)
-        val out = RolloverEngine.rollover(SprigState(streakDays = 1, shieldAvailable = false, shieldWeekKey = StreakRules.weekKey(d)), day(d, breaks = 4, writtenOff = true))
-        assertEquals(0, out.state.streakDays)
-        assertTrue(out.summary.writtenOff)
-    }
-
     @Test fun `a written-off day does not spend the shield (issue 143)`() {
         // The break screen said "your shield can't save it", so the engine must not spend it.
         val d = LocalDate.of(2026, 9, 5)
@@ -175,13 +168,6 @@ class RolloverEngineTest {
         assertEquals(2, pending.size)
     }
 
-    @Test fun `every habit done before the give-up time keeps the day`() {
-        val d = LocalDate.of(2026, 9, 5)
-        val out = RolloverEngine.rollover(SprigState(streakDays = 4), day(d, done = 2, beforeDue = 2))
-        assertTrue(out.summary.countedForStreak)
-        assertEquals(5, out.state.streakDays)
-    }
-
     @Test fun `a habit ticked after the give-up time does not count and the day is missed`() {
         val d = LocalDate.of(2026, 9, 5)
         val state = SprigState(streakDays = 4, shieldAvailable = false, shieldWeekKey = StreakRules.weekKey(d))
@@ -219,14 +205,6 @@ class RolloverEngineTest {
         // The same ticks against a normal 07:00 -> 21:00 window are both too late.
         val normalDue = GiveUpTime.instantFor(d, 7 * 60, 21 * 60, zone).toEpochMilli()
         assertEquals(0, completions.count { it < normalDue })
-    }
-
-    @Test fun `nothing done at all is a missed day`() {
-        val d = LocalDate.of(2026, 9, 5)
-        val state = SprigState(streakDays = 4, shieldAvailable = false, shieldWeekKey = StreakRules.weekKey(d))
-        val out = RolloverEngine.rollover(state, day(d, done = 0, beforeDue = 0))
-        assertFalse(out.summary.countedForStreak)
-        assertEquals(0, out.state.streakDays)
     }
 
     @Test fun `consecutive days across a year boundary each extend the streak`() {

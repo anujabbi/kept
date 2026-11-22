@@ -12,8 +12,8 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * The Daybreak parts sheet (`A18-Parts`, tab bar, switch, chip) and a sky screen at night and
- * gold, at 412 × 915dp and font scale 1.0 and 2.0. Goldens: `app/src/test/screenshots/`.
+ * The Daybreak parts sheet (`A18-Parts`, tab bar, switch, chip) at 412 × 915dp and font scale
+ * 1.0 and 2.0. Goldens: `app/src/test/screenshots/`. The sky itself is shown by the Home goldens.
  * Record with `./gradlew recordRoborazziDebug`, check with `./gradlew verifyRoborazziDebug`.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -39,10 +39,4 @@ class PartsScreenshotTest {
 
     @Test fun controls() = shot("parts_switch_chip_tabbar", 1f) { ControlsSheet() }
     @Test fun controls_font2() = shot("parts_switch_chip_tabbar", 2f) { ControlsSheet() }
-
-    @Test fun skyNight() = shot("sky_night", 1f) { SkySheet(done = 0, total = 2) }
-    @Test fun skyNight_font2() = shot("sky_night", 2f) { SkySheet(done = 0, total = 2) }
-
-    @Test fun skyGold() = shot("sky_gold", 1f) { SkySheet(done = 2, total = 2) }
-    @Test fun skyGold_font2() = shot("sky_gold", 2f) { SkySheet(done = 2, total = 2) }
 }

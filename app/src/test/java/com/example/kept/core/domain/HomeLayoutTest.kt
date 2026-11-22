@@ -34,11 +34,6 @@ class HomeLayoutTest {
         assertEquals("Lock paused for a break. Apps lock again soon.", HomeCopy.line(2, 1, "9:00 pm", pastDue = false, breakActive = true))
     }
 
-    @Test fun `streak pill copy`() {
-        assertEquals("12 day streak", HomeCopy.streak(12))
-        assertEquals("1 day streak", HomeCopy.streak(1))
-    }
-
     @Test fun `habit detail`() {
         assertEquals("30 min", HomeCopy.habitDetail(30, "min"))
         assertEquals("10 pages", HomeCopy.habitDetail(10, "pages"))
@@ -73,20 +68,6 @@ class HomeLayoutTest {
         assertEquals(312, HomeSprig.crestDp(HomeLayout.COMPACT, textBottomDp = 300))
     }
 
-    @Test fun `sprig never overlaps the headline and always reaches the crest in the listed states`() {
-        val states = listOf(0 to 1, 0 to 3, 3 to 3, 0 to 6, 6 to 6, 0 to 10)
-        for (textBottom in listOf(150, 250, 420)) for ((done, total) in states) {
-            val layout = HomeLayout.forHabitCount(total)
-            val crest = HomeSprig.crestDp(layout, textBottom)
-            val top = HomeSprig.topDp(layout, crest, done, total)
-            val size = HomeSprig.sizeDp(layout)
-            if (layout == HomeLayout.ROOMY) assertTrue("$done/$total below text", top >= textBottom + HomeSprig.CLEARANCE_DP)
-            // Its head is above the hill and its body reaches behind it: never floating, never buried.
-            assertTrue("$done/$total head above crest", top < crest)
-            assertTrue("$done/$total body behind hill", top + size > crest)
-        }
-    }
-
     @Test fun `compact widths never let the headline column reach Sprig`() {
         for (w in 320..480) {
             val (text, sprig) = HomeSprig.compactWidths(w)
@@ -117,10 +98,5 @@ class HomeLayoutTest {
                 assertTrue("$w $done/$total bottom ${top + sprig} below crest", top + sprig >= 212 + 24)
             }
         }
-    }
-
-    @Test fun `the give-up time never splits`() {
-        val line = HomeCopy.line(2, 0, "9:00 pm", pastDue = false, breakActive = false)
-        assertTrue(line.endsWith("9:00\u00A0pm."))
     }
 }

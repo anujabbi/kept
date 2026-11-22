@@ -145,11 +145,11 @@ Instrumented tests (need a running emulator):
 ./gradlew connectedDebugAndroidTest
 ```
 
-Covers onboarding completing and persisting; home reflecting seeded state; the lock screen
-rendering with habits remaining; the break-lock countdown gating "Unlock anyway"; exceptions being
-honoured and the picker staying in sync; and the Room migrations (1 -> 2, 2 -> 3, 3 -> 4 and 1 -> 4
-end to end, validated against the exported schemas in `app/schemas`). There is no
-destructive-migration fallback, so a broken migration fails here.
+Covers onboarding completing and persisting; home reflecting seeded state; the rollover into the
+recap; exceptions being honoured and the picker staying in sync; and the Room migrations (1 -> 5,
+6 -> 7, and 1 -> 7 end to end, validated against the exported schemas in `app/schemas`). There is no
+destructive-migration fallback, so a broken migration fails here. The lock and break screens are
+covered on the JVM (`LockBehaviourTest`, `BreakBehaviourTest`, and the activity tests beside them).
 
 ### Screenshot tests
 
