@@ -42,7 +42,7 @@ import androidx.compose.ui.unit.dp
 
 // The onboarding page frame (`A10`–`A13`), shared with the Settings pages that reuse its
 // bodies (`A12-Exceptions-settings`, `A13-Permissions-settings`): a header with a back arrow
-// (and, in onboarding, the 5-segment progress bar), a page title and line, a scrolling body and
+// (and, in onboarding, the 6-segment progress bar), a page title and line, a scrolling body and
 // a fixed footer over a 1.5dp rule.
 
 private val D = DaybreakColors
@@ -77,7 +77,7 @@ fun PageHeaderRow(header: PageHeader, modifier: Modifier = Modifier, color: Colo
     }
 }
 
-/** Five 6dp segments, 6dp apart: purple up to [step], `#E6DCCE` after. */
+/** One 6dp segment per step (six in onboarding), 6dp apart: purple up to [step], `#E6DCCE` after. */
 @Composable
 fun StepProgress(step: Int, total: Int, modifier: Modifier = Modifier) {
     Row(

@@ -1233,3 +1233,41 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     way `WatchdogWorker` feeds it, because the worker has no JVM fakes for its dependencies.
   - *Known gap, not in this story:* Home still says "Apps are open." on a finished day while
     night lockdown is holding the phone. #164 lists no Home change.
+
+- **Onboarding: shutdown-time page, six steps (issue #164, story #169).** Built as #164's
+  Onboarding section specifies: a new step 2, "Pick a shutdown time", between habits and the
+  lock window. The rules are `OnboardingFlow.pickShutdown` / `skipShutdown` and
+  `Settings.onboardingShutdown` (`feature/onboarding/OnboardingCommit.kt`); enforcement and the
+  Settings group from story #168 are untouched.
+  - *`onboarding_step_viewed` numbering shifts.* The event still sends the number the progress
+    bar shows, and there are now six: habits 1, **shutdown time 2**, lock window 3, exceptions
+    4, permissions 5, how Sprig works 6. Before this change the lock window was 2, exceptions 3,
+    permissions 4 and how Sprig works 5, so an onboarding funnel that spans the two has to be
+    split by app version: `step=2` means the lock window up to 2.0.1 and the shutdown page
+    after. The screen view's `onboarding_step` property shifts the same way. No event or
+    property was added: the shutdown choice (which time, or Skip) is not sent, and `README.md`
+    and the privacy policy, which name the event but no step numbers, did not need a change.
+    `ONBOARDING_STEPS` is 6, so "Start today" stores `onboardingStep = 6`; nothing reads that
+    value back, and a user who finished on an earlier version keeps 5.
+  - *Skip clears a pick, and writes "off".* A row picked before tapping Skip is dropped: coming
+    back to the page shows nothing picked. As the issue says, Skip stores `nightLockEnabled =
+    false`; that also holds if night lockdown was somehow already on (a debug seed: Settings only
+    opens after onboarding). The stored start and end are left as they were.
+  - *A pick always ends at 7:00 am.* The issue fixes the end at 7:00 am for the three choices,
+    so a pick writes `nightUntilMinute = 420` even over a custom end set earlier in Settings.
+    Every choice is then a valid 7 to 9 hour window.
+  - *Nothing is preselected, also on a re-run.* The page does not read the stored night
+    lockdown, unlike the lock window step, because the issue says none is preselected.
+  - *The rows are radio buttons.* One at most is picked and tapping the picked row keeps it;
+    the only way to continue without a shutdown time is Skip. Row labels are the issue's
+    "10 PM", "11 PM", "Midnight" (`OnboardingCopy.shutdownLabel`), not Settings' "10:00 pm".
+  - *No night-sky variant.* #164 offers one "if the dev agrees". The page is the cream step page
+    of `A10`/`A11` with the preset row's shape and a clock tile, so the six steps read as one
+    flow and no new art is needed; "Skip" is the existing `QuietButton` under Continue.
+  - *The mockups and the spec say six.* `A10`–`A14`'s progress bars were edited by hand to six
+    segments with the new step numbers (there is still no mockup for step 2), and the redesign
+    spec's Onboarding section lists the shutdown step.
+  - *Goldens.* New: `onboarding_shutdown_*` and `onboarding_shutdown_picked_*` at 412dp and
+    360dp, font 1.0 and 2.0. Re-recorded because the progress bar now has six segments: every
+    onboarding step golden with a progress bar (habits, habits limit, lock window, exceptions,
+    permissions, ready). Welcome, Add a habit and the settings-mode pages are unchanged.

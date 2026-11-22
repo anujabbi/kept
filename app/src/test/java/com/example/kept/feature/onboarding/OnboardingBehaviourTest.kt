@@ -7,11 +7,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
@@ -53,7 +57,7 @@ class OnboardingBehaviourTest {
 
     private var latest = OnboardingState()
 
-    /** Welcome and steps 1 and 2 wired as the screen wires them; later steps are a placeholder. */
+    /** Welcome and steps 1 to 3 wired as the screen wires them; later steps are a placeholder. */
     @Composable
     private fun Flow(initial: OnboardingState) {
         var s by remember { mutableStateOf(initial) }
@@ -67,6 +71,13 @@ class OnboardingBehaviourTest {
                 onAddOwn = { s = OnboardingFlow.openAddHabit(s) },
                 onBack = { s = OnboardingFlow.back(s) },
                 onContinue = { s = OnboardingFlow.next(s) },
+            )
+            s.step == OnboardingStep.SHUTDOWN -> ShutdownStep(
+                s.shutdownMinute,
+                onPick = { s = OnboardingFlow.pickShutdown(s, it) },
+                onBack = { s = OnboardingFlow.back(s) },
+                onContinue = { s = OnboardingFlow.next(s) },
+                onSkip = { s = OnboardingFlow.skipShutdown(s) },
             )
             s.step == OnboardingStep.LOCK_WINDOW -> LockWindowStep(s.window, { s = OnboardingFlow.setWindow(s, it) }, { s = OnboardingFlow.back(s) }, { s = OnboardingFlow.next(s) })
             else -> Text("step ${s.step}")
@@ -86,7 +97,7 @@ class OnboardingBehaviourTest {
         rule.onNodeWithText(OnboardingCopy.WELCOME_CAPTION).assertIsDisplayed()
         rule.onNodeWithTag("welcome_start").assertTextEquals("Pick my habits").performClick()
         rule.onNodeWithTag("onboarding_habits").assertIsDisplayed()
-        rule.onNodeWithTag("step_progress").assert(SemanticsMatcher.expectValue(SemanticsProperties.ContentDescription, listOf("Step 1 of 5")))
+        rule.onNodeWithTag("step_progress").assert(SemanticsMatcher.expectValue(SemanticsProperties.ContentDescription, listOf("Step 1 of 6")))
     }
 
     @Test fun preset_rows_toggle_and_the_footer_counts_them() {
@@ -167,16 +178,110 @@ class OnboardingBehaviourTest {
         show(OnboardingFixtures.habits)
         rule.onNodeWithTag("onboarding_habit_Tidy room").performScrollTo().performClick()
         rule.onNodeWithTag("onboarding_next").performClick()
+        rule.onNodeWithTag("onboarding_shutdown_1320").performClick()
+        rule.onNodeWithTag("onboarding_next").performClick()
         rule.onNodeWithTag("give_up_earlier").performClick()
+        rule.onNodeWithTag("page_back").performClick()
+        rule.onNodeWithTag("onboarding_shutdown_1320").assertIsSelected()
         rule.onNodeWithTag("page_back").performClick()
         rule.onNodeWithTag("onboarding_habit_Tidy room").performScrollTo().assert(checked(true))
         rule.onNodeWithTag("onboarding_habit_count").assertTextEquals("3 habits picked")
         rule.onNodeWithTag("onboarding_next").performClick()
+        rule.onNodeWithTag("onboarding_shutdown_1320").assertIsSelected()
+        rule.onNodeWithTag("onboarding_next").performClick()
         rule.onNodeWithTag("give_up_value").assertTextEquals("8:30 pm")
+        rule.onNodeWithTag("page_back").performClick()
         rule.onNodeWithTag("page_back").performClick()
         rule.onNodeWithTag("page_back").performClick()
         rule.onNodeWithTag("onboarding_welcome").assertIsDisplayed()
         assertEquals(3, latest.chosen.size)
+    }
+
+    // Shutdown time (#164) ---------------------------------------------------------------------
+
+    private val shutdownRows = OnboardingCopy.SHUTDOWN_TIMES.map { "onboarding_shutdown_$it" }
+
+    @Test fun the_step_after_habits_is_the_shutdown_page_with_nothing_picked() {
+        show(OnboardingFixtures.habits)
+        rule.onNodeWithTag("onboarding_next").performClick()
+        rule.onNodeWithTag("onboarding_shutdown").assertIsDisplayed()
+        rule.onNodeWithTag("step_progress").assert(SemanticsMatcher.expectValue(SemanticsProperties.ContentDescription, listOf("Step 2 of 6")))
+        rule.onNodeWithTag("page_title").assertTextEquals("Pick a shutdown time")
+        rule.onNodeWithText("A shutdown time helps you stop doomscrolling at night.").assertIsDisplayed()
+        listOf("10 PM", "11 PM", "Midnight").forEachIndexed { i, label ->
+            rule.onNodeWithTag(shutdownRows[i]).assertIsDisplayed().assertIsNotSelected()
+                .assertTextEquals(label, "Apps lock until 7:00 am. Phone, messages and maps still work.")
+        }
+        assertEquals(listOf("onboarding_shutdown_1320", "onboarding_shutdown_1380", "onboarding_shutdown_0"), shutdownRows)
+        rule.onNodeWithTag("onboarding_next").assertTextEquals("Continue").assertIsNotEnabled()
+        rule.onNodeWithTag("onboarding_skip").assertTextEquals("Skip").assertIsEnabled()
+        assertEquals(null, latest.shutdownMinute)
+    }
+
+    @Test fun picking_a_row_enables_continue_and_only_one_row_is_picked() {
+        show(OnboardingState(step = OnboardingStep.SHUTDOWN))
+        rule.onNodeWithTag("onboarding_shutdown_1380").performClick().assertIsSelected()
+        rule.onNodeWithTag("onboarding_next").assertIsEnabled()
+        assertEquals(1380, latest.shutdownMinute)
+        rule.onNodeWithTag("onboarding_shutdown_0").performClick().assertIsSelected()
+        rule.onNodeWithTag("onboarding_shutdown_1380").assertIsNotSelected()
+        rule.onNodeWithTag("onboarding_shutdown_1320").assertIsNotSelected()
+        assertEquals(0, latest.shutdownMinute)
+        // Tapping the picked row again keeps it: a radio button, not a checkbox.
+        rule.onNodeWithTag("onboarding_shutdown_0").performClick().assertIsSelected()
+        rule.onNodeWithTag("onboarding_next").performClick()
+        rule.onNodeWithTag("onboarding_lock_window").assertIsDisplayed()
+        assertEquals(0, latest.shutdownMinute)
+    }
+
+    @Test fun skip_goes_to_the_lock_window_with_no_shutdown_time() {
+        show(OnboardingState(step = OnboardingStep.SHUTDOWN))
+        rule.onNodeWithTag("onboarding_shutdown_1320").performClick()
+        rule.onNodeWithTag("onboarding_skip").performClick()
+        rule.onNodeWithTag("onboarding_lock_window").assertIsDisplayed()
+        rule.onNodeWithTag("step_progress").assert(SemanticsMatcher.expectValue(SemanticsProperties.ContentDescription, listOf("Step 3 of 6")))
+        assertEquals(null, latest.shutdownMinute)
+    }
+
+    @Test fun back_from_the_lock_window_returns_to_the_shutdown_page_with_the_choice_kept() {
+        show(OnboardingState(step = OnboardingStep.SHUTDOWN))
+        rule.onNodeWithTag("onboarding_shutdown_1380").performClick()
+        rule.onNodeWithTag("onboarding_next").performClick()
+        rule.onNodeWithTag("onboarding_lock_window").assertIsDisplayed()
+        rule.onNodeWithTag("page_back").performClick()
+        rule.onNodeWithTag("onboarding_shutdown").assertIsDisplayed()
+        rule.onNodeWithTag("onboarding_shutdown_1380").assertIsSelected()
+        rule.onNodeWithTag("onboarding_next").assertIsEnabled()
+    }
+
+    /** The existing accessibility check (`PartsBehaviourTest`): 48 x 48dp and something TalkBack reads. */
+    @Test fun the_rows_continue_and_skip_are_accessible_at_font_1_and_2() {
+        var scale by mutableStateOf(1f)
+        var picked by mutableStateOf<Int?>(null)
+        rule.setContent { Shot(scale) { ShutdownStep(picked, { picked = it }, {}, {}, {}) } }
+        for (f in listOf(1f, 2f)) for (p in listOf<Int?>(null, 1380)) {
+            scale = f
+            picked = p
+            rule.waitForIdle()
+            val d = rule.density.density
+            for (tag in shutdownRows + "onboarding_next" + "onboarding_skip" + "page_back") {
+                if (tag in shutdownRows) rule.onNodeWithTag("page_body").performScrollToNode(hasTestTag(tag))
+                val node = rule.onNodeWithTag(tag).fetchSemanticsNode()
+                val at = "$tag at font $f, picked $p"
+                assertTrue("$at is tappable", hasClickAction().matches(node))
+                val label = listOfNotNull(
+                    node.config.getOrNull(SemanticsProperties.Text)?.joinToString(" "),
+                    node.config.getOrNull(SemanticsProperties.ContentDescription)?.joinToString(" "),
+                ).joinToString(" ").trim()
+                assertTrue("$at has a TalkBack label", label.isNotEmpty())
+                assertTrue("$at '$label' is ${node.size.width / d}dp wide", node.size.width / d >= 47.9f)
+                assertTrue("$at '$label' is ${node.size.height / d}dp tall", node.size.height / d >= 47.9f)
+            }
+            shutdownRows.forEach { tag ->
+                val node = rule.onNodeWithTag(tag).fetchSemanticsNode()
+                assertEquals("$tag is a radio button", androidx.compose.ui.semantics.Role.RadioButton, node.config[SemanticsProperties.Role])
+            }
+        }
     }
 
     // Permissions -----------------------------------------------------------------------------

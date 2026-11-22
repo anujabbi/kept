@@ -20,7 +20,7 @@ breaks, shield, streak, forms) except where the "Behaviour changes" section says
 | Artboard file | Screen | Story |
 |---|---|---|
 | `A1-Welcome` | Welcome (first launch) | Onboarding |
-| `A10-Onb-Habits` … `A14-Onb-Ready` | Onboarding steps 1 to 5 | Onboarding |
+| `A10-Onb-Habits` … `A14-Onb-Ready` | Onboarding steps 1 and 3 to 6 (step 2, the shutdown time from #164, has no mockup) | Onboarding |
 | `Main` | Home, 1 to 3 habits | Home |
 | `A2-Home-6` | Home, 4 or more habits | Home |
 | `A18-Parts` | Home banners, habit row states, buttons | Foundation, Home |
@@ -98,7 +98,7 @@ Skies (the top band of each screen):
 | progress ramp | `#2B2760 #3E3478 #6E5590 #B57F98 #E9A99A #FFD0A6 #FFC23D` | Home: index `round(done/total × 6)` |
 | lock ramp | `#2B2760 #332D6C #3E3478 #4A3E86 #5A4A9A` | Lock while locked: index `round(done/total × 4)`; gold when all done |
 | gold | `#FFC23D` | All done, Recap kept, Promise kept moment |
-| dawn | `#FFD0A6` | Welcome, onboarding step 5 |
+| dawn | `#FFD0A6` | Welcome, onboarding step 6 |
 | overcast | `#CFCBDD` | Break, Recap slipped and written off |
 | tide | `#BFD9F2` | Collection, Recap shield |
 | lilac | `#ECE9FF` | Settings |
@@ -227,20 +227,25 @@ Primary "Pick my habits" goes to onboarding step 1. Caption "This is Sprig. It g
 day you keep your promise."
 
 ### Onboarding (`A10`–`A14`)
-Five steps with a 5-segment progress bar and a back arrow. Continue sits in a fixed footer.
+Six steps with a 6-segment progress bar and a back arrow. Continue sits in a fixed footer.
 1. **Habits:** "What will you do every day?" Preset rows toggle on tap (purple ring and check
    when picked). "Add your own" opens Add a habit. Continue disabled with none picked;
    footer counts "2 habits picked". Respect `HabitLimits.MAX_HABITS`.
-2. **Lock window:** a 6am–midnight bar shows the locked band. Two rows with − / + in 30 minute
+2. **Shutdown time** (#164, no mockup): "Pick a shutdown time", line "A shutdown time helps
+   you stop doomscrolling at night." Three single-select rows, 10 PM, 11 PM and Midnight, each
+   with "Apps lock until 7:00 am. Phone, messages and maps still work."; none preselected.
+   Continue is disabled until one is picked; text button "Skip" leaves night lockdown off. The
+   choice is written on "Start today".
+3. **Lock window:** a 6am–midnight bar shows the locked band. Two rows with − / + in 30 minute
    steps: "Lock apps from" and "Give up at". Sentence under the bar updates live. Give-up is
    at least 2 hours after the start.
-3. **What stays open:** "Always open" chips (Phone, Messages, Maps, Camera, Settings, Clock),
+4. **What stays open:** "Always open" chips (Phone, Messages, Maps, Camera, Settings, Clock),
    search, and a list of installed apps with switches ("Stays open" / "Locks"). Count line.
-4. **Permissions:** one card per permission with a tag (Required, Recommended, For photo
+5. **Permissions:** one card per permission with a tag (Required, Recommended, For photo
    habits, On) and a "Grant" button, or a green check when granted. If a required one is
    missing the button reads "Continue without the lock" and a red line explains the cost
    (`RequiredPermissions` copy).
-5. **How Sprig works:** dawn sky with Sprig (stage 0) waving, three rules with duotone icons
+6. **How Sprig works:** dawn sky with Sprig (stage 0) waving, three rules with duotone icons
    (growth, breaks, shield), primary "Start today".
 
 ### Home (`Main`, `A2-Home-6`, `A18-Parts`)

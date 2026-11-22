@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -75,6 +76,7 @@ import com.example.kept.core.ui.Hill
 import com.example.kept.core.ui.PageHeader
 import com.example.kept.core.ui.PageHeaderRow
 import com.example.kept.core.ui.PrimaryButton
+import com.example.kept.core.ui.QuietButton
 import com.example.kept.core.ui.Sky
 import com.example.kept.core.ui.SkyScaffold
 import com.example.kept.core.ui.StepFooter
@@ -297,7 +299,63 @@ internal fun AddHabitPage(onBack: () -> Unit, onSave: (HabitTemplate) -> Unit) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Step 2: lock window (A11)
+// Step 2: shutdown time (#164)
+
+/**
+ * "Pick a shutdown time" (#164; no mockup, built like `A10`): 10 PM, 11 PM and Midnight, one at
+ * most picked and none to begin with. Continue is disabled until one is picked; "Skip" goes on
+ * without a shutdown time, which leaves night lockdown off.
+ */
+@Composable
+internal fun ShutdownStep(selected: Int?, onPick: (Int) -> Unit, onBack: () -> Unit, onContinue: () -> Unit, onSkip: () -> Unit) {
+    StepPage(
+        header = PageHeader.Progress(OnboardingStep.SHUTDOWN, OnboardingCopy.STEPS, onBack),
+        title = OnboardingCopy.SHUTDOWN_TITLE,
+        line = OnboardingCopy.SHUTDOWN_LINE,
+        modifier = Modifier.testTag("onboarding_shutdown"),
+        footer = {
+            PrimaryButton(OnboardingCopy.CONTINUE, onClick = onContinue, enabled = selected != null, modifier = Modifier.testTag("onboarding_next"))
+            QuietButton(OnboardingCopy.SKIP, onClick = onSkip, modifier = Modifier.fillMaxWidth().testTag("onboarding_skip"))
+        },
+    ) {
+        OnboardingCopy.SHUTDOWN_TIMES.forEach { minute ->
+            item(key = "shutdown_$minute") { ShutdownRow(minute, picked = selected == minute, onPick = { onPick(minute) }) }
+        }
+    }
+}
+
+/** A shutdown row: the preset row's shape (`A10`) as a radio button, with a clock tile. */
+@Composable
+private fun ShutdownRow(minute: Int, picked: Boolean, onPick: () -> Unit) {
+    val shape = RoundedCornerShape(20.dp)
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 64.dp).clip(shape)
+            .background(if (picked) D.purplePale else D.white)
+            .border(2.dp, if (picked) D.purple else D.lineSoft, shape)
+            .selectable(selected = picked, role = Role.RadioButton, onClick = onPick)
+            .padding(horizontal = 14.dp, vertical = 8.dp)
+            .testTag("onboarding_shutdown_$minute"),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Box(Modifier.size(40.dp).clip(RoundedCornerShape(14.dp)).background(D.purpleTint), contentAlignment = Alignment.Center) {
+            Icon(DaybreakIcons.Clock, null, Modifier.size(20.dp), tint = D.purple)
+        }
+        Column(Modifier.weight(1f)) {
+            Text(OnboardingCopy.shutdownLabel(minute), style = DaybreakType.rowTitle, color = D.ink)
+            Text(OnboardingCopy.SHUTDOWN_DETAIL, style = DaybreakType.caption, color = D.muted)
+        }
+        Box(
+            Modifier.size(28.dp).clip(CircleShape)
+                .background(if (picked) D.purple else Color.Transparent)
+                .border(2.dp, if (picked) D.purple else D.ring, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) { if (picked) Icon(DaybreakIcons.Check, null, Modifier.size(15.dp), tint = D.white) }
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Step 3: lock window (A11)
 
 /**
  * "When does the lock run?" (`A11-Onb-Rule`): the 6 am to midnight bar with the locked band, the
@@ -467,7 +525,7 @@ private fun StepButton(sign: String, description: String, enabled: Boolean, styl
 }
 
 // ---------------------------------------------------------------------------------------------
-// Step 5: how Sprig works (A14)
+// Step 6: how Sprig works (A14)
 
 /**
  * "How Sprig works" (`A14-Onb-Ready`): a dawn sky with the header, the title and Sprig (stage 0)

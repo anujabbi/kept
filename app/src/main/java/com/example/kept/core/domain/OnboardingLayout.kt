@@ -5,7 +5,7 @@ import kotlin.math.floor
 import kotlin.math.sqrt
 
 /**
- * Onboarding step 2, "When does the lock run?" (`A11-Onb-Rule`): the lock window on a 6 am to
+ * Onboarding step 3, "When does the lock run?" (`A11-Onb-Rule`): the lock window on a 6 am to
  * midnight bar, moved with − / + in 30 minute steps. The rules are the design script's, in
  * minutes of the day: the start never goes before 6:00 am, give-up never after 11:30 pm, and
  * give-up stays at least two hours after the start.
@@ -51,7 +51,7 @@ object LockWindowRules {
 
 /** Onboarding copy (spec, Welcome and Onboarding; `A1`, `A10`–`A14`). Final; do not reword here. */
 object OnboardingCopy {
-    const val STEPS = 5
+    const val STEPS = 6
     private const val NBSP = ' '
 
     // Welcome (A1)
@@ -77,6 +77,21 @@ object OnboardingCopy {
         proof == ProofType.PHOTO -> "Photo check-in"
         target <= 1 -> "Tap when done"
         else -> "$target $unit"
+    }
+
+    // Shutdown time (#164; no mockup, built on the step page like A10 and A11)
+    const val SHUTDOWN_TITLE = "Pick a shutdown time"
+    const val SHUTDOWN_LINE = "A shutdown time helps you stop doomscrolling at night."
+    const val SHUTDOWN_DETAIL = "Apps lock until 7:00 am. Phone, messages and maps still work."
+    const val SKIP = "Skip"
+
+    /** The starts the shutdown step offers, as minutes of the day: 10 PM, 11 PM, Midnight. */
+    val SHUTDOWN_TIMES: List<Int> = NightWindow.PRESETS
+
+    /** A shutdown row's title: "10 PM", "11 PM", "Midnight" (minute 0). */
+    fun shutdownLabel(minute: Int): String = when {
+        minute == 0 -> SettingsCopy.MIDNIGHT
+        else -> "${(minute / 60 + 11) % 12 + 1} ${if (minute < 12 * 60) "AM" else "PM"}"
     }
 
     // Lock window (A11)
@@ -227,7 +242,7 @@ object WelcomeLayout {
 }
 
 /**
- * Step 5, "How Sprig works" (`A14-Onb-Ready`): a 300dp dawn sky with the title at (24, 96),
+ * Step 6, "How Sprig works" (`A14-Onb-Ready`): a 300dp dawn sky with the title at (24, 96),
  * 170dp wide, and Sprig 190dp on the right (`left: 186px` in a 390 frame, so 14dp from the edge)
  * with its top at 92, i.e. its bottom 30dp under the crest at 252.
  *
