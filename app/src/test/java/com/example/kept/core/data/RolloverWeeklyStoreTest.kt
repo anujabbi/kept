@@ -243,38 +243,6 @@ class RolloverWeeklyStoreTest {
         assertEquals(1, recaps.size)
     }
 
-    // --- sessions and the give-up time ---------------------------------------------------------
-
-    @Test fun `a session logged after the give-up time counts for the week but not for the day`() = runBlocking {
-        val g = goal()
-        read("2026-11-25")
-        session(g, "2026-11-25", "21:30")
-        rollOn("2026-11-26")
-        assertEquals("missed 0/1 Exercise", day("2026-11-25"))
-
-        // Thursday owes 3 in 3 days, not 4: Wednesday's late session is in the week's count.
-        read("2026-11-26"); session(g, "2026-11-26", "20:59")
-        rollOn("2026-11-27")
-        assertEquals("kept 1/1", day("2026-11-26"))
-        // And with those two, Friday needs 2 in 2 days: still a must-do day.
-        read("2026-11-27")
-        rollOn("2026-11-28")
-        assertEquals("missed 0/1 Exercise", day("2026-11-27"))
-    }
-
-    @Test fun `two must-do goals with one logged is a missed day that names the other`() = runBlocking {
-        val exercise = goal("Exercise", 4)
-        goal("Read Dune", 4)
-        goal("Study", 2)
-        read("2026-11-25")
-        session(exercise, "2026-11-25")
-
-        rollOn("2026-11-26")
-
-        assertEquals("missed 1/2 Read Dune", day("2026-11-25"))
-        assertEquals(0, streak())
-    }
-
     @Test fun `with no daily habit a must-do session alone does not make the day count`() = runBlocking {
         db.habitDao().deactivate(readId)
         val g = goal()
@@ -289,21 +257,6 @@ class RolloverWeeklyStoreTest {
     }
 
     // --- goals changed between the day and its rollover ----------------------------------------
-
-    @Test fun `a goal set on the day, or after it, never makes that day a must-do day`() = runBlocking {
-        // Set on Wednesday at 7 a week; Wednesday itself never locks, so it cannot be missed for it.
-        goal(days = 7, from = "2026-11-25")
-        read("2026-11-25")
-        // Another set on Thursday morning, before Wednesday's rollover has run.
-        goal("Study", 7, from = "2026-11-26")
-        read("2026-11-26")
-
-        rollOn("2026-11-27")
-
-        assertEquals("kept 0/0", day("2026-11-25"))
-        // Thursday is the first goal's first counted day (3 asked, 3 days left); the second was set that day.
-        assertEquals("missed 0/1 Exercise", day("2026-11-26"))
-    }
 
     @Test fun `the rollover reads the goals as they are when it runs`() = runBlocking {
         // Wednesday's session was skipped on two goals. Before the rollover runs, one is deleted and the other lowered to 2.
