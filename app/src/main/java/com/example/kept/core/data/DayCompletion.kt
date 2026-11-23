@@ -20,4 +20,11 @@ interface ForegroundSignal {
  */
 interface DayCompletionReactor {
     suspend fun onDayCompleted()
+
+    /**
+     * The last habit was ticked in time but a weekly goal's must-do session still keeps the day
+     * open (story #176). Nothing is finished yet, so [onDayCompleted] is not raised; the shade
+     * still has to drop a reminder about habits that are now all done.
+     */
+    suspend fun onHabitsDoneDayOpen() = Unit
 }

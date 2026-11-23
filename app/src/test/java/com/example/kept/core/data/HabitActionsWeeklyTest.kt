@@ -1,12 +1,17 @@
 package com.example.kept.core.data
 
+import android.Manifest
+import android.app.NotificationManager
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.example.kept.core.analytics.Analytics
 import com.example.kept.core.data.db.KeptDatabase
 import com.example.kept.core.data.db.WeeklyGoalEntity
 import com.example.kept.core.data.prefs.KeptPreferences
+import com.example.kept.core.notify.KeptNotifications
+import com.example.kept.core.notify.NotificationDayCompletion
 import com.example.kept.core.domain.ProofType
+import com.example.kept.core.domain.ReminderKind
 import com.example.kept.core.domain.SprigState
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -18,6 +23,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import java.time.Clock
 import java.time.Instant
@@ -61,14 +67,17 @@ class HabitActionsWeeklyTest {
     private val habits = HabitRepository(db.habitDao(), db.habitEntryDao(), db.dayRecordDao(), prefs, time)
     private val weekly = WeeklyGoalRepository(db.weeklyGoalDao(), db.weeklyGoalEntryDao(), time)
     private val analytics = Recorder()
+    /** Times the shade was told the whole day is finished: the "All habits done" half. */
     private var shadeCalls = 0
-    private val actions = HabitActions(
+    private val actions = actions(object : DayCompletionReactor { override suspend fun onDayCompleted() { shadeCalls++ } })
+
+    private fun actions(dayCompletion: DayCompletionReactor) = HabitActions(
         habits = habits,
         sprig = SprigRepository(prefs, db.galleryDao(), db.dayRecordDao(), time),
         prefs = prefs,
         time = time,
         analytics = analytics,
-        dayCompletion = object : DayCompletionReactor { override suspend fun onDayCompleted() { shadeCalls++ } },
+        dayCompletion = dayCompletion,
         weeklyGoals = weekly,
     )
 
@@ -92,12 +101,45 @@ class HabitActionsWeeklyTest {
     private suspend fun level(): Int = prefs.currentSprig().level
     private suspend fun pending(): String? = prefs.currentSettings().celebrationPendingDate
 
-    /** Nothing a finished day sets off has happened. */
+    /**
+     * Nothing a finished day sets off has happened. The reminder is not one of those things: it
+     * goes with the last habit, session or no session (see the test with the real shade below).
+     */
     private suspend fun assertDayOpen(why: String) {
         assertEquals("$why: day_completed", emptyList<Map<String, Any>>(), completed())
         assertEquals("$why: the level", 3, level())
         assertNull("$why: the moment", pending())
-        assertEquals("$why: the shade", 0, shadeCalls)
+        assertEquals("$why: \"All habits done\"", 0, shadeCalls)
+    }
+
+    /**
+     * The real shade (review of PR #187). A reminder with a "Mark done" button is showing, KEPT
+     * is not in front, and the last habit is ticked in the app while the session is unlogged.
+     * The reminder has nothing left to remind about, so it goes with the tick; "All habits done"
+     * waits for the session.
+     */
+    @Test fun `the tick that finishes the habits on a must-do day takes the reminder down, All habits done waits for the session`() = runBlocking {
+        shadowOf(ctx).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
+        val nm = ctx.getSystemService(NotificationManager::class.java)
+        nm.cancelAll()
+        val notifications = KeptNotifications(ctx)
+        val background = object : ForegroundSignal { override val isForeground = false }
+        val real = actions(NotificationDayCompletion(notifications, background, weekly, prefs, time))
+        fun showing(id: Int) = nm.activeNotifications.any { it.id == id }
+        val g = goal()
+        assertTrue(notifications.reminder(ReminderKind.BEFORE_DUE, "1 habit to go", "Read", listOf(KeptNotifications.MarkDoneAction(read, "Mark done"))))
+        assertTrue(showing(KeptNotifications.ID_REMINDER))
+
+        real.complete(read)
+
+        assertFalse("the reminder is still up for a habit that is done", showing(KeptNotifications.ID_REMINDER))
+        assertFalse("\"All habits done\" before the session", showing(KeptNotifications.ID_DAY_DONE))
+        assertEquals("day_completed before the session", emptyList<Map<String, Any>>(), completed())
+
+        at("10:00")
+        real.logWeekly(g)
+        assertTrue("\"All habits done\" once the session is logged", showing(KeptNotifications.ID_DAY_DONE))
+        assertEquals(1, completed().size)
     }
 
     @Test fun `the last habit does not finish a must-do day, the session does`() = runBlocking {

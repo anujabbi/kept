@@ -46,7 +46,8 @@ class HabitActions @Inject constructor(
      *
      * On a must-do day the habits are half of the promise (issue #165, story #176): the tick
      * that finishes them does not finish the day, earns no level and reports no `day_completed`
-     * while a must-do session is not logged in time. Logging it does ([logWeekly]).
+     * while a must-do session is not logged in time. Logging it does ([logWeekly]). The habit
+     * reminder in the shade still comes down with that tick, as it does on any other day.
      */
     suspend fun complete(
         habitId: Long,
@@ -67,6 +68,8 @@ class HabitActions @Inject constructor(
         val habitsFinished = MomentRules.finishedInTime(event.allDoneNow, event.beforeDue)
         val weeklyKept = !habitsFinished || WeeklyHold.allInTime(weeklyGoals.thisWeek().mustDoLoggedAt(), dueMillis())
         if (habitsFinished && weeklyKept) onDayCompleted(event.habitCount, event.minutesBeforeDue, momentShown)
+        // The reminder is about the habits, so it goes with the last of them even on an open day.
+        else if (habitsFinished) dayCompletion.onHabitsDoneDayOpen()
         sprig.onHabitEvent(event, weeklyKept)
         event
     }

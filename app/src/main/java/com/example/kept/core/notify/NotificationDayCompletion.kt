@@ -21,6 +21,9 @@ import javax.inject.Singleton
  *    "Apps are open. Promise kept." is posted instead and the moment waits for the next open.
  *    Not while a weekly goal's must-do session still holds the lock (issue #165): the apps are
  *    not open then, and the lock's own notification says what is left.
+ *
+ * On a must-do day whose session is not logged, the last habit's tick does not finish the day
+ * (story #176) and only the first happens then, through [onHabitsDoneDayOpen].
  */
 @Singleton
 class NotificationDayCompletion @Inject constructor(
@@ -34,6 +37,11 @@ class NotificationDayCompletion @Inject constructor(
     override suspend fun onDayCompleted() {
         runCatching { notifications.clearReminder() }
         if (!foreground.isForeground && !weeklySessionLeft()) runCatching { notifications.dayComplete() }
+    }
+
+    /** Only the first of the two: the habits are done, so the reminder goes; the rest waits (story #176). */
+    override suspend fun onHabitsDoneDayOpen() {
+        runCatching { notifications.clearReminder() }
     }
 
     /** Unknown reads as nothing left, so a failed read never costs the "Promise kept" notice. */
