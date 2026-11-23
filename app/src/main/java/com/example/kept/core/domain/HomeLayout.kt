@@ -130,8 +130,10 @@ object HomeCopy {
      * The line under the headline. The spec's two lines, plus the states Home already told
      * apart before Daybreak (no habits, past the give-up time, a break running).
      */
-    fun line(total: Int, done: Int, giveUp: String, pastDue: Boolean, breakActive: Boolean): String = when {
+    fun line(total: Int, done: Int, giveUp: String, pastDue: Boolean, breakActive: Boolean, weeklyMissed: Boolean = false): String = when {
         total <= 0 -> "Nothing locks until you add one."
+        // A must-do session was not logged before the give-up time (story #176).
+        weeklyMissed -> "Apps are open. Today won't count."
         done >= total -> "Apps are open. See you tomorrow."
         pastDue -> "Apps are open. Today won't count."
         breakActive -> "Lock paused for a break. Apps lock again soon."

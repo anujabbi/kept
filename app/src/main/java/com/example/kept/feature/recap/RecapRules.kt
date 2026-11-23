@@ -2,6 +2,7 @@ package com.example.kept.feature.recap
 
 import com.example.kept.core.data.db.DayRecordEntity
 import com.example.kept.core.domain.RecapOutcome
+import com.example.kept.core.domain.WeeklyMissedCopy
 
 object RecapRules {
     /**
@@ -18,5 +19,15 @@ object RecapRules {
 
     /** The recap outcome for a day record ([RecapOutcome.of]). */
     fun outcome(r: DayRecordEntity): RecapOutcome =
-        RecapOutcome.of(r.countedForStreak, r.unprotected, r.writtenOff, r.shieldConsumed, r.habitsDone, r.habitsTotal)
+        RecapOutcome.of(r.countedForStreak, r.unprotected, r.writtenOff, r.shieldConsumed, r.habitsDone, r.habitsTotal, r.weeklyDone < r.weeklyDue)
+
+    /**
+     * The weekly goals to name for [r]'s day (story #176): the ones whose must-do session was not
+     * logged in time, when that is why the day slipped or needed the shield. A day the lock was
+     * off, or one written off, has its own reason and names none.
+     */
+    fun weeklyMissed(r: DayRecordEntity): List<String> = when (outcome(r)) {
+        RecapOutcome.SLIPPED, RecapOutcome.SHIELD -> WeeklyMissedCopy.read(r.weeklyMissed)
+        else -> emptyList()
+    }
 }

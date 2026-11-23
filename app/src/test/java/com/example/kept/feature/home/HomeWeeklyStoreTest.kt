@@ -33,7 +33,11 @@ import com.example.kept.core.domain.ProofType
 import com.example.kept.core.domain.WeeklyCardCopy
 import com.example.kept.core.lock.Permissions
 import com.example.kept.core.ui.shots.Shot
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -76,9 +80,12 @@ class HomeWeeklyStoreTest {
     private val sprig = SprigRepository(prefs, db.galleryDao(), db.dayRecordDao(), time)
     private val weekly = WeeklyGoalRepository(db.weeklyGoalDao(), db.weeklyGoalEntryDao(), time)
 
+    /** One for the process, as in the app: ticks and sessions take their turn through it. */
+    private val actions = HabitActions(habits, sprig, prefs, time, NoOpAnalytics(), object : DayCompletionReactor { override suspend fun onDayCompleted() = Unit }, weekly)
+
     private fun newViewModel() = HomeViewModel(
         habits = habits,
-        actions = HabitActions(habits, sprig, prefs, time, NoOpAnalytics(), object : DayCompletionReactor { override suspend fun onDayCompleted() = Unit }),
+        actions = actions,
         sprigRepo = sprig,
         lockRepo = LockRepository(db.allowedAppDao(), db.lockBreakDao(), db.protectionGapDao(), db.dayRecordDao(), prefs, habits, sprig, time, weekly),
         dayRepo = DayRepository(db.dayRecordDao(), time),
@@ -145,6 +152,13 @@ class HomeWeeklyStoreTest {
         vm.value!!.logWeekly(goal)
         vm.value!!.logWeekly(goal)
         waitForTitle(goal, "Exercise · 1 of 4 this week")
+        // A third, which takes its turn after both, so Sunday's taps are all over before the clock
+        // moves on.
+        val third = CompletableDeferred<Boolean>()
+        CoroutineScope(Dispatchers.Default).launch { third.complete(actions.logWeekly(goal)) }
+        // The taps before it resume on the main thread, which waitForIdle keeps turning over.
+        rule.waitUntil(10_000) { rule.waitForIdle(); third.isCompleted }
+        assertEquals("a session is already stored for Sunday", false, runBlocking { third.await() })
         assertEquals(listOf("2026-11-22"), dates())
         assertEquals("Sunday, today, done", strip(goal)[0])
 

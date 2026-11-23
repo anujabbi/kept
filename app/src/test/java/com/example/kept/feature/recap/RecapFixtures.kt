@@ -27,11 +27,13 @@ internal object RecapFixtures {
         done: Int, breaks: Int = 0, streak: Int,
         counted: Boolean = false, shield: Boolean = false, unprotected: Boolean = false, writtenOff: Boolean = false,
         reset: Boolean = false,
+        weeklyDue: Int = 0, weeklyMissed: String = "",
     ) = RecapUi(
         DayRecordEntity(
             date = DATE.toString(), habitsDone = done, habitsTotal = 2, lockedMillis = 3_600_000, breaksUsed = breaks,
             unprotected = unprotected, broken = breaks > 0, writtenOff = writtenOff, countedForStreak = counted,
             shieldConsumed = shield, formId = SprigForm.forStreak(streak).id, streakEnd = streak, finalized = true,
+            weeklyDue = weeklyDue, weeklyDone = 0, weeklyMissed = weeklyMissed,
         ),
         DATE,
         streakReset = reset,
@@ -45,13 +47,29 @@ internal object RecapFixtures {
     val WRITTEN_OFF = ui(done = 1, breaks = 4, streak = 0, writtenOff = true, reset = true)
     val FINAL = ui(done = 2, streak = 120, counted = true)
 
+    /** Both habits done; the day was missed only by a weekly goal's must-do session (story #176). */
+    val WEEKLY = ui(done = 2, streak = 0, reset = true, weeklyDue = 1, weeklyMissed = "Exercise")
+
+    /** The same day saved by the shield. */
+    val WEEKLY_SHIELD = ui(done = 2, streak = 12, shield = true, weeklyDue = 1, weeklyMissed = "Exercise")
+
+    /**
+     * Two goals due and missed, with names as long as a goal's can be (28 characters): the line
+     * runs to five lines, so on a short screen this one page scrolls at font 1.0.
+     */
+    val WEEKLY_LONG = ui(done = 2, streak = 12, shield = true, weeklyDue = 2, weeklyMissed = "Practice guitar with friends\nRead one chapter of my novel")
+
     /** Where the fill ends for [ui]: 5 of 7 at day 12, never less than the 16dp minimum. */
     fun fraction(ui: RecapUi): Float = if (ui.record!!.streakEnd == 12) 5f / 7 else 0f
 
     val ALL = listOf(
         "kept" to KEPT, "shield" to SHIELD, "lockoff" to LOCK_OFF,
         "slipped" to SLIPPED, "late" to TOO_LATE, "writtenoff" to WRITTEN_OFF, "final" to FINAL,
+        "weekly" to WEEKLY, "weekly_shield" to WEEKLY_SHIELD,
     )
+
+    /** Everything that must fit at every font scale: [ALL], and the longest weekly line. */
+    val FITS = ALL + ("weekly_long" to WEEKLY_LONG)
 }
 
 internal fun ComposeContentTestRule.recapRect(tag: String, unmerged: Boolean = false): Rect {
@@ -79,7 +97,7 @@ internal fun ComposeContentTestRule.recapScrollDp(): Float {
  * values are one line; the card ends above the buttons; both buttons are whole and 48dp or taller.
  */
 internal fun assertRecapFits(rule: ComposeContentTestRule, current: MutableState<RecapUi>, scale: MutableFloatState, widthDp: Float) {
-    for (f in listOf(1f, 1.3f, 2f)) for ((name, ui) in RecapFixtures.ALL) {
+    for (f in listOf(1f, 1.3f, 2f)) for ((name, ui) in RecapFixtures.FITS) {
         scale.floatValue = f
         current.value = ui
         rule.waitForIdle()

@@ -11,6 +11,7 @@ import com.example.kept.core.data.db.MIGRATION_2_3
 import com.example.kept.core.data.db.MIGRATION_3_4
 import com.example.kept.core.data.db.MIGRATION_4_5
 import com.example.kept.core.data.db.MIGRATION_6_7
+import com.example.kept.core.data.db.MIGRATION_7_8
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -23,8 +24,8 @@ import org.junit.runner.RunWith
  * any shipped schema must be able to reach the current one without losing a row: 1 -> 2 (the
  * timer removal, issue #3), 2 -> 3 (the points removal, issue #8), 3 -> 4 (the buddy removal,
  * issue #13), 4 -> 5 (the weekly looks removal, issue #125), 6 -> 7 (the weekly goal tables, issue
- * #165), and 1 -> 7 end to end, which is the path an installed-but-never-updated build actually
- * takes. 5 -> 6 (the retired preset, issue #163) changes rows, not tables;
+ * #165), 7 -> 8 (a day's weekly must-do columns, story #176), and 1 -> 8 end to end, which is the
+ * path an installed-but-never-updated build actually takes. 5 -> 6 (the retired preset, issue #163) changes rows, not tables;
  * `RetiredPresetMigrationTest` covers its rows on the JVM.
  */
 @RunWith(AndroidJUnit4::class)
@@ -216,8 +217,72 @@ class MigrationTest {
         }
     }
 
+    /**
+     * `runMigrationsAndValidate` checks the three new `day_records` columns, defaults included,
+     * against the exported schema 8. Days closed before the upgrade have no weekly session due
+     * and keep what they came to: kept, shielded, missed, and today's open row.
+     */
     @Test
-    fun migrate1To7_runsEveryMigrationAndKeepsData() {
+    fun migrate7To8_addsTheWeeklyColumnsAndKeepsEveryDaysOutcome() {
+        helper.createDatabase(dbName, 7).apply {
+            execSQL(
+                "INSERT INTO day_records (date, habitsDone, habitsTotal, lockedMillis, breaksUsed, unprotected, broken, " +
+                    "writtenOff, countedForStreak, shieldConsumed, levelEnd, formId, streakEnd, finalized) VALUES " +
+                    "('2026-11-21', 2, 2, 5400000, 0, 0, 0, 0, 1, 0, 4, 3, 12, 1), " +
+                    "('2026-11-22', 1, 2, 7200000, 1, 0, 1, 0, 0, 1, 3, 3, 12, 1), " +
+                    "('2026-11-23', 0, 2, 60000, 0, 0, 0, 0, 0, 0, 3, 1, 0, 1), " +
+                    "('2026-11-24', 1, 2, 1000, 0, 0, 0, 0, 0, 0, 3, 1, 0, 0)",
+            )
+            execSQL(
+                "INSERT INTO weekly_goals (id, title, iconKey, daysPerWeek, isActive, createdAt, effectiveFrom, sortOrder) " +
+                    "VALUES (1, 'Exercise', 'run', 4, 1, 3000, '2026-11-15', 0)",
+            )
+            execSQL("INSERT INTO weekly_goal_entries (id, goalId, date, completedAt) VALUES (1, 1, '2026-11-22', 5000)")
+            close()
+        }
+
+        val migrated = helper.runMigrationsAndValidate(dbName, 8, true, MIGRATION_7_8)
+
+        val days = mutableListOf<String>()
+        migrated.query(
+            "SELECT date, habitsDone, habitsTotal, lockedMillis, breaksUsed, countedForStreak, shieldConsumed, levelEnd, formId, streakEnd, " +
+                "finalized, weeklyDue, weeklyDone, weeklyMissed FROM day_records ORDER BY date",
+        ).use { c ->
+            while (c.moveToNext()) days += (0 until c.columnCount).joinToString("|") { c.getString(it) }
+        }
+        assertEquals(
+            listOf(
+                "2026-11-21|2|2|5400000|0|1|0|4|3|12|1|0|0|",
+                "2026-11-22|1|2|7200000|1|0|1|3|3|12|1|0|0|",
+                "2026-11-23|0|2|60000|0|0|0|3|1|0|1|0|0|",
+                "2026-11-24|1|2|1000|0|0|0|3|1|0|0|0|0|",
+            ),
+            days,
+        )
+        // A row written without the new columns, as the live row for a new day is, gets the defaults.
+        migrated.execSQL(
+            "INSERT INTO day_records (date, habitsDone, habitsTotal, lockedMillis, breaksUsed, unprotected, broken, writtenOff, " +
+                "countedForStreak, shieldConsumed, levelEnd, formId, streakEnd, finalized) VALUES ('2026-11-25', 0, 2, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0)",
+        )
+        migrated.query("SELECT weeklyDue, weeklyDone, weeklyMissed FROM day_records WHERE date = '2026-11-25'").use {
+            assertTrue(it.moveToFirst())
+            assertEquals(0, it.getInt(0))
+            assertEquals(0, it.getInt(1))
+            assertEquals("", it.getString(2))
+        }
+        migrated.query("SELECT title, daysPerWeek FROM weekly_goals").use {
+            assertTrue(it.moveToFirst())
+            assertEquals("Exercise", it.getString(0))
+            assertEquals(4, it.getInt(1))
+        }
+        migrated.query("SELECT COUNT(*) FROM weekly_goal_entries").use {
+            assertTrue(it.moveToFirst())
+            assertEquals(1, it.getInt(0))
+        }
+    }
+
+    @Test
+    fun migrate1To8_runsEveryMigrationAndKeepsData() {
         helper.createDatabase(dbName, 1).apply {
             execSQL(
                 "INSERT INTO habits (id, title, iconKey, proofType, targetValue, unit, sortOrder, isActive, createdAt) " +
@@ -227,7 +292,7 @@ class MigrationTest {
             close()
         }
 
-        val migrated = helper.runMigrationsAndValidate(dbName, 7, true, *ALL_MIGRATIONS)
+        val migrated = helper.runMigrationsAndValidate(dbName, 8, true, *ALL_MIGRATIONS)
 
         migrated.query("SELECT proofType FROM habits WHERE id = 1").use {
             assertTrue(it.moveToFirst())

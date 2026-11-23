@@ -2,7 +2,11 @@ package com.example.kept.core.data
 
 import com.example.kept.core.analytics.Analytics
 import com.example.kept.core.data.prefs.KeptPreferences
+import com.example.kept.core.domain.GiveUpTime
 import com.example.kept.core.domain.MomentRules
+import com.example.kept.core.domain.WeeklyHold
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -22,7 +26,15 @@ class HabitActions @Inject constructor(
     private val analytics: Analytics,
     /** What the shade does about a finished day. An interface so this class stays Android-free. */
     private val dayCompletion: DayCompletionReactor,
+    private val weeklyGoals: WeeklyGoalRepository,
 ) {
+    /**
+     * One tick, session or undo at a time. On a must-do day the last habit and the session can be
+     * tapped a moment apart, from Home and from the lock screen; each asks "is the day finished
+     * now?" after its own write, and without this both could answer yes and finish it twice.
+     */
+    private val dayLock = Mutex()
+
     /**
      * Ticks a habit off. Idempotent: [HabitRepository.markDone] returns null for a habit that is
      * already done, so a "Mark done" notification action tapped twice completes once, fires one
@@ -31,13 +43,17 @@ class HabitActions @Inject constructor(
      * [momentShown] is true when the screen the tick came from plays the "Promise kept" moment
      * itself (the lock screen, issue #130); a day finished that way leaves no celebration pending
      * for KEPT. That screen then calls [claimMoment] before it plays it.
+     *
+     * On a must-do day the habits are half of the promise (issue #165, story #176): the tick
+     * that finishes them does not finish the day, earns no level and reports no `day_completed`
+     * while a must-do session is not logged in time. Logging it does ([logWeekly]).
      */
     suspend fun complete(
         habitId: Long,
         photoPath: String? = null,
         source: CompletionSource = CompletionSource.APP,
         momentShown: Boolean = false,
-    ): HabitEvent.Completed? {
+    ): HabitEvent.Completed? = dayLock.withLock {
         val event = habits.markDone(habitId, photoPath) ?: return null
         analytics.capture(
             "habit_completed",
@@ -47,31 +63,83 @@ class HabitActions @Inject constructor(
                 "source" to source.eventValue,
             ),
         )
-        if (MomentRules.finishedInTime(event.allDoneNow, event.beforeDue)) onDayCompleted(event, momentShown)
-        sprig.onHabitEvent(event)
-        return event
+        // Only the tick that finishes the habits in time has to ask about the weekly goals.
+        val habitsFinished = MomentRules.finishedInTime(event.allDoneNow, event.beforeDue)
+        val weeklyKept = !habitsFinished || WeeklyHold.allInTime(weeklyGoals.thisWeek().mustDoLoggedAt(), dueMillis())
+        if (habitsFinished && weeklyKept) onDayCompleted(event.habitCount, event.minutesBeforeDue, momentShown)
+        sprig.onHabitEvent(event, weeklyKept)
+        event
     }
 
-    suspend fun undo(habitId: Long): HabitEvent.Undone? {
+    /**
+     * Logs today's session of a weekly goal. One session a day counts: a second call, or a goal
+     * that is gone, stores nothing and returns false.
+     *
+     * When today is that goal's must-do day and this was the last thing the day was waiting for
+     * (every habit ticked in time, every other must-do session logged, the give-up time not yet
+     * passed), the session finishes the day exactly as the last habit does: the level, the
+     * "Promise kept" moment left pending for KEPT, `day_completed` and the shade (story #176).
+     * On any other day it is progress toward the week and nothing else.
+     */
+    suspend fun logWeekly(goalId: Long): Boolean = dayLock.withLock {
+        if (!weeklyGoals.logToday(goalId)) return false
+        val weeks = weeklyGoals.thisWeek()
+        val due = dueMillis()
+        val mustDo = weeks.firstOrNull { it.id == goalId }?.week?.todayCounts == true
+        // This goal's own session is one of those asked about, so a late one finishes nothing.
+        if (mustDo && WeeklyHold.allInTime(weeks.mustDoLoggedAt(), due)) {
+            val today = habits.today()
+            if (today.allDoneOnTime) {
+                sprig.onDayKeptByWeeklySession()
+                onDayCompleted(today.total, ((due - time.nowMillis()) / 60_000L).coerceAtLeast(0L).toInt(), momentShown = false)
+            }
+        }
+        true
+    }
+
+    /**
+     * Removes today's session; false when there was none. Undoing a must-do session opens the
+     * day again, like unticking a habit: nothing is left to celebrate and the day's level goes
+     * back if it gave one. On a day that is not the goal's must-do day nothing else changes.
+     */
+    suspend fun undoWeekly(goalId: Long): Boolean = dayLock.withLock {
+        val mustDo = weeklyGoals.thisWeek().firstOrNull { it.id == goalId }?.week?.todayCounts == true
+        if (!weeklyGoals.undoToday(goalId)) return false
+        if (mustDo) {
+            prefs.updateSettings { it.copy(celebrationPendingDate = null) }
+            sprig.onWeeklySessionUndone()
+        }
+        true
+    }
+
+    /** Today's give-up time, from the settings in effect now, as the rollover will judge it. */
+    private suspend fun dueMillis(): Long {
+        val s = prefs.currentSettings()
+        return GiveUpTime.instantFor(time.today(), s.lockFromMinute, s.dueMinute, time.zone()).toEpochMilli()
+    }
+
+    suspend fun undo(habitId: Long): HabitEvent.Undone? = dayLock.withLock {
         val event = habits.undo(habitId) ?: return null
         analytics.capture("habit_completion_undone")
         // An undone day has nothing left to celebrate; drop a celebration that never got shown.
         prefs.updateSettings { it.copy(celebrationPendingDate = null) }
         sprig.onHabitEvent(event)
-        return event
+        event
     }
 
     /**
-     * Every habit ticked, and in time. Worth a moment (issue #9). When the tick came from a screen
-     * that plays the moment itself ([momentShown]: the lock screen, issue #130), or the moment
-     * already played today, nothing is left pending, so KEPT does not celebrate the day again.
+     * Every habit ticked and every must-do session logged, in time. Worth a moment (issue #9).
+     * When the tick came from a screen that plays the moment itself ([momentShown]: the lock
+     * screen, issue #130), or the moment already played today, nothing is left pending, so KEPT
+     * does not celebrate the day again. `habit_count` stays the number of habits: a weekly
+     * session adds no property (story #176).
      */
-    private suspend fun onDayCompleted(event: HabitEvent.Completed, momentShown: Boolean) {
+    private suspend fun onDayCompleted(habitCount: Int, minutesBeforeDue: Int, momentShown: Boolean) {
         analytics.capture(
             "day_completed",
             mapOf(
-                "habit_count" to event.habitCount,
-                "minutes_before_due" to event.minutesBeforeDue,
+                "habit_count" to habitCount,
+                "minutes_before_due" to minutesBeforeDue,
             ),
         )
         val today = time.todayKey()

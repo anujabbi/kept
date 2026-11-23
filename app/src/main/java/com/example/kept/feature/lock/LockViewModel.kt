@@ -16,7 +16,6 @@ import com.example.kept.core.data.LockRepository
 import com.example.kept.core.data.LockState
 import com.example.kept.core.data.SprigRepository
 import com.example.kept.core.data.TimeSource
-import com.example.kept.core.data.WeeklyGoalRepository
 import com.example.kept.core.data.WeeklyGoalWeek
 import com.example.kept.core.domain.LockMode
 import com.example.kept.core.domain.LockPolicy
@@ -132,7 +131,6 @@ class LockViewModel @Inject constructor(
     private val time: TimeSource,
     @ApplicationScope private val appScope: CoroutineScope,
     private val analytics: Analytics,
-    private val weeklyGoals: WeeklyGoalRepository,
 ) : ViewModel() {
 
     /**
@@ -202,7 +200,7 @@ class LockViewModel @Inject constructor(
         held = shown(state.value)
         appScope.launch {
             val stays = runCatching {
-                weeklyGoals.logToday(goalId)
+                actions.logWeekly(goalId)
                 val lock = lockRepo.currentState()
                 LockPolicy.lockScreenShouldStay(blockedPackage.value, time.now(), time.localTime(), lock.snapshot(emptySet(), null))
             }.getOrDefault(true)
@@ -215,8 +213,8 @@ class LockViewModel @Inject constructor(
     }
 
     /** A "This week" row in the habits list: log or undo today's session, as Home's card does. */
-    fun logWeekly(goalId: Long) = appScope.launch { weeklyGoals.logToday(goalId) }
-    fun undoWeekly(goalId: Long) = appScope.launch { weeklyGoals.undoToday(goalId) }
+    fun logWeekly(goalId: Long) = appScope.launch { actions.logWeekly(goalId) }
+    fun undoWeekly(goalId: Long) = appScope.launch { actions.undoWeekly(goalId) }
 
     /** True while [markWeeklyDone] is deciding where to go: the lifted lock must not send the screen home meanwhile. */
     val openingApp: Boolean get() = held != null

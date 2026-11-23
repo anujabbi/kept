@@ -55,6 +55,18 @@ object SettingsFixtures {
         "2026-09-17" to "kept", "2026-09-16" to "kept",
     ).map { (d, k) -> record(d, k) }
 
+    /**
+     * Days a weekly goal's must-do session decided (story #176), newest first: missed for one
+     * goal, saved by the shield with two goals of the longest names (28 characters), a must-do
+     * day that was kept, and an ordinary kept day.
+     */
+    val HISTORY_WEEKLY: List<DayRecordEntity> = listOf(
+        record("2026-11-25", "late").copy(weeklyDue = 1, weeklyMissed = "Exercise"),
+        record("2026-11-24", "late").copy(shieldConsumed = true, weeklyDue = 2, weeklyMissed = "Practice guitar with friends\nRead one chapter of my novel"),
+        record("2026-11-23", "kept").copy(weeklyDue = 1, weeklyDone = 1),
+        record("2026-11-22", "kept"),
+    )
+
     fun record(date: String, kind: String): DayRecordEntity {
         val r = DayRecordEntity(date, habitsDone = 2, habitsTotal = 2, finalized = true)
         return when (kind) {
@@ -94,6 +106,7 @@ internal val settingsScreens: List<Pair<String, @Composable () -> Unit>> = listO
     "settings_night" to { SettingsFrame(SettingsFixtures.NIGHT_ON) },
     "history" to { HistoryContent(SettingsFixtures.HISTORY, 12, {}, {}) },
     "history_empty" to { HistoryContent(emptyList(), 0, {}, {}) },
+    "history_weekly" to { HistoryContent(SettingsFixtures.HISTORY_WEEKLY, 12, {}, {}) },
     "exceptions" to { ExceptionsContent(BodyMode.SETTINGS, emptyList(), SettingsFixtures.apps, "", {}, { _, _ -> }, {}, {}) },
     "permissions_all" to { PermissionsContent(BodyMode.SETTINGS, PermissionKind.entries, SettingsFixtures.allGranted, {}, {}, {}) },
     "permissions_missing" to { PermissionsContent(BodyMode.SETTINGS, PermissionKind.entries, SettingsFixtures.oneMissing, {}, {}, {}) },
@@ -200,6 +213,18 @@ class SettingsShots(private val rule: ComposeContentTestRule, private val prefix
                         rule.waitForIdle()
                         assertOneLine(at, "history_date_${r.date}", unmerged = true)
                         assertOneLine(at, "history_label_${r.date}", unmerged = true)
+                    }
+                }
+                name == "history_weekly" -> for (r in SettingsFixtures.HISTORY_WEEKLY) {
+                    rule.onNodeWithTag("page_body").performScrollToNode(hasTestTag("history_${r.date}"))
+                    rule.waitForIdle()
+                    assertOneLine(at, "history_date_${r.date}", unmerged = true)
+                    assertOneLine(at, "history_label_${r.date}", unmerged = true)
+                    // The line naming the goal may wrap; it never splits a word or leaves the screen.
+                    if (r.weeklyMissed.isNotEmpty()) {
+                        assertNoWordSplit(rule, "history_weekly_${r.date}", at, unmerged = true)
+                        val b = bounds("history_weekly_${r.date}", unmerged = true)
+                        assertTrue("$at: the weekly line $b runs off the screen", b.left >= 0f && b.right <= rootDp().width + 0.5f)
                     }
                 }
                 else -> assertNoWordSplit(rule, "page_title", at)

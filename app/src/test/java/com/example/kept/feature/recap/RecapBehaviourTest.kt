@@ -186,6 +186,42 @@ class RecapBehaviourTest {
         )
     }
 
+    @Test fun aDayMissedOnlyByAWeeklySessionNamesTheGoal() {
+        val current = mutableStateOf(RecapFixtures.WEEKLY)
+        rule.setContent { Shot { RecapContent(current.value, onClose = {}) } }
+        val nb = '\u00A0'
+        // Both habits were done, so it is not "Too late to count.": the session is what slipped.
+        rule.onNodeWithTag("recap_headline").assertTextEquals("The promise slipped.")
+        rule.onNodeWithTag("recap_line").assertTextEquals("Exercise wasn't logged in time. Streak reset. Tomorrow is fresh.")
+        rule.onNodeWithTag("recap_done").assertTextEquals("2${nb}of${nb}2")
+        rule.onNodeWithTag("recap_second").assertTextEquals("See my Sprigs")
+
+        // Not the day that reset the streak: no claim of a reset.
+        current.value = RecapFixtures.WEEKLY.copy(streakReset = false)
+        rule.waitForIdle()
+        rule.onNodeWithTag("recap_line").assertTextEquals("Exercise wasn't logged in time. Tomorrow is fresh.")
+
+        // Saved by the shield: it still says what the shield was for.
+        current.value = RecapFixtures.WEEKLY_SHIELD
+        rule.waitForIdle()
+        rule.onNodeWithTag("recap_headline").assertTextEquals("Shield saved it.")
+        rule.onNodeWithTag("recap_line").assertTextEquals("Exercise wasn't logged in time. Your weekly shield kept the 12-day streak alive.")
+        // Two goals due and both missed.
+        current.value = RecapFixtures.WEEKLY_LONG
+        rule.waitForIdle()
+        rule.onNodeWithTag("recap_line").assertTextEquals(
+            "Practice guitar with friends and Read one chapter of my novel weren't logged in time. Your weekly shield kept the 12-day streak alive.",
+        )
+
+        // A must-do day that was kept, and a day with its own reason, name no goal.
+        current.value = RecapFixtures.KEPT.copy(record = RecapFixtures.KEPT.record!!.copy(weeklyDue = 1, weeklyDone = 1))
+        rule.waitForIdle()
+        rule.onNodeWithTag("recap_line").assertTextEquals("12 days running.")
+        current.value = RecapFixtures.WRITTEN_OFF.copy(record = RecapFixtures.WRITTEN_OFF.record!!.copy(weeklyDue = 1, weeklyMissed = "Exercise"))
+        rule.waitForIdle()
+        rule.onNodeWithTag("recap_line").assertTextEquals("A fourth break this week. Streak reset, and the shield could not save it.")
+    }
+
     @Test fun theFinalFormHasNoBar() {
         rule.setContent { Shot { RecapContent(RecapFixtures.FINAL, onClose = {}) } }
         rule.onNodeWithTag("recap_final").assertTextEquals("Sprig is Celestial, the final form.")

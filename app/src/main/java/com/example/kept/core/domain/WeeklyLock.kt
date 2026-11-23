@@ -117,16 +117,33 @@ enum class LockScreenKind {
  */
 object WeeklyHold {
     fun left(weeks: List<WeeklyGoalRules.Week>, pastDue: Boolean): Int = if (pastDue) 0 else weeks.count { it.isMustDay }
+
+    /**
+     * Every must-do session of today is logged, and before the give-up time (story #176): the
+     * weekly half of "today's promise is kept". [loggedAt] has one entry for each goal whose
+     * today counts: when its session was logged (epoch millis), or null. True with none.
+     */
+    fun allInTime(loggedAt: List<Long?>, dueMillis: Long): Boolean = loggedAt.all { it != null && it < dueMillis }
+
+    /**
+     * Must-do sessions today has lost (story #176): after the give-up time, each one not logged
+     * before it. Until then nothing is lost; a session still to do is [left].
+     */
+    fun missed(loggedAt: List<Long?>, pastDue: Boolean, dueMillis: Long): Int =
+        if (pastDue) loggedAt.count { it == null || it >= dueMillis } else 0
 }
 
 /**
  * What Home's sky, headline and Sprig count: the daily habits plus each must-do session still
  * holding ([WeeklyHold.left]). With none, it is the habits alone, as before weekly goals.
+ *
+ * A must-do session not logged before the give-up time ([WeeklyHold.missed]) stops holding, but
+ * the day is missed (story #176): [keptOnTime] is false and [weeklyMissed] says why.
  */
-data class HomeDay(val total: Int, val done: Int, val keptOnTime: Boolean) {
+data class HomeDay(val total: Int, val done: Int, val keptOnTime: Boolean, val weeklyMissed: Boolean = false) {
     companion object {
-        fun of(habitsTotal: Int, habitsDone: Int, habitsAllDoneOnTime: Boolean, weeklyLeft: Int): HomeDay =
-            HomeDay(habitsTotal + weeklyLeft, habitsDone, habitsAllDoneOnTime && weeklyLeft == 0)
+        fun of(habitsTotal: Int, habitsDone: Int, habitsAllDoneOnTime: Boolean, weeklyLeft: Int, weeklyMissed: Int = 0): HomeDay =
+            HomeDay(habitsTotal + weeklyLeft, habitsDone, habitsAllDoneOnTime && weeklyLeft == 0 && weeklyMissed == 0, weeklyMissed > 0)
     }
 }
 
@@ -196,6 +213,8 @@ object LockNotice {
         val allDoneOnTime: Boolean,
         /** Must-do sessions still holding today ([WeeklyHold.left]). */
         val weeklyLeft: Int,
+        /** Must-do sessions not logged before the give-up time ([WeeklyHold.missed]). */
+        val weeklyMissed: Int = 0,
         val dailyLockActive: Boolean,
         val lockFromMinute: Int,
         val dueMinute: Int,
@@ -210,13 +229,17 @@ object LockNotice {
         return parts.joinToString(" and ") + " left today"
     }
 
+    /** Habits done in time, a must-do session not: "Promise kept." would be untrue (DECISIONS.md, #176). */
+    const val WEEKLY_MISSED = "A weekly session wasn't logged in time, so today is missed."
+
     /** Title and text. Night lockdown is asked first: it holds whatever the day's promise says. */
     fun of(i: Input): Pair<String, String> = when {
         !i.onboardingDone -> "KEPT" to "Finish setup to start locking"
         i.night && i.breakUntil != null -> "Lock paused" to "Apps re-lock at ${i.breakUntil}"
         i.night -> NightNotice.TITLE to NightNotice.text(i.nightUntilMinute)
         i.weeklyLeft == 0 && i.habitsTotal == 0 -> "KEPT" to "No habits set for today"
-        i.weeklyLeft == 0 && i.allDoneOnTime -> "All habits done" to "Apps are open. Promise kept."
+        i.weeklyLeft == 0 && i.allDoneOnTime && i.weeklyMissed == 0 -> "All habits done" to "Apps are open. Promise kept."
+        i.weeklyLeft == 0 && i.allDoneOnTime -> "All habits done" to WEEKLY_MISSED
         i.weeklyLeft == 0 && i.habitsLeft == 0 -> "All habits done" to "Ticked after the give-up time, so today is missed."
         i.breakUntil != null -> "Lock paused" to "Apps re-lock at ${i.breakUntil}"
         i.dailyLockActive -> left(i.habitsLeft, i.weeklyLeft) to "Apps locked until ${i.dueMinute.minuteOfDayLabel()}"

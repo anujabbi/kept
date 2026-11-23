@@ -22,8 +22,21 @@ object RolloverEngine {
         val breaksUsed: Int,
         val writtenOff: Boolean,
         val unprotected: Boolean,
+        /**
+         * Weekly goals whose must-do day this was (issue #165, story #176), worked out for this
+         * date by [WeeklyDay.outcome]. 0 on a day no goal made a must-do day, and with no goal.
+         */
+        val weeklyDue: Int = 0,
+        /** Of those, the sessions logged before that day's give-up time. Only these count. */
+        val weeklyDoneBeforeDue: Int = 0,
+        /** The names of the goals whose must-do session was not logged in time, for the recap. */
+        val weeklyMissed: List<String> = emptyList(),
     ) {
-        val allDone: Boolean get() = habitsTotal > 0 && habitsDoneBeforeDue >= habitsTotal
+        /**
+         * The day's promise: every habit, and on a must-do day every must-do session, before the
+         * give-up time. A day with no habits never counts, with or without a weekly session.
+         */
+        val allDone: Boolean get() = habitsTotal > 0 && habitsDoneBeforeDue >= habitsTotal && weeklyDoneBeforeDue >= weeklyDue
     }
 
     data class DaySummary(
@@ -43,6 +56,10 @@ object RolloverEngine {
         val levelEnd: Int,
         val formEnd: SprigForm,
         val streakEnd: Int,
+        val weeklyDue: Int = 0,
+        /** Must-do sessions logged before the give-up time. */
+        val weeklyDone: Int = 0,
+        val weeklyMissed: List<String> = emptyList(),
     )
 
     data class Unlock(val form: SprigForm, val date: LocalDate, val streakAtUnlock: Int)
@@ -99,6 +116,9 @@ object RolloverEngine {
             levelEnd = newState.level,
             formEnd = formAfter,
             streakEnd = streakResult.streak,
+            weeklyDue = input.weeklyDue,
+            weeklyDone = input.weeklyDoneBeforeDue,
+            weeklyMissed = input.weeklyMissed,
         )
         return Output(newState, summary, unlocks, formBefore, formAfter)
     }

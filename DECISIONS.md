@@ -1447,11 +1447,11 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
   weekly goal as it follows a habit. The words are pure Kotlin in `core/domain/WeeklyLock.kt`.
   Mockups 2 and 3 were read from `docs/weekly-goals-mockups` (PR #166); #165's copy wins.
   Departures and open choices:
-  - *Not in this story: streak, level, shield, recap, `day_records` (story #176).* A must-do day
-    whose session was never logged still counts as a kept day at rollover if the habits were
-    done in time, and still grants the day's level. Nothing in `RolloverEngine`, `StreakRules`,
-    `LevelRules` or the recap is touched. Until #176, the only cost of skipping a must-do day is
-    the lock itself and the next day's lock.
+  - *Not in this story: streak, level, shield, recap, `day_records` (story #176).* As #175
+    shipped, a must-do day whose session was never logged still counted as a kept day at
+    rollover if the habits were done in time, and still granted the day's level; the only cost
+    of skipping a must-do day was the lock itself and the next day's lock. **Reversed by #176**
+    (entry below): a missed must-do day is a missed day for the streak and the level.
   - *Protection gaps and `lockedMillis` follow the daily lock, weekly term included.* A
     weekly-only lock is the promise's lock, unlike night lockdown: a permission switched off
     during it opens a gap, a dead service with the phone in use is a gap, and its minutes are
@@ -1525,18 +1525,21 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     finish, or at 9:00 pm." under a sky that is not yet gold. "Today 1 of 2", the habit rows,
     the week dots and the roomy/compact choice are still the habits alone. A must-do session
     counts from the morning, before the window opens, as a habit does.
-  - *After the give-up time* a must-do session no longer counts on Home (`WeeklyHold`): the
-    lock has ended, and until #176 the day is still kept if the habits were done, so the
-    headline is "Promise kept." / "Apps are open. See you tomorrow." and the card's status
-    changes from "Today counts: apps lock until it's done" to a new fourth line, "Past the
-    give-up time, no lock" (muted, with the clock). The session can still be logged that
-    evening and counts toward the week. #176 will decide what the headline says about a missed
-    must-do day; today it would be untrue to say the day does not count.
+  - *After the give-up time* a must-do session no longer holds anything on Home
+    (`WeeklyHold.left`): the lock has ended, and the card's status changes from "Today counts:
+    apps lock until it's done" to a new fourth line, "Past the give-up time, no lock" (muted,
+    with the clock). The session can still be logged that evening and counts toward the week.
+    As #175 shipped, Home counted must-do sessions only until the give-up time and then read
+    "Promise kept." / "Apps are open. See you tomorrow." if the habits were done. **Reversed by
+    #176**: a session not logged before the give-up time means the day is missed, and Home
+    reads "Too late to count." / "Apps are open. Today won't count." (entry below).
   - *The "Promise kept" moment and "All habits done" notification wait for the session.* Both
-    say "Apps are open.". On a must-do day, ticking the last habit leaves the moment pending;
-    it plays in KEPT once the session is logged (or after the give-up time). On the lock screen
-    the tick that finishes the habits does not claim or play the moment while a session holds
-    the lock. The shade's "All habits done" is not posted while a session is left.
+    say "Apps are open.". On the lock screen the tick that finishes the habits does not claim
+    or play the moment while a session holds the lock. As #175 shipped, ticking the last habit
+    on a must-do day left the moment pending and it played once the session was logged, or
+    after the give-up time even with the session skipped. **Changed by #176**: nothing is
+    pending until both halves are done in time, and neither plays for a skipped day (entry
+    below).
   - *Lowering or deleting a goal that holds the lock* goes through the lock-change confirm
     (`SettingsViewModel.guard`, the "Apps are locked right now" dialog): "…Lowering this goal
     can open them early. Still lower it?" and "…Deleting this goal can open them early. Still
@@ -1548,10 +1551,11 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     built for pausing. The existing `settings_changed_during_lock` event reports it with a new
     value of its existing `setting` property, `weekly_goal` (as `night_lock` was added in
     #168); no event or property is added.
-  - *Analytics, unchanged but worth knowing.* `day_completed` still fires when the last habit is
-    ticked in time, also on a must-do day where the lock stays on for the session; `rollover`'s
-    `kept` still ignores must-do sessions (story #176); `lock_shown` does not say which reason
-    held the lock. Logging a weekly session sends no event, as in #174.
+  - *Analytics, unchanged but worth knowing.* `lock_shown` does not say which reason held the
+    lock. Logging a weekly session sends no event of its own, as in #174. As #175 shipped,
+    `day_completed` fired when the last habit was ticked in time even with a must-do session
+    left, and `rollover`'s `kept` ignored must-do sessions. **Changed by #176**: both follow
+    the whole promise (entry below).
   - *A goal removed elsewhere.* `logToday` and `updateGoal` already report an unknown or removed
     goal (false) and store nothing. The lock screen follows the stored goals, so a goal deleted
     from Settings while the weekly variant is up takes the variant away on the next emission;
@@ -1571,3 +1575,77 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
   (`MIGRATION_4_5` drops `variantId`, which `MigrationTest` still checks) or screen is left
   to bring the words back. Nothing else scans for that copy now; that is the intent, not an
   oversight. The #125 entry is left as written because it describes what #125 built.
+- **Weekly goals: streak, recap and history (issue #165, story #176).** On a must-do day the
+  promise is the daily habits and every must-do session, each before the give-up time. The owner
+  settled #165's open questions on their defaults on 23 Nov 2026: a missed must-do day is a
+  missed day for the streak and the level (Q1), and the weekly shield can cover it (Q4). This
+  entry reverses the four #175 lines marked above. Departures and open choices:
+  - *The day is judged as it was, from what is stored.* `RolloverRunner` works out each closed
+    day's must-do sessions with `WeeklyDay.outcome` for that date: the goal's week as it stood
+    that day, from the sessions logged up to it, never "today" at the time the rollover runs.
+    A catch-up over several days, or over a Sunday, judges each day in its own week. A session
+    counts for the day when its `completedAt` is before the same give-up instant the habits are
+    held to (`GiveUpTime.instantFor` with the settings and zone in effect at rollover, issue
+    #7); a later one still counts toward the week's total, so the next day owes one fewer.
+  - *The goals are read as they are when the rollover runs.* Nothing stores what a goal's target
+    was on a past day or when a goal was deleted, so a goal lowered or deleted after the day
+    but before its rollover is not held against that day, and one raised in that gap would be.
+    The gap is small: the rollover runs when the service ticks into the new day and on every
+    app resume, before anyone can reach the goal's edit page. A goal set on the day, or after
+    it, never makes that day a must-do day, whatever its target.
+  - *A third column, `weeklyMissed`.* #165 and #176 name two, `weeklyDue` and `weeklyDone`
+    (counts). The recap and history have to name the goal, and a count cannot: the goal may be
+    renamed or deleted later, and working the name out again from today's goals would change
+    what a past day says. So the names of the goals missed are stored with the day, one per
+    line. `MIGRATION_7_8` adds all three with defaults (0, 0, empty), so every existing day
+    has no weekly session due and keeps its outcome.
+  - *A day with no daily habit never counts, with or without a must-do session.* This is how a
+    day with no habits was treated before weekly goals (`habitsTotal > 0`), and Home says "Add
+    a habit." there. A person with weekly goals and no habit keeps no streak. Left for the
+    owner: whether a must-do session alone should be able to keep such a day.
+  - *What finishing a day sets off waits for whichever half comes last.* The day's level
+    (`LevelRules.grantForDay`), the "Promise kept" moment left pending for KEPT, the shade's
+    "All habits done" and `day_completed` all fire once, from the last habit's tick or from the
+    must-do session's log, whichever completes the promise in time; `HabitActions` takes ticks,
+    sessions and undos one at a time so two taps a moment apart cannot finish the day twice.
+    Logging a session from Home or the lock screen now goes through `HabitActions`. Undoing a
+    must-do session takes the day's level back and drops a pending moment, as unticking a
+    habit does. A session on a day that is not a must-do day changes none of this. A day
+    finished by a session logged on the lock screen leaves the moment for KEPT; the lock screen
+    plays it only for a day a habit tick finishes there, as before.
+  - *Editing a goal mid-day does not settle the level again.* Raising a goal after the habits
+    earned today's level, or lowering or deleting one whose session was the last thing left,
+    changes whether today will count at rollover but does not take back or grant the level, and
+    fires nothing: the same as adding or removing a habit after the others are ticked.
+  - *Home after the give-up time on a skipped must-do day* reads "Too late to count." over
+    "Apps are open. Today won't count.", both existing lines; Sprig does not cheer, and today's
+    dot in the last seven days stays the "today" ring instead of turning gold. The same if the
+    session was logged after the give-up time. Today's dot now also waits for the session
+    before the give-up time (under #175 it turned gold on the habits alone). The amber "Too
+    late for today" banner is not shown for this: it is about ticking habits late, and here
+    they were on time. The card's "Past the give-up time, no lock" stays.
+  - *Analytics.* No event or property is added. `rollover.kept` is the day's `countedForStreak`,
+    so a missed must-do day reports false. `day_completed` fires when the promise is complete
+    in time, from a habit tick or a session log; its `habit_count` is still the number of
+    habits and `minutes_before_due` is measured from whichever came last.
+  - *Copy that is not in #165 or #176*, for the owner. Recap: a slipped or shielded day that a
+    must-do session explains starts its line with "{Goal} wasn't logged in time." ("{A} and {B}
+    weren't logged in time." for two, "{A}, {B} and {C} weren't…" for three), then the
+    outcome's own line: "Exercise wasn't logged in time. Streak reset. Tomorrow is fresh.",
+    "Exercise wasn't logged in time. Your weekly shield kept the 12-day streak alive.". The
+    headline is the existing "The promise slipped." or "Shield saved it."; a day with every
+    habit ticked and the session missed is no longer "Too late to count.". History: under the
+    row, "Weekly goal missed: Exercise" ("Weekly goals missed: Exercise, Read"), and the label
+    is the existing "Missed" or "Shield used". The lock service's notification, habits in time
+    and a session missed: "All habits done" / "A weekly session wasn't logged in time, so today
+    is missed.". A day the lock was off, or one written off, keeps its own words and names no
+    goal. The recap notification ("Streak reset. Today is a fresh start" / "2 of 2 habits · 0
+    day streak") is unchanged and does not name the goal.
+  - *The recap's line can run long.* One goal keeps it at three lines on 360dp, so nothing
+    scrolls at font 1.0 on 360 × 640. Two or three goals with long names take more; the page
+    then scrolls, with nothing cut off.
+  - *Zone changes.* A session stays on the local date it was logged for. Whether it was "before
+    the give-up time" is asked of the zone the phone is in when the rollover runs, as for
+    habits: after flying east a session logged late in the evening can be judged late.
+  - *Goldens.* New: `recap_weekly` and `settings_history_weekly` at font 1.0 and 2.0. Every
+    other golden is byte-identical to `main`.

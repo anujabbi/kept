@@ -103,12 +103,12 @@ class GalleryMigrationTest {
     }
 
     @Test
-    fun migrate4To7_dropsVariantIdAndKeepsEveryGalleryRow() {
+    fun migrate4ToCurrent_dropsVariantIdAndKeepsEveryGalleryRow() {
         createReleaseDatabase()
 
-        val db = open(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+        val db = open(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
 
-        assertEquals(7, db.version)
+        assertEquals(8, db.version)
         assertFalse(db.columns("gallery").contains("variantId"))
         val rows = mutableListOf<List<Any>>()
         db.query("SELECT id, formId, unlockedDate, streakAtUnlock, seen FROM gallery ORDER BY id").use {
@@ -141,7 +141,7 @@ class GalleryMigrationTest {
             close()
         }
 
-        val db = open(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+        val db = open(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
 
         db.query("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'gallery'").use {
             assertTrue(it.moveToFirst())
@@ -160,7 +160,7 @@ class GalleryMigrationTest {
     @Test
     fun anEmptyCollectionUpgradesAndStartsAtOne() = runTest {
         createDatabase(4) {}
-        open(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+        open(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
 
         val id = room!!.galleryDao().insert(GalleryEntryEntity(formId = 1, unlockedDate = "2026-11-21", streakAtUnlock = 0))
         assertEquals(1L, id)
@@ -190,7 +190,7 @@ class GalleryMigrationTest {
 
         val db = open(*ALL_MIGRATIONS)
 
-        assertEquals(7, db.version)
+        assertEquals(8, db.version)
         db.query("SELECT proofType FROM habits WHERE id = 1").use { assertTrue(it.moveToFirst()); assertEquals("MANUAL", it.getString(0)) }
         db.query("SELECT formId, streakAtUnlock FROM gallery WHERE id = 1").use {
             assertTrue(it.moveToFirst())

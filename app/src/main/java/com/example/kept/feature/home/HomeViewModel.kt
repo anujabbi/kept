@@ -14,6 +14,7 @@ import com.example.kept.core.data.TodaySummary
 import com.example.kept.core.data.WeeklyGoalRepository
 import com.example.kept.core.data.WeeklyGoalWeek
 import com.example.kept.core.data.db.DayRecordEntity
+import com.example.kept.core.data.mustDoLoggedAt
 import com.example.kept.core.data.prefs.KeptPreferences
 import com.example.kept.core.domain.GiveUpTime
 import com.example.kept.core.domain.HomeDay
@@ -43,6 +44,8 @@ data class HomeUiState(
     val lockActive: Boolean = false,
     /** True once today's give-up time has passed: ticks still work but no longer count (issue #7). */
     val pastDue: Boolean = false,
+    /** Epoch millis of today's give-up time: a must-do session logged at or after it does not keep the day (story #176). */
+    val dueMillis: Long = Long.MAX_VALUE,
     val date: LocalDate = LocalDate.now(),
     val pendingRecapDate: String? = null,
     val unseenUnlock: GalleryCard? = null,
@@ -65,9 +68,15 @@ data class HomeUiState(
      * What the sky, the headline and Sprig count: the habits plus each weekly goal's must-do
      * session still holding today (story #175), so Home never says "Promise kept. Apps are open."
      * while the lock is waiting on a session. With no must-do session it is the habits alone.
+     * After the give-up time a must-do session that was not logged in time holds nothing, but
+     * the day is missed, so Home does not say "Promise kept." for it either (story #176).
      */
     val day: HomeDay
-        get() = HomeDay.of(today.total, today.done, today.allDoneOnTime, WeeklyHold.left(weeklyGoals.map { it.week }, pastDue))
+        get() = HomeDay.of(
+            today.total, today.done, today.allDoneOnTime,
+            weeklyLeft = WeeklyHold.left(weeklyGoals.map { it.week }, pastDue),
+            weeklyMissed = WeeklyHold.missed(weeklyGoals.mustDoLoggedAt(), pastDue, dueMillis),
+        )
 }
 
 @HiltViewModel
@@ -89,6 +98,7 @@ class HomeViewModel @Inject constructor(
         val pastDue = GiveUpTime.isPastDue(time.minuteOfDay(), settings.lockFromMinute, settings.dueMinute)
         HomeUiState(
             loaded = true, today = today, sprig = sprig, lock = lock, lockActive = active, pastDue = pastDue,
+            dueMillis = GiveUpTime.instantFor(date, settings.lockFromMinute, settings.dueMinute, time.zone()).toEpochMilli(),
             date = date, pendingRecapDate = settings.pendingRecapDate,
             firstLanding = settings.firstLandingPending,
         )
@@ -113,10 +123,11 @@ class HomeViewModel @Inject constructor(
 
     /**
      * Logs today's session of a weekly goal. One session a day counts: the repository stores
-     * nothing on a second call, so a double tap cannot count twice.
+     * nothing on a second call, so a double tap cannot count twice. Through [HabitActions], as a
+     * habit tick goes: on a must-do day the session can be what finishes the day (story #176).
      */
-    fun logWeekly(goalId: Long) = viewModelScope.launch { weeklyGoals.logToday(goalId) }
-    fun undoWeekly(goalId: Long) = viewModelScope.launch { weeklyGoals.undoToday(goalId) }
+    fun logWeekly(goalId: Long) = viewModelScope.launch { actions.logWeekly(goalId) }
+    fun undoWeekly(goalId: Long) = viewModelScope.launch { actions.undoWeekly(goalId) }
 
     fun dismissRecap() = viewModelScope.launch { prefs.updateSettings { it.copy(pendingRecapDate = null) } }
 

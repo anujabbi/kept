@@ -17,6 +17,7 @@ import com.example.kept.core.analytics.Analytics
 import com.example.kept.core.data.LockRepository
 import com.example.kept.core.data.LockState
 import com.example.kept.core.data.SprigRepository
+import com.example.kept.core.data.mustDoLoggedAt
 import com.example.kept.core.data.prefs.KeptPreferences
 import com.example.kept.core.domain.GiveUpTime
 import com.example.kept.core.domain.LockPolicy
@@ -150,6 +151,12 @@ class ForegroundWatcherService : LifecycleService() {
                 allDoneOnTime = s.today.allDoneOnTime,
                 // A weekly goal's must-do session is counted with the habits (issue #165).
                 weeklyLeft = WeeklyHold.left(s.weekly.map { it.week }, pastDue),
+                // After the give-up time a session not logged in time means the day is missed (story #176).
+                weeklyMissed = WeeklyHold.missed(
+                    s.weekly.mustDoLoggedAt(),
+                    pastDue,
+                    GiveUpTime.instantFor(java.time.LocalDate.now(), s.settings.lockFromMinute, s.settings.dueMinute, java.time.ZoneId.systemDefault()).toEpochMilli(),
+                ),
                 dailyLockActive = LockPolicy.isDailyLockActive(now, clock, snapshot),
                 lockFromMinute = s.settings.lockFromMinute,
                 dueMinute = s.settings.dueMinute,

@@ -85,7 +85,7 @@ class WeeklyLockStoreTest {
     private val weekly = WeeklyGoalRepository(db.weeklyGoalDao(), db.weeklyGoalEntryDao(), time)
     private val lock = LockRepository(db.allowedAppDao(), db.lockBreakDao(), db.protectionGapDao(), db.dayRecordDao(), prefs, habits, sprig, time, weekly)
     private val analytics = Recorder()
-    private val actions = HabitActions(habits, sprig, prefs, time, analytics, object : DayCompletionReactor { override suspend fun onDayCompleted() = Unit })
+    private val actions = HabitActions(habits, sprig, prefs, time, analytics, object : DayCompletionReactor { override suspend fun onDayCompleted() = Unit }, weekly)
     private val blocked = "com.android.chrome"
 
     private var readId = 0L
@@ -139,7 +139,7 @@ class WeeklyLockStoreTest {
 
     private val viewModels = TestViewModels()
 
-    private fun viewModel() = viewModels.create { LockViewModel(SavedStateHandle(), lock, sprig, actions, time, appScope, analytics, weekly) }
+    private fun viewModel() = viewModels.create { LockViewModel(SavedStateHandle(), lock, sprig, actions, time, appScope, analytics) }
         .also { it.setBlocked(blocked, "Chrome") }
 
     /** Runs the main looper until [done], for work that hops back to it from a database thread. */
@@ -365,20 +365,30 @@ class WeeklyLockStoreTest {
         assertTrue(lock.currentState().weeklyMustDoIncomplete)
     }
 
-    @Test fun `a tick that finishes the habits while a session is left claims no moment here and leaves it for KEPT`() = runBlocking {
-        goal()
+    @Test fun `a tick that finishes the habits while a session is left finishes nothing, and the session leaves the moment for KEPT`() = runBlocking {
+        val goalId = goal()
         habits.undo(readId)
         val vm = viewModel()
         // The screen is up and showing the habit and the session, as the activity keeps it.
         val watching = CoroutineScope(Dispatchers.Unconfined).launch { vm.state.collect { } }
         await("the lock screen's state") { vm.state.value.let { it.loaded && it.remaining == 1 && it.weeklyMustDo.size == 1 } }
         vm.complete(readId)
-        await("the tick to be stored") { runBlocking { habits.today().allDone && prefs.currentSettings().celebrationPendingDate != null } }
-        watching.cancel()
+        await("the tick to be stored") { runBlocking { habits.today().allDone } }
         shadowOf(Looper.getMainLooper()).idle()
         assertFalse("the screen is still locked, so the moment does not go up", vm.moment.value || vm.finishing)
         assertNull("not claimed: it has not played", prefs.currentSettings().celebrationShownDate)
-        assertEquals("pending for KEPT, which waits for the session", "2026-11-25", prefs.currentSettings().celebrationPendingDate)
+        // The session is the other half of today's promise (story #176): the day is not finished yet.
+        assertNull("nothing pending for KEPT yet", prefs.currentSettings().celebrationPendingDate)
+        assertFalse(analytics.events.contains("day_completed"))
+
+        // The session, logged from its row on this screen, finishes the day; the moment waits for KEPT.
+        vm.logWeekly(goalId)
+        await("the session to be stored") { runBlocking { prefs.currentSettings().celebrationPendingDate != null } }
+        watching.cancel()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals("2026-11-25", prefs.currentSettings().celebrationPendingDate)
+        assertNull("still not played here", prefs.currentSettings().celebrationShownDate)
+        assertEquals("finished once, by whichever came last", 1, analytics.events.count { it == "day_completed" })
         assertFalse(analytics.events.contains("screen:celebration"))
     }
 

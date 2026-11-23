@@ -119,8 +119,11 @@ class WeeklyGoalMigrationTest {
             oldTables.mapValues { (table, order) -> db.rawQuery("SELECT * FROM $table ORDER BY $order", null).use { it.rowsAsText() } }
         }
 
+    /** The same rows after the upgrade, without the columns a later migration added to `day_records` (7 -> 8, story #176). */
     private fun SupportSQLiteDatabase.rowsAfter(): Map<String, List<String>> =
-        oldTables.mapValues { (table, order) -> query("SELECT * FROM $table ORDER BY $order").use { it.rowsAsText() } }
+        oldTables.mapValues { (table, order) ->
+            query("SELECT * FROM $table ORDER BY $order").use { it.rowsAsText() }.map { it.substringBefore("|weeklyDue=") }
+        }
 
     private fun SupportSQLiteDatabase.names(type: String, table: String): List<String> = buildList {
         query("SELECT name FROM sqlite_master WHERE type = '$type' AND tbl_name = '$table' AND name NOT LIKE 'sqlite_%' ORDER BY name").use {
@@ -145,7 +148,7 @@ class WeeklyGoalMigrationTest {
 
         val db = upgrade()
 
-        assertEquals(7, db.version)
+        assertEquals(8, db.version)
         assertEquals(
             listOf("id", "title", "iconKey", "daysPerWeek", "isActive", "createdAt", "effectiveFrom", "sortOrder"),
             db.columns("weekly_goals"),
@@ -206,7 +209,7 @@ class WeeklyGoalMigrationTest {
     fun anEmptyReleaseDatabaseUpgrades() {
         createReleaseDatabase {}
         val db = upgrade()
-        assertEquals(7, db.version)
+        assertEquals(8, db.version)
         assertEquals(0, db.count("weekly_goals"))
         assertEquals(0, db.count("habits"))
     }

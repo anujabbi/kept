@@ -43,6 +43,8 @@ class RecapScreenshotTest {
     @Test fun tooLate() = shot("late", 1f, RecapFixtures.TOO_LATE)
     @Test fun writtenOff() = shot("writtenoff", 1f, RecapFixtures.WRITTEN_OFF)
     @Test fun writtenOff_font2() = shot("writtenoff", 2f, RecapFixtures.WRITTEN_OFF)
+    @Test fun weekly() = shot("weekly", 1f, RecapFixtures.WEEKLY)
+    @Test fun weekly_font2() = shot("weekly", 2f, RecapFixtures.WEEKLY)
     @Test fun finalForm() = shot("final", 1f, RecapFixtures.FINAL)
     @Test fun finalForm_font2() = shot("final", 2f, RecapFixtures.FINAL)
 

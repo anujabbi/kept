@@ -149,6 +149,7 @@ class RetiredPresetMigrationTest {
             prefs, db.habitDao(), db.habitEntryDao(), db.dayRecordDao(), db.lockBreakDao(), db.protectionGapDao(),
             SprigRepository(prefs, db.galleryDao(), db.dayRecordDao(), time), habitRepository(), time,
             RecapNotifier { _, _ -> error("no day closes in these tests, so no recap") }, NoOpAnalytics(),
+            db.weeklyGoalDao(), db.weeklyGoalEntryDao(),
         ).runPending()
     }
 
@@ -215,12 +216,13 @@ class RetiredPresetMigrationTest {
 
         val db = upgrade()
 
-        assertEquals(7, db.version)
+        assertEquals(8, db.version)
         val left = mutableListOf<String>()
         db.query("SELECT id, title, unit FROM habits ORDER BY id").use { while (it.moveToNext()) left += "${it.getLong(0)} ${it.getString(1)} ${it.getString(2)}" }
         assertEquals(listOf("3 sleep by 11 check-in", "4 Sleep by 11 min", "5 Lights out check-in", "6 Exercise min"), left)
         assertEquals("habit_entries are left alone, the removed habits' included", entriesBefore, rows("habit_entries", "id"))
-        assertEquals("the migration itself touches no day record", daysBefore, rows("day_records", "date"))
+        // Every column a day had is as it was; 7 -> 8 adds the three weekly ones (story #176).
+        assertEquals("the migration itself touches no day record", daysBefore.map { "$it|0|0|" }, rows("day_records", "date"))
     }
 
     // --- first launch after the upgrade --------------------------------------------------------
@@ -251,7 +253,8 @@ class RetiredPresetMigrationTest {
         assertEquals(1, record.habitsDone)
         assertEquals(1, record.habitsTotal)
         assertFalse("today is still open", record.finalized)
-        assertEquals("the finalized day is not touched", yesterdayBefore, rows("day_records", "date").first())
+        // 7 -> 8 gives every day its three weekly columns (story #176): none due, none done, no goal named.
+        assertEquals("the finalized day is not touched", "$yesterdayBefore|0|0|", rows("day_records", "date").first())
         assertEquals("no level granted or revoked, streak and shield as they were", sprigBefore, prefs.currentSprig())
     }
 

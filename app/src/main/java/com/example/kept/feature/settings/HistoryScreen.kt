@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -37,6 +38,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.kept.core.data.db.DayRecordEntity
 import com.example.kept.core.domain.RecapOutcome
 import com.example.kept.core.domain.SettingsCopy
+import com.example.kept.core.domain.WeeklyMissedCopy
 import com.example.kept.core.ui.DaybreakType
 import com.example.kept.core.ui.PageHeader
 import com.example.kept.core.ui.StepPage
@@ -104,6 +106,10 @@ internal fun HistoryContent(records: List<DayRecordEntity>, bestStreak: Int, onB
  * the two values do not fit on one line (a narrow screen at a large font) the values go under
  * the date, so nothing is split or cut off. TalkBack reads the row as one button: date, count
  * and outcome.
+ *
+ * A day that slipped or took the shield because a weekly goal's must-do session was missed says
+ * so under the date and the values, naming the goal (story #176): "2 of 2 · Missed" alone would
+ * not explain itself.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -111,6 +117,7 @@ private fun HistoryRow(r: DayRecordEntity, first: Boolean, last: Boolean, onClic
     val date = LocalDate.parse(r.date)
     val outcome = RecapRules.outcome(r)
     val look = historyLook(outcome)
+    val weeklyMissed = RecapRules.weeklyMissed(r)
     Row(
         Modifier.fillMaxWidth().heightIn(min = 54.dp).cardSegment(first, last)
             .clickable(role = Role.Button, onClick = onClick)
@@ -120,27 +127,36 @@ private fun HistoryRow(r: DayRecordEntity, first: Boolean, last: Boolean, onClic
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Dot(look)
-        FlowRow(
-            Modifier.weight(1f),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-            Text(
-                SettingsCopy.date(date),
-                Modifier.align(Alignment.CenterVertically).padding(end = 12.dp).testTag("history_date_${r.date}"),
-                style = DaybreakType.body.copy(fontWeight = FontWeight.Bold),
-                color = D.ink, maxLines = 1, softWrap = false,
-            )
-            Row(Modifier.align(Alignment.CenterVertically), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            FlowRow(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
                 Text(
-                    SettingsCopy.habitsDone(r.habitsDone, r.habitsTotal),
-                    style = DaybreakType.caption, fontWeight = FontWeight.SemiBold, color = D.muted, maxLines = 1, softWrap = false,
+                    SettingsCopy.date(date),
+                    Modifier.align(Alignment.CenterVertically).padding(end = 12.dp).testTag("history_date_${r.date}"),
+                    style = DaybreakType.body.copy(fontWeight = FontWeight.Bold),
+                    color = D.ink, maxLines = 1, softWrap = false,
                 )
+                Row(Modifier.align(Alignment.CenterVertically), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        SettingsCopy.habitsDone(r.habitsDone, r.habitsTotal),
+                        style = DaybreakType.caption, fontWeight = FontWeight.SemiBold, color = D.muted, maxLines = 1, softWrap = false,
+                    )
+                    Text(
+                        SettingsCopy.outcome(outcome),
+                        Modifier.widthIn(min = 92.dp).testTag("history_label_${r.date}"),
+                        style = DaybreakType.caption, fontWeight = FontWeight.Bold, color = look.ink,
+                        textAlign = TextAlign.End, maxLines = 1, softWrap = false,
+                    )
+                }
+            }
+            if (weeklyMissed.isNotEmpty()) {
                 Text(
-                    SettingsCopy.outcome(outcome),
-                    Modifier.widthIn(min = 92.dp).testTag("history_label_${r.date}"),
-                    style = DaybreakType.caption, fontWeight = FontWeight.Bold, color = look.ink,
-                    textAlign = TextAlign.End, maxLines = 1, softWrap = false,
+                    WeeklyMissedCopy.historyLine(weeklyMissed),
+                    Modifier.testTag("history_weekly_${r.date}"),
+                    style = DaybreakType.caption, fontWeight = FontWeight.SemiBold, color = D.muted,
                 )
             }
         }

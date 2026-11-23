@@ -34,6 +34,8 @@ class SettingsScreenshotTest {
     @Test fun settings_end_font2() = shots.scrolledShot(2f)
     @Test fun history() = shots.shot("history", 1f)
     @Test fun history_font2() = shots.shot("history", 2f)
+    @Test fun history_weekly() = shots.shot("history_weekly", 1f)
+    @Test fun history_weekly_font2() = shots.shot("history_weekly", 2f)
     @Test fun history_end() = shots.historyEndShot(1f)
     @Test fun history_end_font2() = shots.historyEndShot(2f)
     @Test fun history_empty() = shots.shot("history_empty", 1f)

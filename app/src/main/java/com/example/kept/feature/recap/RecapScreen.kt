@@ -100,6 +100,9 @@ data class RecapUi(
     val streakReset: Boolean = false,
 ) {
     val outcome: RecapOutcome? get() = record?.let(RecapRules::outcome)
+
+    /** Weekly goals whose missed must-do session explains the day (story #176); usually none. */
+    val weeklyMissed: List<String> get() = record?.let(RecapRules::weeklyMissed).orEmpty()
 }
 
 @HiltViewModel
@@ -215,7 +218,7 @@ internal fun RecapContent(
                     // Where the hill's crest is, for tests; takes no space and draws nothing.
                     Box(Modifier.offset(y = inset + spot.crestDp.dp).size(0.dp).testTag("recap_crest"))
                     Headline(
-                        outcome, streak, s.streakReset, (width - 2 * RecapSprig.TEXT_SIDE_DP).dp,
+                        outcome, streak, s.streakReset, s.weeklyMissed, (width - 2 * RecapSprig.TEXT_SIDE_DP).dp,
                         Modifier.wrapContentHeight(Alignment.Top, unbounded = true)
                             .padding(top = inset + RecapSprig.TEXT_TOP_DP.dp, start = RecapSprig.TEXT_SIDE_DP.dp)
                             .onSizeChanged { textPx = it.height },
@@ -265,7 +268,7 @@ internal fun RecapContent(
 
 /** The headline (52sp kept, 40sp otherwise, never split inside a word) and the line under it. */
 @Composable
-private fun Headline(outcome: RecapOutcome?, streak: Int, reset: Boolean, width: Dp, modifier: Modifier = Modifier) {
+private fun Headline(outcome: RecapOutcome?, streak: Int, reset: Boolean, weeklyMissed: List<String>, width: Dp, modifier: Modifier = Modifier) {
     val kept = outcome == RecapOutcome.KEPT
     val text = outcome?.let(RecapCopy::headline) ?: RecapCopy.NOTHING
     val size = RecapSprig.headlineSp(kept)
@@ -274,7 +277,7 @@ private fun Headline(outcome: RecapOutcome?, streak: Int, reset: Boolean, width:
         Text(text, Modifier.testTag("recap_headline"), style = fitLongestWord(text, base, width), color = D.ink)
         if (outcome != null) {
             Text(
-                RecapCopy.line(outcome, streak, reset),
+                RecapCopy.line(outcome, streak, reset, weeklyMissed),
                 Modifier.padding(top = 10.dp).testTag("recap_line"),
                 style = DaybreakType.body.copy(fontSize = 18.sp, lineHeight = (18 * 1.35).sp, fontWeight = FontWeight.SemiBold),
                 color = D.inkSoft,

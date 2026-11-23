@@ -216,4 +216,75 @@ class RolloverEngineTest {
         assertEquals(2, state.streakDays)
         assertEquals(LocalDate.of(2027, 1, 1), state.lastRolloverDate)
     }
+
+    // --- weekly goals: a must-do day's promise is the habits and the session (issue #165, story #176) ---
+
+    /** Wednesday 25 November 2026, both habits ticked in time; [due] must-do sessions, [done] of them logged in time. */
+    private fun mustDoDay(due: Int, done: Int, missed: List<String> = emptyList(), habitsDone: Int = 2) =
+        day(wednesday, done = habitsDone).copy(weeklyDue = due, weeklyDoneBeforeDue = done, weeklyMissed = missed)
+
+    private val wednesday = LocalDate.of(2026, 11, 25)
+    private fun streakOf(n: Int, shield: Boolean) =
+        SprigState(streakDays = n, shieldAvailable = shield, shieldWeekKey = StreakRules.weekKey(wednesday))
+
+    @Test fun `habits done and the must-do session done counts the day`() {
+        val out = RolloverEngine.rollover(streakOf(6, shield = false), mustDoDay(due = 1, done = 1))
+        assertTrue(out.summary.countedForStreak)
+        assertEquals(7, out.state.streakDays)
+        assertEquals(1, out.summary.weeklyDue)
+        assertEquals(1, out.summary.weeklyDone)
+        assertEquals(emptyList<String>(), out.summary.weeklyMissed)
+    }
+
+    @Test fun `habits done and the must-do session missed does not count, and resets the streak with no shield`() {
+        val out = RolloverEngine.rollover(streakOf(6, shield = false), mustDoDay(due = 1, done = 0, missed = listOf("Exercise")))
+        assertFalse(out.summary.countedForStreak)
+        assertFalse(out.summary.shieldConsumed)
+        assertTrue(out.summary.streakReset)
+        assertEquals(0, out.state.streakDays)
+        assertEquals(2, out.summary.habitsDone)
+        assertEquals(1, out.summary.weeklyDue)
+        assertEquals(0, out.summary.weeklyDone)
+        assertEquals(listOf("Exercise"), out.summary.weeklyMissed)
+    }
+
+    @Test fun `the shield covers a missed must-do session when one is available`() {
+        val out = RolloverEngine.rollover(streakOf(6, shield = true), mustDoDay(due = 1, done = 0, missed = listOf("Exercise")))
+        assertFalse(out.summary.countedForStreak)
+        assertTrue(out.summary.shieldConsumed)
+        assertFalse(out.summary.streakReset)
+        assertEquals(6, out.state.streakDays)
+        assertFalse(out.state.shieldAvailable)
+    }
+
+    @Test fun `one of two must-do sessions is not enough`() {
+        val out = RolloverEngine.rollover(streakOf(6, shield = false), mustDoDay(due = 2, done = 1, missed = listOf("Read")))
+        assertFalse(out.summary.countedForStreak)
+        assertEquals(0, out.state.streakDays)
+    }
+
+    @Test fun `a day that is not a must-do day ignores weekly goals, and a day with no goal is unchanged`() {
+        // No session was due: the default input, which is what a day with no weekly goal is too.
+        val plain = RolloverEngine.rollover(streakOf(6, shield = false), day(wednesday))
+        val notDue = RolloverEngine.rollover(streakOf(6, shield = false), mustDoDay(due = 0, done = 0))
+        assertEquals(plain, notDue)
+        assertTrue(plain.summary.countedForStreak)
+        assertEquals(7, plain.state.streakDays)
+        assertEquals(0, plain.summary.weeklyDue)
+        // And the habits still decide such a day on their own.
+        val slipped = RolloverEngine.rollover(streakOf(6, shield = false), mustDoDay(due = 0, done = 0, habitsDone = 1))
+        assertFalse(slipped.summary.countedForStreak)
+    }
+
+    @Test fun `a must-do session does not make up for a habit, a day with no habits, or a day the lock was off`() {
+        assertFalse(RolloverEngine.rollover(streakOf(6, shield = false), mustDoDay(due = 1, done = 1, habitsDone = 1)).summary.countedForStreak)
+        // No habits: the day never counted before weekly goals, and a session alone does not change that.
+        val noHabits = day(wednesday, done = 0, total = 0).copy(weeklyDue = 1, weeklyDoneBeforeDue = 1)
+        assertFalse(RolloverEngine.rollover(streakOf(6, shield = false), noHabits).summary.countedForStreak)
+        // A day the lock was off stays hollow and free, whatever the session did.
+        val off = RolloverEngine.rollover(streakOf(6, shield = true), day(wednesday, unprotected = true).copy(weeklyDue = 1, weeklyDoneBeforeDue = 0))
+        assertTrue(off.summary.hollow)
+        assertEquals(6, off.state.streakDays)
+        assertTrue(off.state.shieldAvailable)
+    }
 }

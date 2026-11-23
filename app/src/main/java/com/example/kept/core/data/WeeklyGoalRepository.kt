@@ -17,10 +17,20 @@ import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** An active weekly goal and its current week, worked out by [WeeklyGoalRules.week]. */
-data class WeeklyGoalWeek(val goal: WeeklyGoalEntity, val week: WeeklyGoalRules.Week) {
+/**
+ * An active weekly goal and its current week, worked out by [WeeklyGoalRules.week].
+ * [loggedTodayAt] is when today's session was logged (epoch millis), or null with none: a must-do
+ * session only keeps the day when it is logged before the give-up time (story #176).
+ */
+data class WeeklyGoalWeek(val goal: WeeklyGoalEntity, val week: WeeklyGoalRules.Week, val loggedTodayAt: Long? = null) {
     val id: Long get() = goal.id
 }
+
+/**
+ * For each goal whose today is a must-do day, when its session was logged, or null: what
+ * [com.example.kept.core.domain.WeeklyHold.allInTime] and `missed` ask about.
+ */
+fun List<WeeklyGoalWeek>.mustDoLoggedAt(): List<Long?> = filter { it.week.todayCounts }.map { it.loggedTodayAt }
 
 /**
  * Weekly goals (issue #165): "X days a week", at most one session a day. The week's progress is
@@ -50,10 +60,16 @@ class WeeklyGoalRepository @Inject constructor(
     }
 
     private fun weeks(goals: List<WeeklyGoalEntity>, entries: List<WeeklyGoalEntryEntity>, today: LocalDate): List<WeeklyGoalWeek> {
-        val datesByGoal = entries.groupBy({ it.goalId }, { LocalDate.parse(it.date) })
+        val byGoal = entries.groupBy { it.goalId }
+        val todayKey = today.toString()
         return goals.map { goal ->
+            val mine = byGoal[goal.id].orEmpty()
             val rules = WeeklyGoalRules.Goal(goal.daysPerWeek, LocalDate.parse(goal.effectiveFrom))
-            WeeklyGoalWeek(goal, WeeklyGoalRules.week(rules, datesByGoal[goal.id].orEmpty().toSet(), today))
+            WeeklyGoalWeek(
+                goal,
+                WeeklyGoalRules.week(rules, mine.map { LocalDate.parse(it.date) }.toSet(), today),
+                loggedTodayAt = mine.firstOrNull { it.date == todayKey }?.completedAt,
+            )
         }
     }
 
