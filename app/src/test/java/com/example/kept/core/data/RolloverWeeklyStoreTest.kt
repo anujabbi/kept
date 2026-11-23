@@ -256,21 +256,26 @@ class RolloverWeeklyStoreTest {
         assertEquals(listOf<Any?>(false), kept())
     }
 
-    // --- goals changed between the day and its rollover ----------------------------------------
+    // --- goals changed between the give-up time and the rollover ----------------------------------------
 
     @Test fun `the rollover reads the goals as they are when it runs`() = runBlocking {
-        // Wednesday's session was skipped on two goals. Before the rollover runs, one is deleted and the other lowered to 2.
+        // Wednesday's session is skipped on two goals and the shield is there to be spent. At 9:10 pm, past
+        // the give-up time, the lock has ended and an edit asks nothing: one goal is deleted, the other lowered to 2.
+        settled(lastRollover = "2026-11-24", shield = true)
         val gone = goal("Exercise", 4)
         val lowered = goal("Read Dune", 4)
         read("2026-11-25")
-        goTo("2026-11-26", "00:01")
+        goTo("2026-11-25", "21:10")
         db.weeklyGoalDao().deactivate(gone)
         assertEquals(1, db.weeklyGoalDao().updateActive(lowered, "Read Dune", "book", 2))
 
         rollOn("2026-11-26")
 
-        // Nothing stores what a goal asked on a past day, so neither is held against Wednesday.
+        // Nothing stores what a goal asked on a past day, so neither is held against Wednesday: the
+        // day is recorded kept, the streak grows and the shield is not spent (DECISIONS.md, #176).
         assertEquals("kept 0/0", day("2026-11-25"))
+        assertEquals(6, streak())
+        assertTrue(prefs.currentSprig().shieldAvailable)
     }
 
     // --- local dates, not elapsed hours --------------------------------------------------------

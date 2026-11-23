@@ -1587,12 +1587,23 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     counts for the day when its `completedAt` is before the same give-up instant the habits are
     held to (`GiveUpTime.instantFor` with the settings and zone in effect at rollover, issue
     #7); a later one still counts toward the week's total, so the next day owes one fewer.
-  - *The goals are read as they are when the rollover runs.* Nothing stores what a goal's target
-    was on a past day or when a goal was deleted, so a goal lowered or deleted after the day
-    but before its rollover is not held against that day, and one raised in that gap would be.
-    The gap is small: the rollover runs when the service ticks into the new day and on every
-    app resume, before anyone can reach the goal's edit page. A goal set on the day, or after
-    it, never makes that day a must-do day, whatever its target.
+  - *The goals are read as they are when the rollover runs, so a missed must-do day can be
+    undone by editing the goal that evening. For the owner to decide.* Nothing stores what a
+    goal's target was on a past day or when a goal was deleted. The window opens at the give-up
+    time on the day itself, not at midnight, and lasts until the day's rollover (`RolloverWorker`
+    at 00:05, the watchdog, or the next app resume, whichever comes first): about three hours
+    every evening with the default 9:00 pm. Example: skip Wednesday's must-do session with the
+    habits ticked. At 9:05 pm Home reads "Too late to count." The lock has ended, so
+    `WeeklyGoalLockEdit.confirm` asks nothing. At 9:10 pm delete the goal, or lower it 4 to 2.
+    Home goes back to "Promise kept."; the rollover finds no must-do goal for Wednesday and
+    records the day kept; the streak grows, History says Kept, and no shield is spent. The goal
+    can be put back on Thursday. That contradicts #165 ("an unlogged must-do session then counts
+    as missed for that day") inside the window. Removing an unticked habit after the give-up
+    time already does the same for habits, so #176 builds nothing to make the miss stick; a
+    goal raised in the window would be held against the day in the same way.
+    `RolloverWeeklyStoreTest` "the rollover reads the goals as they are when it runs" pins the
+    9:10 pm case. A goal set on the day, or after it, never makes that day a must-do day,
+    whatever its target.
   - *A third column, `weeklyMissed`.* #165 and #176 name two, `weeklyDue` and `weeklyDone`
     (counts). The recap and history have to name the goal, and a count cannot: the goal may be
     renamed or deleted later, and working the name out again from today's goals would change
