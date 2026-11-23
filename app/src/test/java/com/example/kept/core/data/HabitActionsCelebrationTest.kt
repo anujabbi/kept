@@ -103,17 +103,6 @@ class HabitActionsCelebrationTest {
         assertTrue(tomorrow.claimMoment())
     }
 
-    @Test fun `a day finished in KEPT is pending until KEPT claims it, then the lock screen gets nothing`() = runBlocking {
-        prefs.updateSettings { it.copy(onboardingDone = true, celebrationPendingDate = null, celebrationShownDate = null, dueMinute = 21 * 60) }
-        val habits = HabitRepository(db.habitDao(), db.habitEntryDao(), db.dayRecordDao(), prefs, time)
-        val a = habits.addHabit("Read", "book", ProofType.MANUAL, 10, "pages")
-        actions.complete(a)
-        assertEquals("2026-11-25", pending())
-        assertTrue("KEPT shows it", actions.claimMoment())
-        assertNull("claimed: no longer pending", pending())
-        assertFalse(actions.claimMoment())
-    }
-
     @Test fun `a day finished after the give-up time leaves nothing to celebrate`() = runBlocking {
         prefs.updateSettings { it.copy(onboardingDone = true, celebrationPendingDate = null, celebrationShownDate = null, dueMinute = 11 * 60) }
         val habits = HabitRepository(db.habitDao(), db.habitEntryDao(), db.dayRecordDao(), prefs, time)

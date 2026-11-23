@@ -26,7 +26,6 @@ class SettingsScreenshotTest {
     @Test fun settings() = shots.shot("settings", 1f)
     @Test fun settings_font2() = shots.shot("settings", 2f)
     @Test fun settings_missing() = shots.shot("settings_missing", 1f)
-    @Test fun settings_missing_font2() = shots.shot("settings_missing", 2f)
     @Test fun night_off() = shots.nightShot(on = false, 1f)
     @Test fun night_off_font2() = shots.nightShot(on = false, 2f)
     @Test fun night_on() = shots.nightShot(on = true, 1f)

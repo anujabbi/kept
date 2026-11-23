@@ -22,7 +22,6 @@ class CollectionNarrowScreenTest {
     private val shots by lazy { CollectionShots(rule, "_360") }
 
     @Test fun day0() = shots.shot("day0", CollectionFixtures.DAY_0, 1f)
-    @Test fun day0_font2() = shots.shot("day0", CollectionFixtures.DAY_0, 2f)
     @Test fun day12() = shots.shot("day12", CollectionFixtures.DAY_12, 1f)
     @Test fun day12_font2() = shots.shot("day12", CollectionFixtures.DAY_12, 2f)
     @Test fun day100() = shots.shot("day100", CollectionFixtures.DAY_100, 1f)

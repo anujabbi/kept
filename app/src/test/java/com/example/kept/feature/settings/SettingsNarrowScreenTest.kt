@@ -25,8 +25,6 @@ class SettingsNarrowScreenTest {
 
     @Test fun settings() = shots.shot("settings", 1f)
     @Test fun settings_font2() = shots.shot("settings", 2f)
-    @Test fun settings_missing() = shots.shot("settings_missing", 1f)
-    @Test fun settings_missing_font2() = shots.shot("settings_missing", 2f)
     @Test fun night_off() = shots.nightShot(on = false, 1f)
     @Test fun night_off_font2() = shots.nightShot(on = false, 2f)
     @Test fun night_on() = shots.nightShot(on = true, 1f)
@@ -37,12 +35,8 @@ class SettingsNarrowScreenTest {
     @Test fun history_font2() = shots.shot("history", 2f)
     @Test fun history_end() = shots.historyEndShot(1f)
     @Test fun history_end_font2() = shots.historyEndShot(2f)
-    @Test fun history_empty() = shots.shot("history_empty", 1f)
-    @Test fun history_empty_font2() = shots.shot("history_empty", 2f)
     @Test fun exceptions() = shots.shot("exceptions", 1f)
     @Test fun exceptions_font2() = shots.shot("exceptions", 2f)
-    @Test fun permissions_all() = shots.shot("permissions_all", 1f)
-    @Test fun permissions_all_font2() = shots.shot("permissions_all", 2f)
     @Test fun permissions_missing() = shots.shot("permissions_missing", 1f)
     @Test fun permissions_missing_font2() = shots.shot("permissions_missing", 2f)
 

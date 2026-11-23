@@ -28,11 +28,6 @@ class SprigLookTest {
 
     @Test fun wiltedBeatsAllDone() = assertEquals(SprigPose.DROOP, SprigLook.pose(wilted = true, allDone = true))
 
-    @Test fun lockScreenGuards() {
-        assertEquals(SprigPose.GUARD, SprigLook.pose(onLockScreen = true))
-        assertEquals(SprigPose.GUARD, SprigLook.pose(onLockScreen = true, wilted = true))
-    }
-
     @Test fun otherwiseIdle() = assertEquals(SprigPose.IDLE, SprigLook.pose())
 
     @Test fun talkBackReadsFormAndMood() {

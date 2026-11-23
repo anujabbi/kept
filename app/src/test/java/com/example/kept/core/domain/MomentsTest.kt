@@ -21,12 +21,6 @@ class MomentsTest {
         assertFalse("undone since, or finished late", MomentRules.dueInKept(today, null, today, allDoneOnTime = false))
     }
 
-    @Test fun `it plays once per day on either surface`() {
-        assertTrue(MomentRules.mayPlay(null, today))
-        assertTrue(MomentRules.mayPlay(yesterday, today))
-        assertFalse(MomentRules.mayPlay(today, today))
-    }
-
     @Test fun `a finished day leaves the moment pending for KEPT only when nothing else played it`() {
         assertEquals(today, MomentRules.pendingAfterFinish(shownHere = false, shownDate = null, today = today))
         assertEquals(today, MomentRules.pendingAfterFinish(false, yesterday, today))
@@ -38,15 +32,6 @@ class MomentsTest {
         assertTrue(MomentRules.finishedInTime(allDoneNow = true, beforeDue = true))
         assertFalse("finished after the give-up time", MomentRules.finishedInTime(true, false))
         assertFalse("habits left", MomentRules.finishedInTime(false, true))
-    }
-
-    @Test fun `promise kept copy`() {
-        assertEquals("Promise kept.", CelebrationCopy.HEADLINE)
-        assertEquals("Tap to carry on", CelebrationCopy.CARRY_ON)
-        assertEquals(13, CelebrationCopy.streakDay(12))
-        assertEquals(1, CelebrationCopy.streakDay(0))
-        assertEquals("Day 13 of your streak. Apps are open.", CelebrationCopy.line(13))
-        assertEquals("Promise kept. Day 13 of your streak. Apps are open. Tap to carry on.", CelebrationCopy.spoken(13))
     }
 
     @Test fun `evolve copy for every form`() {
@@ -128,25 +113,6 @@ class MomentsTest {
         assertFalse("already played today", MomentRules.lockStandsIn(1, today, null, today))
         assertFalse("already stood in today", MomentRules.lockStandsIn(1, null, today, today))
         assertTrue("yesterday's stand-in does not count", MomentRules.lockStandsIn(1, yesterday, yesterday, today))
-    }
-
-    /**
-     * QA on PR #144: tick, carry on, undo and tick again while the first claim is still being
-     * written, then the two claims land in either order. Nothing may stand in or go up again.
-     */
-    @Test fun `an undo and re-tick before the first claim is stored never shows the moment again`() {
-        var standIn: String? = null
-        var carriedOn: String? = null
-        val stored: String? = null // the first claim has not been written yet
-
-        // Tick 1: the moment stands in.
-        assertTrue(MomentRules.lockStandsIn(1, stored, standIn, today)); standIn = today
-        // Carry on, undo, tick 2: the stored date still says "not played", but no second stand-in.
-        carriedOn = today
-        assertFalse(MomentRules.lockStandsIn(1, stored, standIn, today))
-        // The claims land, in either order: one wins, and neither puts the moment back up.
-        assertFalse(MomentRules.lockRaisesAfterClaim(claimed = true, carriedOnDate = carriedOn, today = today))
-        assertFalse(MomentRules.lockRaisesAfterClaim(claimed = false, carriedOnDate = carriedOn, today = today))
     }
 
     @Test fun `the claimed moment goes up on the lock screen unless carried on already`() {

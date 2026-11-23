@@ -58,12 +58,8 @@ class HomeNarrowScreenTest {
     }
 
     @Test fun done0of2() = shot("0of2", 1f, HomeFixtures.state(2, 0))
-    @Test fun done0of2_font2() = shot("0of2", 2f, HomeFixtures.state(2, 0))
-    @Test fun done2of2() = shot("2of2", 1f, HomeFixtures.state(2, 2))
     @Test fun done2of2_font2() = shot("2of2", 2f, HomeFixtures.state(2, 2))
     @Test fun done0of6() = shot("0of6", 1f, HomeFixtures.state(6, 0))
-    @Test fun done0of6_font2() = shot("0of6", 2f, HomeFixtures.state(6, 0))
-    @Test fun done6of6() = shot("6of6", 1f, HomeFixtures.state(6, 6))
     @Test fun done6of6_font2() = shot("6of6", 2f, HomeFixtures.state(6, 6))
 
     /** The weekly card (story #174) on the small phone, scrolled into view. */

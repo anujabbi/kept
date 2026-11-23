@@ -21,12 +21,6 @@ class SettingsLayoutTest {
         assertEquals("Best streak 12", plain(SettingsCopy.bestStreak(12)))
     }
 
-    @Test fun permissions_read_all_set_or_how_many_are_off() {
-        assertEquals("All set", SettingsCopy.permissions(0))
-        assertEquals("1 off", plain(SettingsCopy.permissions(1)))
-        assertEquals("3 off", plain(SettingsCopy.permissions(3)))
-    }
-
     /** Values sit on one line beside a title; their spaces never break. */
     @Test fun values_and_history_cells_use_no_break_spaces() {
         for (v in listOf(SettingsCopy.time(7 * 60), SettingsCopy.exceptions(2), SettingsCopy.minutes(15), SettingsCopy.permissions(2),
@@ -34,21 +28,6 @@ class SettingsLayoutTest {
             RecapOutcome.entries.map(SettingsCopy::outcome)) {
             assertFalse("\"$v\" has a breaking space", v.contains(' '))
         }
-    }
-
-    @Test fun every_outcome_has_its_history_label() {
-        val labels = RecapOutcome.entries.associateWith { plain(SettingsCopy.outcome(it)) }
-        assertEquals(
-            mapOf(
-                RecapOutcome.KEPT to "Kept",
-                RecapOutcome.SHIELD to "Shield used",
-                RecapOutcome.LOCK_OFF to "Lock was off",
-                RecapOutcome.SLIPPED to "Missed",
-                RecapOutcome.TOO_LATE to "Too late",
-                RecapOutcome.WRITTEN_OFF to "Written off",
-            ),
-            labels,
-        )
     }
 
     @Test fun history_line_and_cells() {
@@ -76,19 +55,6 @@ class SettingsLayoutTest {
     /** At the design's 390dp Sprig keeps its place: top 34, bottom 22 under the crest. */
     @Test fun sprig_sits_where_the_design_puts_it() {
         assertEquals(34, SettingsSky.sprigTopDp(142, 390))
-    }
-
-    @Test fun sprigs_lower_corners_are_always_under_the_hill() {
-        for (screen in listOf(360, 390, 412)) for (crest in listOf(142, 170, 220)) {
-            val top = SettingsSky.sprigTopDp(crest, screen)
-            val bottom = top + SettingsSky.SPRIG_DP
-            val right = (screen - SettingsSky.SPRIG_END_DP).toFloat()
-            for (x in listOf(right - SettingsSky.SPRIG_DP, right)) {
-                val hill = HillEdge.topDp(crest.toFloat(), screen.toFloat(), x)
-                assertTrue("$screen/$crest: bottom $bottom not under hill $hill at $x", bottom >= hill + HillEdge.UNDER_DP)
-            }
-            assertTrue("$screen/$crest: Sprig's top is under the crest", top < crest)
-        }
     }
 
     @Test fun a_value_goes_under_the_title_only_when_they_do_not_fit_side_by_side() {

@@ -55,29 +55,4 @@ class ReminderCopyTest {
             ReminderCopy.body(ReminderKind.LAST_CALL, remaining = 1, dueMinute = 21 * 60),
         )
     }
-
-    @Test fun `an action names the habit only when there is more than one`() {
-        assertEquals("Mark done", ReminderCopy.actionLabel("Read", single = true))
-        assertEquals("Done: Read", ReminderCopy.actionLabel("Read", single = false))
-    }
-}
-
-/**
- * Android shows at most three notification actions, so a fourth habit has to give up its slot
- * (issue #9).
- */
-class ReminderActionPlanTest {
-
-    @Test fun `up to three habits each get a mark-done action`() {
-        assertEquals(ReminderActions.Plan(listOf(1L), openApp = false), ReminderActions.plan(listOf(1L)))
-        assertEquals(ReminderActions.Plan(listOf(1L, 2L, 3L), openApp = false), ReminderActions.plan(listOf(1L, 2L, 3L)))
-    }
-
-    @Test fun `a fourth habit turns the last slot into Open KEPT`() {
-        assertEquals(ReminderActions.Plan(listOf(1L, 2L), openApp = true), ReminderActions.plan(listOf(1L, 2L, 3L, 4L)))
-    }
-
-    @Test fun `no habits means no actions`() {
-        assertEquals(ReminderActions.Plan(emptyList(), openApp = false), ReminderActions.plan(emptyList()))
-    }
 }

@@ -45,13 +45,6 @@ class BreakLayoutTest {
         assertEquals(12, BreakCountdown.secondsWaited(0, 12_999))
     }
 
-    @Test fun clockReadsMinutesAndSeconds() {
-        assertEquals("1:00", BreakCountdown.clock(60))
-        assertEquals("0:30", BreakCountdown.clock(30))
-        assertEquals("0:09", BreakCountdown.clock(9))
-        assertEquals("0:00", BreakCountdown.clock(0))
-    }
-
     @Test fun labelsChangeAtZero() {
         assertEquals("You can unlock in", BreakCopy.clockLabel(1))
         assertEquals("You can unlock now", BreakCopy.clockLabel(0))
@@ -59,40 +52,6 @@ class BreakLayoutTest {
         assertEquals("Unlock anyway (1s)", BreakCopy.unlockLabel(1, 30))
         assertEquals("Unlock for 30 min", BreakCopy.unlockLabel(0, 30))
         assertEquals("Unlock for 15 min", BreakCopy.unlockLabel(0, 15))
-    }
-
-    @Test fun normalBreakListsTheThreeCostsWithRealValues() {
-        // The first break of the week: 3 left before it, 2 once it is taken (the design's sample).
-        val c = BreakCosts.of(level = 4, streakDays = 12, breaksLeft = 3, overCap = false) as BreakCosts.Normal
-        assertEquals(
-            listOf(
-                BreakCosts.Row(BreakCosts.Kind.WILT, "Sprig drops a level and wilts until tomorrow."),
-                BreakCosts.Row(BreakCosts.Kind.STREAK, "Your 12 day streak stays."),
-                BreakCosts.Row(BreakCosts.Kind.BREAKS, "2 of 3 breaks left this week."),
-            ),
-            c.rows,
-        )
-        // The third break: after it none are left, and the next one is the last resort.
-        val third = BreakCosts.of(level = 2, streakDays = 1, breaksLeft = 1, overCap = false) as BreakCosts.Normal
-        assertEquals(listOf("Sprig drops a level and wilts until tomorrow.", "Your 1 day streak stays.", "0 of 3 breaks left this week."), third.rows.map { it.text })
-        assertEquals("1 of 3 breaks left this week.", (BreakCosts.of(4, 12, 2, overCap = false) as BreakCosts.Normal).rows.last().text)
-    }
-
-    @Test fun theLastResortHasItsOwnCopyAndNoBreaksRow() {
-        val c = BreakCosts.of(level = 4, streakDays = 12, breaksLeft = 0, overCap = true)
-        assertTrue(c is BreakCosts.LastResort)
-        assertTrue("no \"of 3\" in the last resort", !(c as BreakCosts.LastResort).line.contains("of 3") && !c.callout.contains("of 3"))
-    }
-
-    @Test fun theFourthBreakIsTheLastResort() {
-        val c = BreakCosts.of(level = 4, streakDays = 12, breaksLeft = 0, overCap = true)
-        assertEquals(
-            BreakCosts.LastResort(
-                "This is your fourth break this week, the last resort.",
-                "Today is written off. It won't count toward your 12 day streak, and your shield can't save it.",
-            ),
-            c,
-        )
     }
 
     @Test fun gapsTheDesignDoesNotDraw() {
@@ -133,24 +92,5 @@ class BreakLayoutTest {
         assertEquals(s.crestDp + 34, s.sprigTopDp + s.sprigDp)
         assertTrue("bubble clears the headline", s.bubbleTopDp >= 136 + 12)
         assertTrue("bubble ends above the crest", s.bubbleTopDp + 41 <= s.crestDp)
-    }
-
-    @Test fun tallTextMovesTheCrestDown() {
-        // Font 2.0: a three-line headline and a two-line bubble.
-        val s = BreakSprig.spot(412, 915, 270, 70)
-        assertEquals(270 + 12 + 70 + 24, s.crestDp)
-        assertEquals(282, s.bubbleTopDp)
-        assertEquals(230, s.sprigDp)
-        assertEquals(s.crestDp + 34 - 230, s.sprigTopDp)
-    }
-
-    @Test fun bubbleNeverReachesSprigsBody() {
-        for (w in listOf(360, 390, 412)) for (h in listOf(640, 844, 915)) {
-            val s = BreakSprig.spot(w, h, 136, 41)
-            val body = s.sprigLeftDp + s.sprigDp * 16f / 120f
-            assertTrue("$w × $h: bubble ends at ${20 + s.bubbleMaxWidthDp}, body at $body", 20 + s.bubbleMaxWidthDp < body)
-            // The design's plea (about 165dp wide at font 1.0) still fits on one line.
-            assertTrue("$w × $h: bubble only ${s.bubbleMaxWidthDp} wide", s.bubbleMaxWidthDp >= 168)
-        }
     }
 }

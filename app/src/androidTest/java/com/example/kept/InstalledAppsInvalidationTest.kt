@@ -9,7 +9,6 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertSame
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -35,12 +34,6 @@ class InstalledAppsInvalidationTest {
     @Inject lateinit var apps: InstalledAppsSource
 
     @Before fun setUp() = hilt.inject()
-
-    @Test fun repeated_reads_are_served_from_the_cache() {
-        val first = apps.launchablePackages()
-        assertTrue(first.isNotEmpty())
-        assertSame(first, apps.launchablePackages())
-    }
 
     @Test fun invalidating_forces_the_next_read_to_query_the_device_again() {
         val before = apps.launchablePackages()

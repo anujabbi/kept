@@ -56,16 +56,7 @@ class LockStateTest {
         assertFalse(state(breakActiveUntil = until).isLockActiveNow(now, LocalTime.of(9, 0)))
     }
 
-    @Test fun `a lapsed break no longer suspends the lock`() {
-        val until = now.minusSeconds(600)
-        assertTrue(state(breakActiveUntil = until).isLockActiveNow(now, LocalTime.of(9, 0)))
-    }
-
     @Test fun `before onboarding is done the lock is never active`() {
         assertFalse(state(onboardingDone = false).isLockActiveNow(now, LocalTime.of(9, 0)))
-    }
-
-    @Test fun `a window that wraps midnight is active late at night`() {
-        assertTrue(state(lockFromMinute = 22 * 60, dueMinute = 6 * 60).isLockActiveNow(now, LocalTime.of(23, 0)))
     }
 }

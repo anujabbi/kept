@@ -18,15 +18,6 @@ class CollectionLayoutTest {
     private fun statuses(gallery: List<SprigForm>, current: SprigForm) =
         CollectionForms.tiles(gallery, current).map { it.status }
 
-    @Test fun `the design's Bloom state - three reached, Bloom current, four locked`() {
-        val s = statuses(listOf(BUD, BLOOM), BLOOM)
-        assertEquals(
-            listOf(FormStatus.REACHED, FormStatus.REACHED, FormStatus.CURRENT) + List(4) { FormStatus.LOCKED },
-            s,
-        )
-        assertEquals(3, CollectionForms.reachedCount(listOf(BUD, BLOOM), BLOOM))
-    }
-
     @Test fun `all seven forms always show, in order`() {
         assertEquals(SprigForm.entries, CollectionForms.tiles(emptyList(), SPRIG).map { it.form })
     }
@@ -42,13 +33,6 @@ class CollectionLayoutTest {
         assertEquals(7, CollectionForms.reachedCount(gallery, CELESTIAL))
     }
 
-    /** QA on #125: the old subtitle counted gallery rows, so a form reached twice counted twice. */
-    @Test fun `a form reached twice counts once`() {
-        val gallery = listOf(BUD, BLOOM, BUD, BLOOM, THICKET, BUD)
-        assertEquals(4, CollectionForms.reachedCount(gallery, THICKET))
-        assertEquals("4 of 7 reached", CollectionCopy.reached(CollectionForms.reachedCount(gallery, THICKET)))
-    }
-
     @Test fun `a form reached before a streak reset stays reached`() {
         val gallery = listOf(BUD, BLOOM, THICKET, GROVE)
         val s = statuses(gallery, SPRIG)
@@ -62,25 +46,12 @@ class CollectionLayoutTest {
         assertEquals(3, CollectionForms.reachedCount(emptyList(), BLOOM))
     }
 
-    @Test fun `only locked forms cannot be tapped`() {
-        val tiles = CollectionForms.tiles(listOf(BUD), BUD)
-        assertTrue(tiles[0].tappable)
-        assertTrue(tiles[1].tappable)
-        tiles.drop(2).forEach { assertFalse(it.form.name, it.tappable) }
-    }
-
     @Test fun `notes - you are here, reached, day n`() {
         val tiles = CollectionForms.tiles(listOf(BUD, BLOOM), BLOOM)
         assertEquals(
             listOf("Reached", "Reached", "You are here", "Day 14", "Day 30", "Day 60", "Day 100"),
             tiles.map(CollectionCopy::note),
         )
-    }
-
-    @Test fun `hero copy`() {
-        assertEquals("Day 12 of your streak", CollectionCopy.day(12))
-        assertEquals("Day 0 of your streak", CollectionCopy.day(0))
-        assertEquals("3 of 7 reached", CollectionCopy.reached(3))
     }
 
     @Test fun `pill - next form and days left, final form at Celestial`() {

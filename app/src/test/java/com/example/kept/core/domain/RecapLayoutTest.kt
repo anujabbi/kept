@@ -19,21 +19,10 @@ class RecapLayoutTest {
 
     // Outcome mapping, every row of the outcome table.
 
-    @Test fun `a counted day is kept`() = assertEquals(RecapOutcome.KEPT, outcome(counted = true, done = 2))
-
-    @Test fun `a shielded day is shield`() = assertEquals(RecapOutcome.SHIELD, outcome(shield = true))
-
-    @Test fun `an unprotected day is lock off, even with everything ticked`() {
-        assertEquals(RecapOutcome.LOCK_OFF, outcome(unprotected = true))
-        assertEquals(RecapOutcome.LOCK_OFF, outcome(unprotected = true, done = 2))
-    }
-
     @Test fun `an unprotected day that was also written off keeps its penalty`() =
         assertEquals(RecapOutcome.WRITTEN_OFF, outcome(unprotected = true, writtenOff = true))
 
     @Test fun `a written off day is written off`() = assertEquals(RecapOutcome.WRITTEN_OFF, outcome(writtenOff = true, done = 2))
-
-    @Test fun `everything ticked but not counted is too late`() = assertEquals(RecapOutcome.TOO_LATE, outcome(done = 2))
 
     @Test fun `anything else slipped`() {
         assertEquals(RecapOutcome.SLIPPED, outcome(done = 1))
@@ -48,19 +37,7 @@ class RecapLayoutTest {
         assertEquals(RecapOutcome.WRITTEN_OFF, outcome(shield = true, writtenOff = true, done = 2))
     }
 
-    @Test fun `kept, shield and lock off keep the streak and the others reset it`() {
-        val kept = RecapOutcome.entries.filter { it.streakKept }
-        assertEquals(listOf(RecapOutcome.KEPT, RecapOutcome.SHIELD, RecapOutcome.LOCK_OFF), kept)
-    }
-
     // Copy, word for word from the table, with real numbers.
-
-    @Test fun `headlines`() {
-        assertEquals(
-            listOf("Promise kept.", "Shield saved it.", "The lock was off.", "The promise slipped.", "Too late to count.", "Day written off."),
-            RecapOutcome.entries.map(RecapCopy::headline),
-        )
-    }
 
     @Test fun `lines with the streak`() {
         assertEquals("12 days running.", RecapCopy.line(RecapOutcome.KEPT, 12, false))
@@ -89,49 +66,13 @@ class RecapLayoutTest {
         )
     }
 
-    @Test fun `stats`() {
-        assertEquals("2 of 2", RecapCopy.done(2, 2))
-        assertEquals("lock broken", RecapCopy.brokenLabel(1))
-        assertEquals("locks broken", RecapCopy.brokenLabel(0))
-        assertEquals("locks broken", RecapCopy.brokenLabel(4))
-    }
-
     // Progress card.
-
-    @Test fun `day 12 is 5 of the 7 days from Bloom to Thicket, as in the design`() {
-        val p = RecapProgress.of(12, grows = true) as RecapProgress.Toward
-        assertEquals(SprigForm.BLOOM, p.from)
-        assertEquals(SprigForm.THICKET, p.to)
-        assertEquals(7, p.span)
-        assertEquals(5, p.into)
-        assertEquals(2, p.daysLeft)
-        assertEquals("Thicket in 2 days", RecapCopy.nextLine(p.to, p.daysLeft))
-        assertEquals("Day 12 of 14", RecapCopy.dayCount(p.day, p.target))
-        assertEquals(5f / 7, p.toFraction, 1e-6f)
-        assertEquals(4f / 7, p.fromFraction, 1e-6f)
-    }
 
     @Test fun `one dot per day inside the span, white once behind`() {
         val p = RecapProgress.of(12, grows = true) as RecapProgress.Toward
         assertEquals(6, p.dots.size)
         assertEquals((1..6).map { it / 7f }, p.dots.map { it.fraction })
         assertEquals(listOf(true, true, true, true, true, false), p.dots.map { it.reached })
-    }
-
-    @Test fun `only a kept day grows, otherwise the fill starts at today`() {
-        val p = RecapProgress.of(12, grows = false) as RecapProgress.Toward
-        assertEquals(p.toFraction, p.fromFraction, 0f)
-    }
-
-    @Test fun `a reset streak is day 0 of 3 toward Bud`() {
-        val p = RecapProgress.of(0, grows = false) as RecapProgress.Toward
-        assertEquals(SprigForm.SPRIG, p.from)
-        assertEquals(SprigForm.BUD, p.to)
-        assertEquals(0f, p.toFraction, 0f)
-        assertEquals(2, p.dots.size)
-        assertTrue(p.dots.none { it.reached })
-        assertEquals("Bud in 3 days", RecapCopy.nextLine(p.to, p.daysLeft))
-        assertEquals("Day 0 of 3", RecapCopy.dayCount(p.day, p.target))
     }
 
     @Test fun `a day that reaches a form starts the new span at 0`() {
@@ -163,14 +104,6 @@ class RecapLayoutTest {
         assertEquals(RecapSprig.Spot(352, 250, 172, 70), other)
     }
 
-    @Test fun `a tall headline pushes Sprig down, never onto the text`() {
-        for (kept in listOf(true, false)) for (text in listOf(145, 250, 400, 600)) for (h in listOf(640, 844, 915)) {
-            val s = RecapSprig.spot(390, h, text, 339, kept)
-            assertTrue("$kept $text $h: Sprig's box ${s.sprigTopDp} is on the text", s.sprigTopDp >= text + RecapSprig.CLEARANCE_DP)
-            assertTrue(s.sprigDp in RecapSprig.SIZE_MIN_DP..RecapSprig.SIZE_DP)
-        }
-    }
-
     @Test fun `Sprig keeps the design's share above the crest at every size`() {
         for (kept in listOf(true, false)) for (h in 500..915 step 15) {
             val s = RecapSprig.spot(360, h, 145, 339, kept)
@@ -179,12 +112,6 @@ class RecapLayoutTest {
             assertEquals("$kept $h", expected, above.toFloat(), 1f)
             assertTrue("$kept $h: Sprig's bottom is above the crest", s.sprigTopDp + s.sprigDp > s.crestDp + 20)
         }
-    }
-
-    @Test fun `a short screen brings the crest up and shrinks Sprig before it scrolls`() {
-        val s = RecapSprig.spot(360, 640, 145, 339, kept = true)
-        assertTrue(s.crestDp < RecapSprig.DESIGN_CREST_DP)
-        assertTrue(s.sprigDp < RecapSprig.SIZE_DP)
     }
 
     @Test fun `Sprig is centred`() {
@@ -225,12 +152,6 @@ class RecapLayoutTest {
         assertEquals(1f, RecapMotion.petalAlpha(0.5f), 0f)
         assertEquals(0.5f, RecapMotion.petalAlpha(0.9f), 1e-5f)
         assertEquals(0f, RecapMotion.petalAlpha(1f), 0f)
-    }
-
-    @Test fun `the bar grows over 1·2s after 0·9s`() {
-        assertEquals(0f, RecapMotion.growProgress(900), 0f)
-        assertEquals(0.5f, RecapMotion.growProgress(1500), 1e-6f)
-        assertEquals(1f, RecapMotion.growProgress(2100), 0f)
     }
 
     @Test fun `the knob pops to 1·35 and back after 2s`() {

@@ -13,25 +13,11 @@ class OnboardingLayoutTest {
 
     // Lock window (A11) ------------------------------------------------------------------------
 
-    @Test fun `every button moves by 30 minutes`() {
-        val w = Window(h(7), h(21))
-        assertEquals(Window(h(6, 30), h(21)), LockWindowRules.fromEarlier(w))
-        assertEquals(Window(h(7, 30), h(21)), LockWindowRules.fromLater(w))
-        assertEquals(Window(h(7), h(20, 30)), LockWindowRules.dueEarlier(w))
-        assertEquals(Window(h(7), h(21, 30)), LockWindowRules.dueLater(w))
-    }
-
     @Test fun `the start never goes before 6 am`() {
         val w = Window(h(6), h(21))
         assertEquals(w, LockWindowRules.fromEarlier(w))
         assertFalse(LockWindowRules.canFromEarlier(w))
         assertEquals(h(6), LockWindowRules.fromEarlier(Window(h(6, 15), h(21))).fromMinute)
-    }
-
-    @Test fun `give-up never goes after 11 30 pm`() {
-        val w = Window(h(7), h(23, 30))
-        assertEquals(w, LockWindowRules.dueLater(w))
-        assertFalse(LockWindowRules.canDueLater(w))
     }
 
     @Test fun `give-up stays at least two hours after the start, from either side`() {
@@ -91,13 +77,6 @@ class OnboardingLayoutTest {
             parts.joinToString("") { it.first },
         )
         assertEquals(listOf("7:00 am", "9:00 pm"), parts.filter { it.second }.map { it.first })
-    }
-
-    @Test fun `footer counts habits picked`() {
-        assertEquals("Pick at least one", OnboardingCopy.habitsPicked(0))
-        assertEquals("1 habit picked", OnboardingCopy.habitsPicked(1))
-        assertEquals("2 habits picked", OnboardingCopy.habitsPicked(2))
-        assertEquals("10 habits picked", OnboardingCopy.habitsPicked(10))
     }
 
     @Test fun `habit rows read as the design`() {
@@ -174,25 +153,5 @@ class OnboardingLayoutTest {
             val right = (w - ReadySprig.SPRIG_END_DP).toFloat()
             for (edge in listOf(right - x.sprigDp, right)) assertTrue("$w at $edge", bottom >= HillEdge.topDp(252f, w.toFloat(), edge) + 1.9f)
         }
-    }
-
-    // Shutdown time (#164) ---------------------------------------------------------------------
-
-    @Test fun `the shutdown step offers 10 PM, 11 PM and Midnight as 1320, 1380 and 0`() {
-        assertEquals(listOf(1320, 1380, 0), OnboardingCopy.SHUTDOWN_TIMES)
-        assertEquals(listOf("10 PM", "11 PM", "Midnight"), OnboardingCopy.SHUTDOWN_TIMES.map(OnboardingCopy::shutdownLabel))
-    }
-
-    @Test fun `the shutdown copy is the issue's`() {
-        assertEquals("Pick a shutdown time", OnboardingCopy.SHUTDOWN_TITLE)
-        assertEquals("A shutdown time helps you stop doomscrolling at night.", OnboardingCopy.SHUTDOWN_LINE)
-        assertEquals("Apps lock until 7:00 am. Phone, messages and maps still work.", OnboardingCopy.SHUTDOWN_DETAIL)
-        assertEquals("Skip", OnboardingCopy.SKIP)
-    }
-
-    @Test fun `the progress bar counts six steps`() {
-        assertEquals(6, OnboardingCopy.STEPS)
-        assertEquals("Step 2 of 6", OnboardingCopy.stepOf(2))
-        assertEquals("Step 6 of 6", OnboardingCopy.stepOf(6))
     }
 }

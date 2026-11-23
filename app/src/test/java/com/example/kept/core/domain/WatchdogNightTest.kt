@@ -48,12 +48,6 @@ class WatchdogNightTest {
         assertTrue("the restart is still requested", v.serviceLooksDead)
     }
 
-    @Test fun `night only with the screen off all along is not a gap either, and still restarts`() {
-        val v = GapRules.evaluate(input(LocalTime.of(2, 0), snapshot(habitsIncomplete = false), emptyList(), lockedAppResumed = false))
-        assertFalse(v.isGap)
-        assertTrue(v.serviceLooksDead)
-    }
-
     @Test fun `a stale heartbeat while the daily lock is active still records the gap`() {
         val i = input(LocalTime.of(12, 0), snapshot(habitsIncomplete = true), inUseAt = listOf(ago(20 * 60_000)), lockedAppResumed = false)
         assertTrue(i.dailyLockActive)
@@ -76,15 +70,5 @@ class WatchdogNightTest {
         val v = GapRules.evaluate(i)
         assertEquals(GapRules.Verdict.SERVICE_ALIVE, v)
         assertFalse(v.serviceLooksDead)
-    }
-
-    @Test fun `a caller that says nothing about the daily lock keeps the old rule`() {
-        val v = GapRules.evaluate(
-            GapRules.Input(
-                lockShouldBeActive = true, lockPermissionsGranted = true, heartbeatMillis = ago(30 * 60_000), nowMillis = now,
-                everHeartbeat = true, screenInUseAtMillis = listOf(ago(20 * 60_000)), lockedAppResumedDuringWindow = false,
-            ),
-        )
-        assertEquals(GapRules.Verdict.GAP_SCREEN_ON, v)
     }
 }

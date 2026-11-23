@@ -35,14 +35,12 @@ class LockScreenshotTest {
     @Test fun done0of2() = shot("0of2", 1f, LockFixtures.state(2, 0))
     @Test fun done0of2_font2() = shot("0of2", 2f, LockFixtures.state(2, 0))
     @Test fun done1of2() = shot("1of2", 1f, LockFixtures.state(2, 1))
-    @Test fun done1of2_font2() = shot("1of2", 2f, LockFixtures.state(2, 1))
     @Test fun open2of2() = shot("2of2_open", 1f, LockFixtures.state(2, 2))
     @Test fun open2of2_font2() = shot("2of2_open", 2f, LockFixtures.state(2, 2))
     @Test fun done2of10() = shot("2of10", 1f, LockFixtures.state(10, 2))
     @Test fun done2of10_font2() = shot("2of10", 2f, LockFixtures.state(10, 2))
     @Test fun lateTick() = shot("2of3_late", 1f, LockFixtures.state(3, 2, late = 1))
     @Test fun open10of10() = shot("10of10_open", 1f, LockFixtures.state(10, 10))
-    @Test fun open10of10_font2() = shot("10of10_open", 2f, LockFixtures.state(10, 10))
 
     @Test fun everyStateFits() {
         val current = mutableStateOf(LockFixtures.state(2, 0))

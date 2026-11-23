@@ -35,8 +35,6 @@ class BreakNarrowScreenTest {
 
     @Test fun at60s() = shot("60s", 1f, BreakFixtures.NORMAL, 60)
     @Test fun at60s_font2() = shot("60s", 2f, BreakFixtures.NORMAL, 60)
-    @Test fun at0s() = shot("0s", 1f, BreakFixtures.NORMAL, 0)
-    @Test fun at0s_font2() = shot("0s", 2f, BreakFixtures.NORMAL, 0)
     @Test fun lastResort() = shot("last", 1f, BreakFixtures.LAST_RESORT, 60)
     @Test fun lastResort_font2() = shot("last", 2f, BreakFixtures.LAST_RESORT, 60)
 

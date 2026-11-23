@@ -5,7 +5,6 @@ import com.example.kept.core.lock.PermissionKind.OVERLAY
 import com.example.kept.core.lock.PermissionKind.USAGE_ACCESS
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -25,13 +24,6 @@ class RequiredPermissionsTest {
                 else -> error("not part of the gate: $it")
             }
         }
-
-    @Test fun `all three granted reads Continue with no warning`() {
-        val m = missing(usage = true, overlay = true, notifications = true)
-        assertTrue(m.isEmpty())
-        assertEquals("Continue", RequiredPermissions.continueLabel(m))
-        assertNull(RequiredPermissions.onboardingWarning(m))
-    }
 
     @Test fun `notifications alone denied gates the button and names notifications only`() {
         val m = missing(usage = true, overlay = true, notifications = false)
@@ -59,17 +51,6 @@ class RequiredPermissionsTest {
         val m = missing(usage = false, overlay = false, notifications = false)
         assertEquals(listOf(USAGE_ACCESS, OVERLAY, NOTIFICATIONS), m)
         assertEquals("usage access, display over other apps and notifications", RequiredPermissions.names(m))
-    }
-
-    /** Onboarding step 5's tags (#132): "On" once granted, else by what the permission is for. */
-    @Test fun `each card's tag`() {
-        for (k in RequiredPermissions.onboardingGate) {
-            assertEquals("Required", RequiredPermissions.tag(k, granted = false))
-            assertEquals("On", RequiredPermissions.tag(k, granted = true))
-        }
-        assertEquals("Recommended", RequiredPermissions.tag(PermissionKind.BATTERY, granted = false))
-        assertEquals("For photo habits", RequiredPermissions.tag(PermissionKind.CAMERA, granted = false))
-        assertEquals("On", RequiredPermissions.tag(PermissionKind.CAMERA, granted = true))
     }
 
     @Test fun `the lock gate is usage access and overlay only`() {

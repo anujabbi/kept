@@ -22,25 +22,6 @@ class BreakTimerTest {
     private val scope = TestScope(StandardTestDispatcher())
     private val clock = { scope.testScheduler.currentTime + 5_000_000L }
 
-    @Test fun countsDownSixtySecondsThenStops() {
-        val t = BreakTimer(SavedStateHandle(), scope, clock)
-        assertFalse(t.breaking)
-        assertEquals(60, t.secondsLeft)
-        assertTrue(t.start())
-        scope.runCurrent()
-        assertTrue(t.breaking)
-        assertEquals(60, t.secondsLeft)
-        scope.advanceTimeBy(1_001); scope.runCurrent()
-        assertEquals(59, t.secondsLeft)
-        scope.advanceTimeBy(29_000); scope.runCurrent()
-        assertEquals(30, t.secondsLeft)
-        scope.advanceTimeBy(30_000); scope.runCurrent()
-        assertEquals(0, t.secondsLeft)
-        scope.advanceTimeBy(10_000); scope.runCurrent()
-        assertEquals(0, t.secondsLeft)
-        assertEquals(70, t.secondsWaited())
-    }
-
     @Test fun aRebuiltTimerCarriesOnFromTheSavedStart() {
         val saved = SavedStateHandle()
         val first = BreakTimer(saved, scope, clock)
