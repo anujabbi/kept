@@ -164,6 +164,30 @@ class SettingsBehaviourTest {
         assertEquals(listOf("2026-09-25"), opened)
     }
 
+    @Test fun history_names_the_weekly_goal_a_day_was_missed_for() {
+        val days = listOf(
+            // Both habits done in time, the must-do session not: missed, and it says why.
+            SettingsFixtures.record("2026-11-25", "late").copy(weeklyDue = 1, weeklyMissed = "Exercise"),
+            // The same, saved by the shield, with two goals due.
+            SettingsFixtures.record("2026-11-24", "late").copy(shieldConsumed = true, weeklyDue = 2, weeklyMissed = "Exercise\nRead Dune"),
+            // A kept must-do day and an ordinary late day name nothing.
+            SettingsFixtures.record("2026-11-23", "kept").copy(weeklyDue = 1, weeklyDone = 1),
+            SettingsFixtures.record("2026-11-22", "late"),
+        )
+        rule.setContent { Shot(1f) { HistoryContent(days, 12, {}, {}) } }
+        assertEquals("Missed", text("history_label_2026-11-25"))
+        assertEquals("Weekly goal missed: Exercise", text("history_weekly_2026-11-25"))
+        assertEquals("Shield used", text("history_label_2026-11-24"))
+        assertEquals("Weekly goals missed: Exercise, Read Dune", text("history_weekly_2026-11-24"))
+        assertEquals("Kept", text("history_label_2026-11-23"))
+        rule.onNodeWithTag("history_weekly_2026-11-23", useUnmergedTree = true).assertDoesNotExist()
+        assertEquals("Too late", text("history_label_2026-11-22"))
+        rule.onNodeWithTag("history_weekly_2026-11-22", useUnmergedTree = true).assertDoesNotExist()
+        // TalkBack reads the row as one button, the reason included.
+        val read = rule.onNodeWithTag("history_2026-11-25").fetchSemanticsNode().config[SemanticsProperties.Text].map { it.text.replace(SettingsCopy.NBSP, ' ') }
+        assertEquals(listOf("Wed 25 Nov", "2 of 2", "Missed", "Weekly goal missed: Exercise"), read)
+    }
+
     @Test fun history_shows_at_most_fourteen_days() {
         val many = (1..20).map { SettingsFixtures.record("2026-10-%02d".format(21 - it), "kept") }
         rule.setContent { Shot(1f) { HistoryContent(many, 20, {}, {}) } }

@@ -1,5 +1,6 @@
 package com.example.kept.core.data.db
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -51,6 +52,18 @@ data class DayRecordEntity(
     val formId: Int = 1,
     val streakEnd: Int = 0,
     val finalized: Boolean = false,
+    /**
+     * Weekly goals whose must-do day this was (issue #165, story #176), written by the rollover.
+     * 0 for a day closed before the columns existed: no weekly session was due.
+     */
+    @ColumnInfo(defaultValue = "0") val weeklyDue: Int = 0,
+    /** Of those, the sessions logged before the give-up time. The day counts only if this reaches [weeklyDue]. */
+    @ColumnInfo(defaultValue = "0") val weeklyDone: Int = 0,
+    /**
+     * The names of the goals whose must-do session was missed, one per line, as they were when
+     * the day closed: history and the recap name them even after a goal is renamed or deleted.
+     */
+    @ColumnInfo(defaultValue = "''") val weeklyMissed: String = "",
 )
 
 /** User-chosen exceptions to the default-deny lock. */

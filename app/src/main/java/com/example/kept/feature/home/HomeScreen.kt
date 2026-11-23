@@ -255,7 +255,7 @@ private fun HeadlineBlock(s: HomeUiState, layout: HomeLayout, ink: Color, textWi
     val done = s.day.done
     val headline = HomeCopy.headline(total, done, s.day.keptOnTime)
     val giveUp = (s.lock?.settings ?: Settings()).dueMinute.minuteOfDayLabel()
-    val line = HomeCopy.line(total, done, giveUp, s.pastDue, s.lock?.breakActiveUntil != null)
+    val line = HomeCopy.line(total, done, giveUp, s.pastDue, s.lock?.breakActiveUntil != null, s.day.weeklyMissed)
     val roomy = layout == HomeLayout.ROOMY
     val base = if (roomy) DaybreakType.headline else DaybreakType.headline.copy(fontSize = 38.sp, lineHeight = 38.sp)
     val headStyle = fitLongestWord(headline, base, textWidth)
@@ -308,7 +308,8 @@ private fun TodayHeader(s: HomeUiState, modifier: Modifier = Modifier) {
 @Composable
 private fun Week(s: HomeUiState, shieldOpen: Boolean, onToggleShield: () -> Unit, gapToShield: Dp) {
     WeekSection(
-        s.lastSeven.map { (d, r) -> d to dayDot(d == s.date, r, s.today.allDoneOnTime) },
+        // Today is gold once the whole promise is kept: the habits and, on a must-do day, the session (story #176).
+        s.lastSeven.map { (d, r) -> d to dayDot(d == s.date, r, s.day.keptOnTime) },
         s.sprig.bestStreak,
     )
     // The shield button's touch area is 48dp around a 28dp visual, so 10dp of the gap is inside it.

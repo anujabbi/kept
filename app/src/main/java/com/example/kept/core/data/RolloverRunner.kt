@@ -7,9 +7,15 @@ import com.example.kept.core.data.db.HabitDao
 import com.example.kept.core.data.db.HabitEntryDao
 import com.example.kept.core.data.db.LockBreakDao
 import com.example.kept.core.data.db.ProtectionGapDao
+import com.example.kept.core.data.db.WeeklyGoalDao
+import com.example.kept.core.data.db.WeeklyGoalEntryDao
 import com.example.kept.core.data.prefs.KeptPreferences
 import com.example.kept.core.domain.GiveUpTime
 import com.example.kept.core.domain.RolloverEngine
+import com.example.kept.core.domain.WeeklyDay
+import com.example.kept.core.domain.WeeklyDayOutcome
+import com.example.kept.core.domain.WeeklyGoalRules
+import com.example.kept.core.domain.WeeklyMissedCopy
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.time.LocalDate
@@ -38,6 +44,8 @@ class RolloverRunner @Inject constructor(
     private val time: TimeSource,
     private val recap: RecapNotifier,
     private val analytics: Analytics,
+    private val weeklyGoalDao: WeeklyGoalDao,
+    private val weeklyEntryDao: WeeklyGoalEntryDao,
 ) {
     private val mutex = Mutex()
 
@@ -88,6 +96,7 @@ class RolloverRunner @Inject constructor(
         val doneBeforeDue = entries.count { it.completedAt?.let { at -> at < dueMillis } == true }
         val gaps = gapDao.countForDate(key)
         val breaks = breakDao.since(0).filter { it.date == key }
+        val weekly = weeklyOutcome(date, dueMillis)
         return RolloverEngine.DayInput(
             date = date,
             habitsDone = done,
@@ -97,12 +106,44 @@ class RolloverRunner @Inject constructor(
             breaksUsed = breaks.size,
             writtenOff = breaks.any { it.overCap } || (record?.writtenOff ?: false),
             unprotected = gaps > 0 || (record?.unprotected ?: false),
+            weeklyDue = weekly.due,
+            weeklyDoneBeforeDue = weekly.done,
+            weeklyMissed = weekly.missed,
+        )
+    }
+
+    /**
+     * The must-do sessions of [date] (issue #165, story #176). Each goal's week is read as it
+     * stood on [date], from the sessions logged up to that date, never as it stands on the day
+     * the rollover runs: a catch-up over several days, or over a Sunday, judges each day against
+     * its own week. A session counts for the day when it was logged before [dueMillis], the same
+     * give-up instant the habits are held to.
+     *
+     * The goals are the active ones as they are now: nothing records what a goal's target was on
+     * a past day, or when a goal was deleted. A goal set after [date] is left out by the rules.
+     */
+    private suspend fun weeklyOutcome(date: LocalDate, dueMillis: Long): WeeklyDayOutcome {
+        val goals = weeklyGoalDao.active()
+        if (goals.isEmpty()) return WeeklyDayOutcome.NONE
+        val sessions = weeklyEntryDao.between(WeeklyGoalRules.weekStart(date).toString(), date.toString()).groupBy { it.goalId }
+        return WeeklyDay.outcome(
+            goals.map { g ->
+                WeeklyDay.Goal(
+                    title = g.title,
+                    daysPerWeek = g.daysPerWeek,
+                    effectiveFrom = LocalDate.parse(g.effectiveFrom),
+                    sessions = sessions[g.id].orEmpty().associate { LocalDate.parse(it.date) to it.completedAt },
+                )
+            },
+            date,
+            dueMillis,
         )
     }
 
     /**
      * One `rollover` per day closed, not per run: a phone that was off for three days closes three
-     * days and reports three (issue #10). `kept` is whether the day counted toward the streak.
+     * days and reports three (issue #10). `kept` is whether the day counted toward the streak, so
+     * a must-do day whose session was missed reports false (story #176).
      */
     private fun report(out: RolloverEngine.Output) {
         val s = out.summary
@@ -138,6 +179,9 @@ class RolloverRunner @Inject constructor(
                 formId = s.formEnd.id,
                 streakEnd = s.streakEnd,
                 finalized = true,
+                weeklyDue = s.weeklyDue,
+                weeklyDone = s.weeklyDone,
+                weeklyMissed = WeeklyMissedCopy.store(s.weeklyMissed),
             ),
         )
         out.unlocks.forEach { sprig.insertUnlock(it.form, it.date, it.streakAtUnlock) }

@@ -33,7 +33,8 @@ internal object HomeFixtures {
     /** A Wednesday, so the week row reads T F S S M T W like `Main`. */
     val today: LocalDate = LocalDate.of(2026, 11, 25)
 
-    private const val DUE = 1_000L
+    /** Today's give-up time in these fixtures: a tick or a session before it is in time. */
+    const val DUE = 1_000L
 
     private data class Spec(val title: String, val target: Int, val unit: String, val photo: Boolean = false)
 
@@ -94,6 +95,7 @@ internal object HomeFixtures {
             sprig = SprigState(level = 4, streakDays = 12, bestStreak = 12, shieldAvailable = shieldReady),
             lock = LockState(Settings(), t, breakActiveUntil = null, breaksUsedThisWeek = 0, userExceptions = emptySet(), unprotectedToday = false),
             pastDue = pastDue,
+            dueMillis = DUE,
             date = today,
             missingLockPermissions = if (lockOff) listOf(PermissionKind.USAGE_ACCESS) else emptyList(),
             lastSeven = week,
@@ -118,9 +120,12 @@ internal object HomeFixtures {
         from: LocalDate = LocalDate.of(2026, 11, 1),
     ): WeeklyGoalWeek {
         val start = WeeklyGoalRules.weekStart(on)
+        val dates = sessions.map { start.plusDays(it.toLong()) }.toSet()
         return WeeklyGoalWeek(
             WeeklyGoalEntity(id = id, title = title, iconKey = "run", daysPerWeek = daysPerWeek, createdAt = 0, effectiveFrom = from.toString()),
-            WeeklyGoalRules.week(WeeklyGoalRules.Goal(daysPerWeek, from), sessions.map { start.plusDays(it.toLong()) }.toSet(), on),
+            WeeklyGoalRules.week(WeeklyGoalRules.Goal(daysPerWeek, from), dates, on),
+            // A session logged today was logged in time, unless a test says otherwise.
+            loggedTodayAt = if (on in dates) DUE - 1 else null,
         )
     }
 

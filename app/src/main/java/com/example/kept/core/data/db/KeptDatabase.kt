@@ -127,8 +127,21 @@ val MIGRATION_6_7 = object : Migration(6, 7) {
     }
 }
 
+/**
+ * v7 -> v8: a day records its weekly must-do sessions (issue #165, story #176). `day_records`
+ * gains `weeklyDue`, `weeklyDone` and `weeklyMissed`. Existing rows get no session due and no
+ * goal missed, so every past day keeps the outcome it had; nothing else is touched.
+ */
+val MIGRATION_7_8 = object : Migration(7, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `day_records` ADD COLUMN `weeklyDue` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE `day_records` ADD COLUMN `weeklyDone` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE `day_records` ADD COLUMN `weeklyMissed` TEXT NOT NULL DEFAULT ''")
+    }
+}
+
 /** Every migration, in order. The app and the migration tests both use this list. */
-val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
 
 @Database(
     entities = [
@@ -142,7 +155,7 @@ val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRAT
         WeeklyGoalEntity::class,
         WeeklyGoalEntryEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)

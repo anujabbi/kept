@@ -42,6 +42,7 @@ class HabitActionsCelebrationTest {
         time = time,
         analytics = NoOpAnalytics(),
         dayCompletion = object : DayCompletionReactor { override suspend fun onDayCompleted() { shadeCalls++ } },
+        weeklyGoals = WeeklyGoalRepository(db.weeklyGoalDao(), db.weeklyGoalEntryDao(), time),
     )
 
     @After fun close() = db.close()
@@ -53,6 +54,7 @@ class HabitActionsCelebrationTest {
         time = clock,
         analytics = NoOpAnalytics(),
         dayCompletion = object : DayCompletionReactor { override suspend fun onDayCompleted() { shadeCalls++ } },
+        weeklyGoals = WeeklyGoalRepository(db.weeklyGoalDao(), db.weeklyGoalEntryDao(), clock),
     )
 
     private suspend fun pending() = prefs.currentSettings().celebrationPendingDate

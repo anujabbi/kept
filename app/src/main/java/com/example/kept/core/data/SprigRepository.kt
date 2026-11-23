@@ -41,18 +41,37 @@ class SprigRepository @Inject constructor(
     suspend fun markSeen(id: Long) = galleryDao.markSeen(id)
     suspend fun markAllSeen() = galleryDao.markAllSeen()
 
-    suspend fun onHabitEvent(event: HabitEvent) {
+    /**
+     * [weeklyKept] is false while a weekly goal's must-do session of today is not logged in time
+     * (story #176): the habits alone do not finish such a day, so they earn no level yet.
+     */
+    suspend fun onHabitEvent(event: HabitEvent, weeklyKept: Boolean = true) {
         val date = time.todayKey()
         when (event) {
             // A day finished after the give-up time counts for nothing, so it earns no level
             // either. The grant is recorded against the date (issue #7).
             is HabitEvent.Completed ->
-                prefs.updateSprig { s -> LevelRules.grantForDay(s, date, event.allDoneNow && event.beforeDue) }
+                prefs.updateSprig { s -> LevelRules.grantForDay(s, date, event.allDoneNow && event.beforeDue && weeklyKept) }
             // Only a recorded grant can be taken back, so moving the give-up time during the day
             // cannot make the refund wrong in either direction.
             is HabitEvent.Undone ->
                 prefs.updateSprig { s -> LevelRules.revokeForDay(s, date) }
         }
+    }
+
+    /**
+     * A must-do session finished the day in time (story #176): the day's level, once, as when
+     * the last habit does it.
+     */
+    suspend fun onDayKeptByWeeklySession() {
+        val date = time.todayKey()
+        prefs.updateSprig { s -> LevelRules.grantForDay(s, date, allDoneOnTime = true) }
+    }
+
+    /** A must-do session was undone: the day is open again, so its level goes back if it gave one. */
+    suspend fun onWeeklySessionUndone() {
+        val date = time.todayKey()
+        prefs.updateSprig { s -> LevelRules.revokeForDay(s, date) }
     }
 
     suspend fun onLockBreak() {

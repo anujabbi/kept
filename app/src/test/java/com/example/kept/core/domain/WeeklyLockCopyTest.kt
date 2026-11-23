@@ -152,13 +152,39 @@ class WeeklyLockCopyTest {
         night: Boolean = false,
         breakUntil: String? = null,
         onboardingDone: Boolean = true,
+        weeklyMissed: Int = 0,
     ) = LockNotice.of(
         LockNotice.Input(
             onboardingDone = onboardingDone, night = night, nightUntilMinute = 7 * 60, breakUntil = breakUntil,
             habitsTotal = habitsTotal, habitsLeft = habitsLeft, allDoneOnTime = allDoneOnTime, weeklyLeft = weeklyLeft,
-            dailyLockActive = active, lockFromMinute = 7 * 60, dueMinute = 21 * 60,
+            dailyLockActive = active, lockFromMinute = 7 * 60, dueMinute = 21 * 60, weeklyMissed = weeklyMissed,
         ),
     )
+
+    @Test fun `after the give-up time a missed must-do session is not a kept promise in the shade`() {
+        // Habits in time, the session not: no "Promise kept.", and not the habits' "ticked after" line either.
+        assertEquals(
+            "All habits done" to "A weekly session wasn't logged in time, so today is missed.",
+            notice(habitsLeft = 0, allDoneOnTime = true, weeklyMissed = 1, active = false),
+        )
+        // The habits were late as well: their own line. A habit still left: the count, as before.
+        assertEquals("All habits done" to "Ticked after the give-up time, so today is missed.", notice(habitsLeft = 0, weeklyMissed = 1, active = false))
+        assertEquals("1 habit left today", notice(weeklyMissed = 1, active = false).first)
+    }
+
+    @Test fun `a must-do session is missed only once the give-up time has passed without it`() {
+        val due = 1_000L
+        // One goal not logged, one logged a moment before the give-up time, one at it.
+        val logged = listOf(null, due - 1, due)
+        assertEquals("nothing is lost before the give-up time", 0, WeeklyHold.missed(logged, pastDue = false, dueMillis = due))
+        assertEquals(2, WeeklyHold.missed(logged, pastDue = true, dueMillis = due))
+        assertEquals(0, WeeklyHold.missed(listOf(due - 1), pastDue = true, dueMillis = due))
+        assertEquals("no must-do goal today", 0, WeeklyHold.missed(emptyList(), pastDue = true, dueMillis = due))
+        assertTrue(WeeklyHold.allInTime(emptyList(), due))
+        assertTrue(WeeklyHold.allInTime(listOf(due - 1, 0L), due))
+        assertFalse(WeeklyHold.allInTime(listOf(due - 1, null), due))
+        assertFalse(WeeklyHold.allInTime(listOf(due), due))
+    }
 
     @Test fun `the foreground notification counts a habit and a weekly session`() {
         assertEquals("1 habit and 1 weekly session left today" to "Apps locked until 9:00 pm", notice(weeklyLeft = 1))
@@ -193,9 +219,12 @@ class WeeklyLockCopyTest {
 
     // --- what Home counts, and the card under it ---
 
+    /** A session logged today was logged in time (0 against a give-up time of 1). */
     private fun homeHeadline(habitsTotal: Int, habitsDone: Int, onTime: Boolean, weeks: List<WeeklyGoalRules.Week>, pastDue: Boolean): Pair<String, String> {
-        val day = HomeDay.of(habitsTotal, habitsDone, onTime, WeeklyHold.left(weeks, pastDue))
-        return HomeCopy.headline(day.total, day.done, day.keptOnTime) to HomeCopy.line(day.total, day.done, "9:00 pm", pastDue, breakActive = false)
+        val loggedAt = weeks.filter { it.todayCounts }.map { if (it.doneToday) 0L else null }
+        val day = HomeDay.of(habitsTotal, habitsDone, onTime, WeeklyHold.left(weeks, pastDue), WeeklyHold.missed(loggedAt, pastDue, dueMillis = 1))
+        return HomeCopy.headline(day.total, day.done, day.keptOnTime) to
+            HomeCopy.line(day.total, day.done, "9:00 pm", pastDue, breakActive = false, weeklyMissed = day.weeklyMissed)
     }
 
     @Test fun `Home does not say promise kept while a must-do session is left`() {
@@ -225,11 +254,13 @@ class WeeklyLockCopyTest {
         assertEquals("Promise kept.", homeHeadline(1, 1, onTime = true, weeks = listOf(w), pastDue = false).first)
     }
 
-    @Test fun `after the give-up time the card and the headline agree that apps are open`() {
+    @Test fun `after the give-up time the card and the headline agree that apps are open, and the day is missed`() {
         val w = week(4, wednesday)
         val (headline, line) = homeHeadline(2, 2, onTime = true, weeks = listOf(w), pastDue = true)
-        assertEquals("Promise kept.", headline)
-        assertEquals("Apps are open. See you tomorrow.", line)
+        // The session was part of today's promise (story #176): habits in time are not enough.
+        assertEquals("Too late to count.", headline)
+        assertEquals("Apps are open. Today won't count.", line)
+        assertEquals("with the session logged in time", "Promise kept." to "Apps are open. See you tomorrow.", homeHeadline(2, 2, onTime = true, weeks = listOf(week(4, wednesday, wednesday)), pastDue = true))
         val card = WeeklyCard.of("Exercise", w, lockEndedToday = true)
         assertEquals(WeeklyCardStatus.LOCK_ENDED, card.status)
         assertEquals("Past the give-up time, no lock", card.statusLine)

@@ -21,7 +21,9 @@ enum class RecapOutcome(val streakKept: Boolean) {
          * written off, which the shield cannot save (issue #143: a record from an older build may
          * still carry the shield flag); then the shield; then too late, which is everything ticked
          * with nothing else gone wrong, so only the give-up time can have cost it (issue #7);
-         * anything else slipped.
+         * anything else slipped. A day whose must-do weekly session was not logged in time
+         * ([weeklyMissed], story #176) is never "too late": its habits may all have been on time,
+         * so it slipped, and the line names the goal.
          */
         fun of(
             counted: Boolean,
@@ -30,12 +32,13 @@ enum class RecapOutcome(val streakKept: Boolean) {
             shieldConsumed: Boolean,
             habitsDone: Int,
             habitsTotal: Int,
+            weeklyMissed: Boolean = false,
         ): RecapOutcome = when {
             counted -> KEPT
             unprotected && !writtenOff -> LOCK_OFF
             writtenOff -> WRITTEN_OFF
             shieldConsumed -> SHIELD
-            habitsTotal > 0 && habitsDone >= habitsTotal -> TOO_LATE
+            habitsTotal > 0 && habitsDone >= habitsTotal && !weeklyMissed -> TOO_LATE
             else -> SLIPPED
         }
     }
@@ -63,8 +66,18 @@ object RecapCopy {
      * only says "Streak reset." when this day took a live streak to 0 ([reset], issue #16); a day
      * that slipped with the streak already at 0 says what happened without claiming a reset. A
      * lock-off day with no streak to keep does not promise a "0-day streak" (DECISIONS.md, #129).
+     *
+     * [weeklyMissed] names the weekly goals whose must-do session was not logged in time (story
+     * #176). A slipped or shielded day starts with them: "Exercise wasn't logged in time. Streak
+     * reset. Tomorrow is fresh."
      */
-    fun line(o: RecapOutcome, streak: Int, reset: Boolean): String = when (o) {
+    fun line(o: RecapOutcome, streak: Int, reset: Boolean, weeklyMissed: List<String> = emptyList()): String {
+        val line = outcomeLine(o, streak, reset)
+        val explains = weeklyMissed.isNotEmpty() && (o == RecapOutcome.SLIPPED || o == RecapOutcome.SHIELD)
+        return if (explains) "${WeeklyMissedCopy.sentence(weeklyMissed)} $line" else line
+    }
+
+    private fun outcomeLine(o: RecapOutcome, streak: Int, reset: Boolean): String = when (o) {
         RecapOutcome.KEPT -> "$streak ${days(streak)} running."
         RecapOutcome.SHIELD -> "Your weekly shield kept the $streak-day streak alive."
         RecapOutcome.LOCK_OFF ->

@@ -4,6 +4,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.lifecycle.SavedStateHandle
 import androidx.room.Room
@@ -45,7 +46,9 @@ import java.time.ZoneId
 /**
  * Home agrees with the lock on a must-do day (planner's items on #175, from QA on #174): the
  * headline does not say "Promise kept. Apps are open." while a weekly goal's session holds the
- * lock, and after the give-up time the card stops promising a lock.
+ * lock, and after the give-up time the card stops promising a lock. And with the streak
+ * (story #176): a must-do day whose session was not logged before the give-up time is not a
+ * kept promise, on the headline, on Sprig, or on today's dot in the last seven days.
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -110,17 +113,61 @@ class HomeMustDoTest {
         assertEquals("On track, no lock", status())
     }
 
-    @Test fun after_the_give_up_time_the_card_and_the_headline_agree() {
-        show(HomeFixtures.state(2, 2, pastDue = true, weekly = listOf(HomeFixtures.todayCounts())))
+    @Test fun after_the_give_up_time_a_skipped_must_do_day_is_not_a_kept_promise() {
+        val kept = HomeFixtures.state(2, 2, pastDue = true)
+        show(kept)
         assertEquals("Promise kept.", text("home_headline"))
-        assertEquals("Apps are open. See you tomorrow.", text("home_line"))
+        rule.onNodeWithContentDescription("Wednesday, kept").assertExists()
+        val cheering = sprigSays()
+
+        // The same evening with the must-do session never logged: the habits were not the whole promise.
+        current.value = HomeFixtures.state(2, 2, pastDue = true, weekly = listOf(HomeFixtures.todayCounts()))
+        rule.waitForIdle()
+        assertEquals("Too late to count.", text("home_headline"))
+        assertEquals("Apps are open. Today won't count.", text("home_line"))
         assertEquals("Past the give-up time, no lock", status())
+        rule.onNodeWithContentDescription("Wednesday, today").assertExists()
+        rule.onNodeWithContentDescription("Wednesday, kept").assertDoesNotExist()
+        assertTrue("Sprig cheers a missed must-do day", cheering != sprigSays())
+        // The habits were all in time, so the banner about ticking them late has nothing to say.
+        rule.onNodeWithTag("home_too_late").assertDoesNotExist()
+
         // With a habit left as well, Home's own line and the same card line.
         current.value = HomeFixtures.state(2, 1, pastDue = true, weekly = listOf(HomeFixtures.todayCounts()))
         rule.waitForIdle()
         assertEquals("One to go.", text("home_headline"))
         assertEquals("Apps are open. Today won't count.", text("home_line"))
         assertEquals("Past the give-up time, no lock", status())
+    }
+
+    @Test fun a_must_do_session_logged_in_time_keeps_the_day_and_one_logged_late_does_not() {
+        // Wednesday of example A with today's session logged: before the give-up time, then after it.
+        val logged = HomeFixtures.goal(1, "Exercise", 4, 3)
+        show(HomeFixtures.state(2, 2, pastDue = true, weekly = listOf(logged)))
+        assertEquals("Promise kept.", text("home_headline"))
+        assertEquals("Apps are open. See you tomorrow.", text("home_line"))
+        rule.onNodeWithContentDescription("Wednesday, kept").assertExists()
+
+        current.value = HomeFixtures.state(2, 2, pastDue = true, weekly = listOf(logged.copy(loggedTodayAt = HomeFixtures.DUE)))
+        rule.waitForIdle()
+        assertEquals("Too late to count.", text("home_headline"))
+        assertEquals("Apps are open. Today won't count.", text("home_line"))
+        rule.onNodeWithContentDescription("Wednesday, today").assertExists()
+    }
+
+    @Test fun todays_dot_waits_for_the_must_do_session() {
+        // Before the give-up time, habits done and the session still to do: today is not gold yet.
+        show(HomeFixtures.state(2, 2, weekly = listOf(HomeFixtures.todayCounts())))
+        rule.onNodeWithContentDescription("Wednesday, today").assertExists()
+        current.value = HomeFixtures.state(2, 2, weekly = listOf(HomeFixtures.goal(1, "Exercise", 4, 3)))
+        rule.waitForIdle()
+        rule.onNodeWithContentDescription("Wednesday, kept").assertExists()
+    }
+
+    @Test fun a_day_that_is_not_a_must_do_day_is_kept_by_the_habits_alone_after_the_give_up_time() {
+        show(HomeFixtures.state(2, 2, pastDue = true, weekly = listOf(HomeFixtures.onTrack())))
+        assertEquals("Promise kept.", text("home_headline"))
+        assertEquals("On track, no lock", status())
     }
 
     // --- the "Promise kept" moment says "Apps are open.", so it waits for the session too ---
@@ -142,23 +189,25 @@ class HomeMustDoTest {
         val habits = HabitRepository(db.habitDao(), db.habitEntryDao(), db.dayRecordDao(), prefs, time)
         val sprig = SprigRepository(prefs, db.galleryDao(), db.dayRecordDao(), time)
         val weekly = WeeklyGoalRepository(db.weeklyGoalDao(), db.weeklyGoalEntryDao(), time)
-        val actions = HabitActions(habits, sprig, prefs, time, NoOpAnalytics(), object : DayCompletionReactor { override suspend fun onDayCompleted() = Unit })
+        val actions = HabitActions(habits, sprig, prefs, time, NoOpAnalytics(), object : DayCompletionReactor { override suspend fun onDayCompleted() = Unit }, weekly)
         val goalId = runBlocking {
             prefs.clearAll()
             prefs.updateSettings { it.copy(onboardingDone = true) }
             val id = db.weeklyGoalDao().insert(WeeklyGoalEntity(title = "Exercise", iconKey = "run", daysPerWeek = 4, createdAt = 0, effectiveFrom = "2026-11-01"))
-            // The last habit is ticked on Home, in time: today's moment is pending for KEPT.
+            // The last habit is ticked on Home, in time. On a must-do day that is half the promise:
+            // nothing is pending for KEPT until the session is logged too (story #176).
             actions.complete(habits.addHabit("Read", "book", ProofType.MANUAL, 1, ""))
             id
         }
-        assertEquals("2026-11-25", runBlocking { prefs.currentSettings().celebrationPendingDate })
+        assertEquals(null, runBlocking { prefs.currentSettings().celebrationPendingDate })
         val viewModels = TestViewModels()
         val vm = viewModels.create { CelebrationViewModel(SavedStateHandle(), prefs, habits, sprig, time, actions, NoOpAnalytics(), weekly) }
         val watching = CoroutineScope(Dispatchers.Unconfined).launch { vm.state.collect { } }
         fun settle() = repeat(40) { shadowOf(android.os.Looper.getMainLooper()).idle(); Thread.sleep(10) }
         settle()
         assertFalse("\"Apps are open.\" while the weekly session holds the lock", vm.state.value.due)
-        runBlocking { weekly.logToday(goalId) }
+        runBlocking { actions.logWeekly(goalId) }
+        assertEquals("2026-11-25", runBlocking { prefs.currentSettings().celebrationPendingDate })
         settle()
         val due = vm.state.value.due
         // Stop the ViewModel's own collection before the database closes under it.
