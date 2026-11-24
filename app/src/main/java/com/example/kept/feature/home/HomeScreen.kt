@@ -112,8 +112,7 @@ fun HomeScreen(
     // Surface a fresh evolution first, then a pending recap.
     LaunchedEffect(s.unseenUnlock?.id) { s.unseenUnlock?.let { onOpenReveal(it.id) } }
     LaunchedEffect(s.pendingRecapDate, s.unseenUnlock) {
-        val d = s.pendingRecapDate
-        if (d != null && s.unseenUnlock == null) { vm.dismissRecap(); onOpenRecap(d) }
+        if (s.pendingRecapDate != null && s.unseenUnlock == null) vm.openPendingRecap(onOpenRecap)
     }
 
     // The first-landing banner lasts while Home stays on screen. Leaving Home, by navigating away
