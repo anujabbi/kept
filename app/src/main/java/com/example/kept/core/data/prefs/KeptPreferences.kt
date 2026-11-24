@@ -159,6 +159,17 @@ class KeptPreferences @Inject constructor(@ApplicationContext private val contex
         }
     }
 
+    /**
+     * Takes the pending recap for the caller: its date, and nothing is pending any more, or null
+     * when there was none. Read and cleared in one edit, so the answer is what is stored now and
+     * each rollover's recap is handed out once (issue #188).
+     */
+    suspend fun claimPendingRecap(): String? {
+        var date: String? = null
+        context.dataStore.edit { p -> date = p.remove(K.PENDING_RECAP) }
+        return date
+    }
+
     suspend fun updateSprig(block: (SprigState) -> SprigState) {
         context.dataStore.edit { p ->
             val n = block(p.toSprig())

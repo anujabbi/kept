@@ -129,7 +129,16 @@ class HomeViewModel @Inject constructor(
     fun logWeekly(goalId: Long) = viewModelScope.launch { actions.logWeekly(goalId) }
     fun undoWeekly(goalId: Long) = viewModelScope.launch { actions.undoWeekly(goalId) }
 
-    fun dismissRecap() = viewModelScope.launch { prefs.updateSettings { it.copy(pendingRecapDate = null) } }
+    /**
+     * Opens the rollover recap if one is still pending in storage, and takes it so it opens once.
+     *
+     * [HomeUiState.pendingRecapDate] only says when to ask. It cannot be the answer: [state] stops
+     * collecting five seconds after Home leaves the screen and keeps its last value, and a Home
+     * that comes back and leaves for the recap straight away is stopped again before it collects
+     * a newer one. Opening on that remembered date reopened the recap on every return to Home,
+     * so after more than five seconds on "Sprig is now …" Done and Back did nothing (issue #188).
+     */
+    fun openPendingRecap(open: (String) -> Unit) = viewModelScope.launch { prefs.claimPendingRecap()?.let(open) }
 
     /**
      * The first-landing card is gone for good: "Got it" was tapped, or Home stopped being shown

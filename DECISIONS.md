@@ -1660,3 +1660,24 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     habits: after flying east a session logged late in the evening can be judged late.
   - *Goldens.* New: `recap_weekly` and `settings_history_weekly` at font 1.0 and 2.0. Every
     other golden is byte-identical to `main`.
+- **The recap after "Sprig is now …" closes (issue #188).** Home no longer opens the recap on
+  the date in its own state. `HomeUiState.pendingRecapDate` now only says when to ask;
+  `HomeViewModel.openPendingRecap` takes the date out of storage in one edit
+  (`KeptPreferences.claimPendingRecap`) and opens the recap only if one was there, as
+  `HabitActions.claimMoment` does for the "Promise kept" moment.
+  - *Why the state could not be trusted.* Home's state is shared `WhileSubscribed(5_000)`. After
+    more than five seconds on the evolution screen it has stopped and holds its last value, a
+    pending recap. Home comes back, opens the recap from that value in its first frame, and is
+    stopped again before `collectAsStateWithLifecycle` has begun to collect, so the upstream is
+    never restarted and the cleared date never arrives. Every later return to Home, by Done or
+    Back, read the same remembered date and opened the recap again. The pattern is from the
+    scaffold commit `33a84ea`; no card's PR introduced it.
+  - *The test holds Home's lifecycle.* `RecapAfterEvolutionTest` runs the real Home, evolution
+    and recap screens in a nav graph under Robolectric, where a returning Home starts collecting
+    at once and the fault does not show. The test therefore keeps Home's lifecycle at CREATED
+    until Home stays on screen, which is what the log on `kept_api35` showed. An instrumented
+    test was not written: it would need a real six-second wait and the whole Hilt graph for the
+    same assertion.
+  - *Opening is now asynchronous.* The recap opens once the edit returns, a few milliseconds
+    after Home shows, rather than in the same frame. If the activity is recreated inside that
+    window the recap for that day is not shown; History still has the day.
