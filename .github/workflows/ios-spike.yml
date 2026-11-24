@@ -45,7 +45,15 @@ jobs:
           done
           mkdir -p "$RUNNER_TEMP/keys"
           path="$RUNNER_TEMP/keys/AuthKey_${ASC_KEY_ID}.p8"
-          printf '%s\n' "$ASC_KEY_P8" | tr -d '\r' > "$path"
+          # The secret may hold the whole .p8 or only its base64 body; accept both.
+          if printf '%s' "$ASC_KEY_P8" | grep -q "BEGIN PRIVATE KEY"; then
+            printf '%s\n' "$ASC_KEY_P8" | tr -d '\r' > "$path"
+          else
+            { echo "-----BEGIN PRIVATE KEY-----"
+              printf '%s\n' "$ASC_KEY_P8" | tr -d '\r ' | grep -v '^$'
+              echo "-----END PRIVATE KEY-----"; } > "$path"
+          fi
+          openssl pkey -in "$path" -noout || { echo "::error::ASC_KEY_P8 does not parse as a private key"; exit 1; }
           # Shape only, never contents: a real .p8 is about 250 bytes on 6 lines.
           echo "ASC_KEY_P8 shape: $(wc -c < "$path") bytes, $(wc -l < "$path") lines, NUL bytes: $(tr -cd '\000' < "$path" | wc -c), has BEGIN: $(grep -c BEGIN "$path" || true), ends in .p8: $(grep -c '\.p8' "$path" || true)"
           grep -q "BEGIN PRIVATE KEY" "$path" || { echo "::error::ASC_KEY_P8 is not a .p8 private key"; exit 1; }
