@@ -1,0 +1,123 @@
+# THROWAWAY SPIKE (issue #186): build the iPhone lock spike on a macOS runner and upload it to
+# TestFlight, with no Mac involved. Runs only on pushes to the spike branch. It must never run
+# on pull_request: the repo is public and this job reads the App Store Connect key.
+name: ios-spike
+
+on:
+  push:
+    branches: [issue-186-ios-lock-spike]
+    paths:
+      - "ios/**"
+      - ".github/workflows/ios-spike.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-spike
+  cancel-in-progress: true
+
+jobs:
+  testflight:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      BUILD_NUMBER: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tools and flags
+        run: |
+          sw_vers
+          xcodebuild -version
+          brew install xcodegen
+          cat ios/ci.env >> "$GITHUB_ENV"
+
+      - name: App Store Connect key
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          for name in ASC_KEY_ID ASC_ISSUER_ID APPLE_TEAM_ID ASC_KEY_P8; do
+            [ -n "${!name}" ] || { echo "::error::secret $name is empty"; exit 1; }
+          done
+          mkdir -p "$RUNNER_TEMP/keys"
+          path="$RUNNER_TEMP/keys/AuthKey_${ASC_KEY_ID}.p8"
+          printf '%s\n' "$ASC_KEY_P8" | tr -d '\r' > "$path"
+          grep -q "BEGIN PRIVATE KEY" "$path" || { echo "::error::ASC_KEY_P8 is not a .p8 private key"; exit 1; }
+          echo "ASC_KEY_PATH=$path" >> "$GITHUB_ENV"
+
+      - name: Icons from the Play icon
+        run: |
+          sips -s format jpeg docs/play/icon-512.png --out "$RUNNER_TEMP/icon.jpg" >/dev/null
+          sips -s format png -z 1024 1024 "$RUNNER_TEMP/icon.jpg" \
+            --out ios/App/Assets.xcassets/AppIcon.appiconset/icon-1024.png >/dev/null
+          sips -z 256 256 docs/play/icon-512.png --out ios/ShieldConfig/sprig.png >/dev/null
+
+      - name: Generate the Xcode project
+        working-directory: ios
+        run: |
+          xcodegen generate
+          if [ "$FAMILY_CONTROLS" = "1" ]; then echo "ENT_SUFFIX=" >> "$GITHUB_ENV"; else echo "ENT_SUFFIX=-nofc" >> "$GITHUB_ENV"; fi
+
+      - name: Compile (unsigned, to separate code errors from signing errors)
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild build -project KeptSpike.xcodeproj -scheme KeptSpike -configuration Release \
+            -destination 'generic/platform=iOS' -derivedDataPath "$RUNNER_TEMP/dd" \
+            CODE_SIGNING_ALLOWED=NO > "$RUNNER_TEMP/compile.log" 2>&1 || {
+              grep -n -E "error:|error " "$RUNNER_TEMP/compile.log" | head -60
+              echo "--- tail"; tail -30 "$RUNNER_TEMP/compile.log"; exit 1; }
+          tail -3 "$RUNNER_TEMP/compile.log"
+
+      - name: Snapshot certificates
+        continue-on-error: true
+        run: ruby ios/ci/certs.rb snapshot "$RUNNER_TEMP/certs-before.txt"
+
+      - name: Archive (signed)
+        working-directory: ios
+        run: |
+          xcodebuild archive -project KeptSpike.xcodeproj -scheme KeptSpike -configuration Release \
+            -destination 'generic/platform=iOS' -derivedDataPath "$RUNNER_TEMP/dd" \
+            -archivePath "$RUNNER_TEMP/KeptSpike.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            ENT_SUFFIX="$ENT_SUFFIX" > "$RUNNER_TEMP/archive.log" 2>&1 || {
+              grep -n -i -E "error|provisioning|certificate|entitlement|device" "$RUNNER_TEMP/archive.log" | grep -v -E "^\s*$|CompileSwift|\.swift:" | head -80
+              echo "--- tail"; tail -40 "$RUNNER_TEMP/archive.log"; exit 1; }
+          tail -3 "$RUNNER_TEMP/archive.log"
+
+      - name: Export and upload to TestFlight
+        working-directory: ios
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/KeptSpike.xcarchive" \
+            -exportOptionsPlist ExportOptions.plist \
+            -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" > "$RUNNER_TEMP/export.log" 2>&1 || {
+              cat "$RUNNER_TEMP/export.log" | tail -120
+              for f in "$RUNNER_TEMP"/export/*.log /var/folders/*/*/T/*.xcdistributionlogs/IDEDistribution.standard.log; do
+                [ -f "$f" ] && { echo "--- $f"; tail -60 "$f"; }
+              done
+              exit 1; }
+          tail -15 "$RUNNER_TEMP/export.log"
+          echo "Uploaded build $BUILD_NUMBER (FAMILY_CONTROLS=$FAMILY_CONTROLS)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Prune this run's development certificates
+        if: always()
+        continue-on-error: true
+        run: ruby ios/ci/certs.rb prune "$RUNNER_TEMP/certs-before.txt"
+
+      - name: Remove the key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/keys"
