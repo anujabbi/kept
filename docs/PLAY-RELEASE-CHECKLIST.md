@@ -38,6 +38,11 @@ Copy for each is below, and the reviewer reads it against the demo video.
 Also note: **no `AccessibilityService` is used** — worth saying explicitly in the declarations,
 because app-lock apps are usually flagged for accessibility misuse.
 
+**Checked for 2.1 (issue #185).** `AndroidManifest.xml` is unchanged since 2.0.1: weekly goals
+and night lockdown add no permission, and both are enforced by the same foreground service and
+lock screen. In the copy above, "lock window" now covers the night lockdown hours too, when the
+user has switched night lockdown on (it is off by default).
+
 ## 3. Demo video
 
 Play requires a video for the sensitive-permission declarations. Record it before submitting:
@@ -72,6 +77,11 @@ Answers implied by the PostHog integration as it ships:
 Session replay is **off**, so no screen recording is collected — do not tick anything that implies
 it.
 
+**Checked for 2.1 (issue #185).** No new data type. The only analytics change since 2.0.1 is
+three screen names (`Weekly goals`, `Add weekly goal`, `Edit weekly goal` in `Screens.kt`),
+which are App interactions, already declared. No event carries a goal's name, and no new SDK was
+added.
+
 ## 5. Store listing and content
 
 - Target audience: high school through ~30s (phone addiction / habit follow-through; not parental control). Answer the **Families / target audience** questionnaire honestly; if
@@ -94,12 +104,12 @@ it.
   `POSTHOG_PROJECT_TOKEN` and is empty by default, which silently disables analytics).
 - Confirm the privacy policy URL resolves.
 
-## 7. Upload 2.0.1
+## 7. Upload 2.1
 
 The owner does this; it needs the upload keystore and Play Console access, neither of which is in
-the repo. The assets are prepared in `docs/play/` (issue #161).
+the repo. The assets are prepared in `docs/play/` (issue #185; 2.0.1 was issue #161).
 
-1. Check `app/build.gradle.kts` says `versionName = "2.0.1"` and `versionCode = 6`, higher than
+1. Check `app/build.gradle.kts` says `versionName = "2.1"` and `versionCode = 7`, higher than
    any code already uploaded.
 2. Put `keystore.properties` (from `keystore.properties.example`) in the repository root, beside
    `settings.gradle.kts` (the build reads `rootProject.file("keystore.properties")`), then build
@@ -113,14 +123,20 @@ the repo. The assets are prepared in `docs/play/` (issue #161).
    - A missing or misplaced `keystore.properties` builds an unsigned bundle **silently**. Gradle's
      "release signing is only partly configured" warning appears only when some keys are set,
      so no warning does not mean the bundle is signed; `jarsigner -verify` is the check.
-3. Walk the minified build on a device first (§6).
+3. Walk the minified build on a device first (§6). For 2.1 that includes setting up a weekly
+   goal, the Home weekly card, the weekly lock screen, night lockdown, and the recap after a
+   Sprig evolution closing on Done and on Back (#188).
 4. Play Console → Test and release → pick a track (internal testing first, then production) →
    Create new release → upload the `.aab`. Paste the release notes from
-   `docs/play/release-notes-2.0.1.md` into `<en-US>`.
+   `docs/play/release-notes-2.1.md` into `<en-US>`.
 5. Play Console → Grow users → Store presence → Main store listing:
-   - App icon: replace with `docs/play/icon-512.png`.
-   - Feature graphic: replace with `docs/play/feature-graphic.png`.
    - Phone screenshots: delete the old ones and upload the eight in `docs/play/screenshots/`, in
-     file-name order.
+     file-name order. Two are new for 2.1 (`03-weekly-lock.png`, `04-night-lockdown.png`),
+     `01-home.png` now shows a weekly goal card, and the Welcome and Your habits screenshots are
+     gone.
    - Short and full description: paste from `docs/growth/PLAY-LISTING.md` once you approve it.
-6. Save, send the changes for review, and roll the release out.
+   - App icon (`docs/play/icon-512.png`) and feature graphic (`docs/play/feature-graphic.png`)
+     are unchanged since 2.0.1; leave them unless the listing shows older ones.
+6. The permission declarations (§2), the demo video (§3) and the data safety form (§4) need no
+   change for 2.1: no new permission and no new data type.
+7. Save, send the changes for review, and roll the release out.
