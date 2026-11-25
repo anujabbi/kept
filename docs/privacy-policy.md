@@ -1,15 +1,39 @@
 # KEPT — Privacy Policy
 
-**Last updated: 13 September 2026**
+**Last updated: 25 November 2026**
 
 KEPT ("the app") locks the apps on your phone until the daily habits you chose are done. This
 policy describes exactly what the app does with information. It is short because the app collects
 very little.
 
-## No account
+## Optional account (Sign in with Google or Apple)
 
-There is no sign-up, no login, no email address and no password. You never tell KEPT who you are,
-and we have no way of finding out.
+KEPT works fully without an account. If you choose to sign in, you can use your Google account or
+your Apple ID. Signing in is optional and can be skipped.
+
+**What we receive when you sign in.** Google or Apple sends KEPT your **email address**, your
+**name** (if the provider shares it) and a **unique account ID**. From Google we request only the
+basic `openid`, `email` and `profile` scopes. KEPT does not access your contacts, calendar, Drive,
+Gmail, photos or any other Google or Apple data. If you use Apple's "Hide my email", we receive only
+Apple's relay address.
+
+**What we use it for.** Only to create and run your KEPT account: to recognise you when you sign in
+again and to show which account you are signed in with. We do not use it for advertising, we do not
+send marketing email, and we do not link it to analytics (the analytics ID described below stays
+anonymous).
+
+**Where it is stored.** In a single profile record (account ID, email, display name, created and
+updated times) in our database hosted by Supabase Inc., which acts as our processor. Your habits,
+check-ins, photos, streaks and settings are **not** part of your account and never leave your phone.
+
+**Sharing.** Account data is not sold, not shared with anyone and not transferred to third parties
+other than Supabase as our host. KEPT's use of information received from Google APIs adheres to the
+Google API Services User Data Policy, including the Limited Use requirements.
+
+**Keeping and deleting it.** We keep your profile until you delete your account. You can delete it
+at any time in the app under **Settings → Delete account**; if you no longer have the app, install
+it again, sign in with the same account and delete it there. Deleting removes your account and
+profile from our database immediately. Signing out alone does not delete anything.
 
 ## No parent or guardian dashboard
 
@@ -96,20 +120,23 @@ is sent, including crash reports. You can turn it back on in the same place.
 
 ## Children
 
-KEPT is aimed at teenagers. It collects no personal information from anyone, of any age, and shows
-no advertising.
+KEPT is aimed at teenagers. Without an account it collects no personal information from anyone, of
+any age. With the optional account it stores only the email, name and account ID described above. It
+shows no advertising.
 
 ## Data sharing and selling
 
 We do not sell data and we do not share it with advertisers, data brokers or anyone else. The only
-third party that receives anything at all is PostHog, as the analytics processor described above.
+third parties that receive anything are our processors: PostHog for anonymous analytics and, if you
+sign in, Supabase for your account profile, both as described above.
 
 ## Your choices
 
 - Turn analytics off in **Settings → Privacy**.
 - Revoke usage access or "display over other apps" in Android Settings at any time (the lock stops
   working; nothing else changes).
-- Uninstall the app to delete everything it stored.
+- Delete your account in **Settings → Delete account** (if you signed in).
+- Uninstall the app to delete everything it stored on your phone.
 
 Because reports carry no identifier that points to you, we cannot look up "your" analytics data to
 export or delete it individually. Turning the toggle off stops any further collection.
