@@ -12,8 +12,10 @@ import com.example.kept.core.data.db.MIGRATION_3_4
 import com.example.kept.core.data.db.MIGRATION_4_5
 import com.example.kept.core.data.db.MIGRATION_6_7
 import com.example.kept.core.data.db.MIGRATION_7_8
+import com.example.kept.core.data.db.MIGRATION_8_9
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -24,7 +26,8 @@ import org.junit.runner.RunWith
  * any shipped schema must be able to reach the current one without losing a row: 1 -> 2 (the
  * timer removal, issue #3), 2 -> 3 (the points removal, issue #8), 3 -> 4 (the buddy removal,
  * issue #13), 4 -> 5 (the weekly looks removal, issue #125), 6 -> 7 (the weekly goal tables, issue
- * #165), 7 -> 8 (a day's weekly must-do columns, story #176), and 1 -> 8 end to end, which is the
+ * #165), 7 -> 8 (a day's weekly must-do columns, story #176), 8 -> 9 (a weekly goal's target,
+ * story #205), and 1 -> 9 end to end, which is the
  * path an installed-but-never-updated build actually takes. 5 -> 6 (the retired preset, issue #163) changes rows, not tables;
  * `RetiredPresetMigrationTest` covers its rows on the JVM.
  */
@@ -281,8 +284,51 @@ class MigrationTest {
         }
     }
 
+    /**
+     * `runMigrationsAndValidate` checks the two new nullable `weekly_goals` columns against the
+     * exported schema 9. An existing goal keeps its name, days, start date and sessions, and has
+     * no target.
+     */
     @Test
-    fun migrate1To8_runsEveryMigrationAndKeepsData() {
+    fun migrate8To9_addsANullableTargetAndKeepsEveryGoalAndSession() {
+        helper.createDatabase(dbName, 8).apply {
+            execSQL(
+                "INSERT INTO weekly_goals (id, title, iconKey, daysPerWeek, isActive, createdAt, effectiveFrom, sortOrder) VALUES " +
+                    "(1, 'Exercise', 'run', 4, 1, 3000, '2026-11-15', 0), (2, 'Tidy room', 'tidy', 2, 0, 3500, '2026-11-16', 1)",
+            )
+            execSQL("INSERT INTO weekly_goal_entries (id, goalId, date, completedAt) VALUES (1, 1, '2026-11-18', 4000), (2, 1, '2026-11-22', 5000)")
+            close()
+        }
+
+        val migrated = helper.runMigrationsAndValidate(dbName, 9, true, MIGRATION_8_9)
+
+        val goals = mutableListOf<String>()
+        migrated.query("SELECT id, title, daysPerWeek, isActive, effectiveFrom, sortOrder FROM weekly_goals ORDER BY id").use { c ->
+            while (c.moveToNext()) goals += (0 until c.columnCount).joinToString("|") { c.getString(it) }
+        }
+        assertEquals(listOf("1|Exercise|4|1|2026-11-15|0", "2|Tidy room|2|0|2026-11-16|1"), goals)
+        migrated.query("SELECT targetValue, unit FROM weekly_goals").use {
+            while (it.moveToNext()) {
+                assertTrue(it.isNull(0))
+                assertNull(it.getString(1))
+            }
+        }
+        migrated.query("SELECT goalId, date FROM weekly_goal_entries ORDER BY id").use {
+            val rows = mutableListOf<String>()
+            while (it.moveToNext()) rows += "${it.getLong(0)} ${it.getString(1)}"
+            assertEquals(listOf("1 2026-11-18", "1 2026-11-22"), rows)
+        }
+        // A goal saved with a target after the upgrade keeps it.
+        migrated.execSQL("UPDATE weekly_goals SET targetValue = 30, unit = 'min' WHERE id = 1")
+        migrated.query("SELECT targetValue, unit FROM weekly_goals WHERE id = 1").use {
+            assertTrue(it.moveToFirst())
+            assertEquals(30, it.getInt(0))
+            assertEquals("min", it.getString(1))
+        }
+    }
+
+    @Test
+    fun migrate1To9_runsEveryMigrationAndKeepsData() {
         helper.createDatabase(dbName, 1).apply {
             execSQL(
                 "INSERT INTO habits (id, title, iconKey, proofType, targetValue, unit, sortOrder, isActive, createdAt) " +
@@ -292,7 +338,7 @@ class MigrationTest {
             close()
         }
 
-        val migrated = helper.runMigrationsAndValidate(dbName, 8, true, *ALL_MIGRATIONS)
+        val migrated = helper.runMigrationsAndValidate(dbName, 9, true, *ALL_MIGRATIONS)
 
         migrated.query("SELECT proofType FROM habits WHERE id = 1").use {
             assertTrue(it.moveToFirst())

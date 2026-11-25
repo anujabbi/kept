@@ -30,6 +30,9 @@ object WeeklyCardCopy {
     /** The detail on the card's today row, as on the weekly lock screen's (mockup 3). */
     const val TODAY_ROW = "Today"
 
+    /** The today row's detail with the goal's target beside it: "Today · 30 min"; "Today" with none (story #205). */
+    fun todayRow(target: String?): String = if (target == null) TODAY_ROW else "$TODAY_ROW · $target"
+
     const val ADD = WeeklyGoalCopy.ADD
     const val ADD_LINE = WeeklyGoalCopy.SUBTITLE
 
@@ -95,6 +98,8 @@ data class WeeklyCard(
     val days: List<WeeklyCardDay>,
     val status: WeeklyCardStatus,
     val doneToday: Boolean,
+    /** The today row's detail: "Today · 30 min", or "Today" for a goal with no target. */
+    val todayDetail: String = WeeklyCardCopy.TODAY_ROW,
 ) {
     val statusLine: String get() = status.line
 
@@ -102,8 +107,9 @@ data class WeeklyCard(
         /**
          * [lockEndedToday] is true once today's give-up time has passed: a must-do day's status
          * then stops promising a lock, so it agrees with Home's headline (story #175).
+         * [goalTarget] is the goal's target as [WeeklyGoalCopy.target] reads it, or null.
          */
-        fun of(activity: String, week: WeeklyGoalRules.Week, lockEndedToday: Boolean = false): WeeklyCard = WeeklyCard(
+        fun of(activity: String, week: WeeklyGoalRules.Week, lockEndedToday: Boolean = false, goalTarget: String? = null): WeeklyCard = WeeklyCard(
             title = WeeklyCardCopy.title(activity, week.done, week.target),
             segments = week.target,
             filled = week.done.coerceAtMost(week.target),
@@ -115,6 +121,7 @@ data class WeeklyCard(
                 else -> WeeklyCardStatus.ON_TRACK
             },
             doneToday = week.doneToday,
+            todayDetail = WeeklyCardCopy.todayRow(goalTarget),
         )
     }
 }

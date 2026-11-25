@@ -53,9 +53,15 @@ internal object WeeklyLockFixtures {
     private val longAgo = LocalDate.of(2026, 11, 1)
 
     /** A goal's week as of [today], with a session on each of [sessions] (0 = Sunday … 6 = Saturday). */
-    fun goal(id: Long, title: String, daysPerWeek: Int, today: LocalDate, vararg sessions: Int, from: LocalDate = longAgo): WeeklyGoalWeek =
+    fun goal(
+        id: Long, title: String, daysPerWeek: Int, today: LocalDate, vararg sessions: Int, from: LocalDate = longAgo,
+        target: Pair<Int, String>? = null,
+    ): WeeklyGoalWeek =
         WeeklyGoalWeek(
-            WeeklyGoalEntity(id = id, title = title, iconKey = "run", daysPerWeek = daysPerWeek, createdAt = 0, effectiveFrom = from.toString()),
+            WeeklyGoalEntity(
+                id = id, title = title, iconKey = "run", daysPerWeek = daysPerWeek, createdAt = 0, effectiveFrom = from.toString(),
+                targetValue = target?.first, unit = target?.second,
+            ),
             WeeklyGoalRules.week(WeeklyGoalRules.Goal(daysPerWeek, from), sessions.map { sunday.plusDays(it.toLong()) }.toSet(), today),
         )
 
@@ -307,6 +313,31 @@ class WeeklyLockScreenTest {
         rule.onNodeWithTag("lock_weekly_done").assertDoesNotExist()
         val row = rule.onNodeWithTag("lock_weekly_row_1").fetchSemanticsNode().config[SemanticsProperties.Text].map { it.text }
         assertEquals(listOf("Swim", "This week"), row)
+        rule.onNodeWithTag("lock_weekly_row_1").performScrollTo().performClick()
+        assertEquals(listOf(1L), logged)
+    }
+
+    @Test fun a_goal_with_a_target_shows_it_on_the_today_row_and_on_the_habits_faces_row() {
+        val marked = mutableListOf<Long>()
+        show(
+            WeeklyLockFixtures.state(2, 2, WeeklyLockFixtures.goal(1, "Exercise", 4, WeeklyLockFixtures.wednesday, target = 30 to "min")),
+            LockActions(onWeeklyDone = { marked += it }),
+        )
+        val today = rule.onNodeWithTag("lock_weekly_today").fetchSemanticsNode().config[SemanticsProperties.Text].map { it.text.replace(WeeklyLockCopy.NBSP, ' ') }
+        assertEquals(listOf("Exercise", "Today · 30 min"), today)
+        assertEquals("the summary keeps its cadence", "Exercise · 0 of 4", rule.text("lock_weekly_summary"))
+        rule.onNodeWithTag("lock_weekly_today").performScrollTo().performClick()
+        assertEquals(listOf(1L), marked)
+    }
+
+    @Test fun the_habits_faces_weekly_row_carries_the_target() {
+        val logged = mutableListOf<Long>()
+        show(
+            WeeklyLockFixtures.state(2, 1, WeeklyLockFixtures.goal(1, "Swim", 4, WeeklyLockFixtures.wednesday, target = 30 to "min")),
+            LockActions(onWeeklyLog = { logged += it }),
+        )
+        val row = rule.onNodeWithTag("lock_weekly_row_1").fetchSemanticsNode().config[SemanticsProperties.Text].map { it.text.replace(WeeklyLockCopy.NBSP, ' ') }
+        assertEquals(listOf("Swim", "This week · 30 min"), row)
         rule.onNodeWithTag("lock_weekly_row_1").performScrollTo().performClick()
         assertEquals(listOf(1L), logged)
     }

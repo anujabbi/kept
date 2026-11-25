@@ -18,6 +18,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import com.example.kept.core.data.WeeklyGoalWeek
 import com.example.kept.core.domain.WeeklyCardCopy
+import com.example.kept.core.domain.WeeklyGoalCopy
 import com.example.kept.core.ui.shots.Shot
 import com.example.kept.core.ui.shots.assertNoWordSplit
 import org.junit.Assert.assertEquals
@@ -175,6 +176,25 @@ class HomeWeeklyBehaviourTest {
         row.performTouchInput { longClick() }
         assertEquals(listOf(1L), calls.undone)
         assertTrue("logging a weekly session never ticks a habit", calls.habitsDone.isEmpty())
+    }
+
+    @Test fun a_goal_with_a_target_shows_it_on_the_today_row_and_one_tap_logs_the_session() {
+        val calls = show(with(HomeFixtures.goal(1, "Exercise", 4, 0, on = HomeFixtures.sunday.plusDays(1), target = 30 to "min")))
+        assertEquals("the title keeps its cadence", "Exercise · 1 of 4 this week", text("home_weekly_title_1"))
+        val row = rule.onNodeWithTag("home_weekly_today_1")
+        assertEquals(listOf("Exercise", "Today · 30 min"), row.fetchSemanticsNode().config[SemanticsProperties.Text].map { it.text.replace(WeeklyGoalCopy.NBSP, ' ') })
+        row.performClick()
+        assertEquals("one tap, one session, as a goal without a target", listOf(1L), calls.done)
+        current.value = with(HomeFixtures.goal(1, "Exercise", 4, 0, 1, on = HomeFixtures.sunday.plusDays(1), target = 30 to "min"))
+        rule.waitForIdle()
+        assertEquals("Exercise · 2 of 4 this week", text("home_weekly_title_1"))
+        row.performTouchInput { longClick() }
+        assertEquals(listOf(1L), calls.undone)
+    }
+
+    @Test fun a_goal_with_no_target_reads_today_as_before() {
+        show(with(HomeFixtures.exampleB()))
+        assertEquals(listOf("Exercise", "Today"), rule.onNodeWithTag("home_weekly_today_1").fetchSemanticsNode().config[SemanticsProperties.Text].map { it.text })
     }
 
     @Test fun each_card_logs_its_own_goal() {

@@ -115,6 +115,13 @@ data class WeeklyGoalEntity(
     /** ISO local date the goal starts counting: the day it was set. */
     val effectiveFrom: String,
     val sortOrder: Int = 0,
+    /**
+     * How much each session is, as a habit's target: 30 with [unit] "min" (story #205). Both are
+     * null, or neither is; a goal set before targets (schema 8) has none. A session is still one
+     * tap, as a MANUAL habit's tick is; the target is the promise the row shows.
+     */
+    val targetValue: Int? = null,
+    val unit: String? = null,
 )
 
 /**

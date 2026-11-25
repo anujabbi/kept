@@ -164,17 +164,8 @@ fun HabitEditPage(
 
                 if (draft.showsAmount) {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        AmountRow(draft, onLess = { draft = draft.less() }, onMore = { draft = draft.more() })
-                        if (draft.showsUnits) {
-                            FlowRow(
-                                Modifier.fillMaxWidth().semantics { contentDescription = HabitsCopy.UNIT }.testTag("habit_units"),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End),
-                            ) {
-                                HabitDraft.UNITS.forEach { u ->
-                                    KeptChip(u, selected = draft.unit == u, onClick = { draft = draft.withUnit(u) }, modifier = Modifier.testTag("habit_unit_$u"))
-                                }
-                            }
-                        }
+                        AmountRow(draft.amount, draft.canLess, draft.canMore, onLess = { draft = draft.less() }, onMore = { draft = draft.more() })
+                        if (draft.showsUnits) UnitChips(draft.unit, onPick = { draft = draft.withUnit(it) })
                     }
                 }
 
@@ -261,33 +252,51 @@ private fun QuickPick(label: String, onClick: () -> Unit) {
 }
 
 /**
+ * The unit chips under the stepper (min, pages, times, glasses), right-aligned. Tags are
+ * "[tag]_units" and "[tag]_unit_{unit}"; the weekly goal setup screen uses them too (story #205).
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun UnitChips(selected: String, onPick: (String) -> Unit, tag: String = "habit") {
+    FlowRow(
+        Modifier.fillMaxWidth().semantics { contentDescription = HabitsCopy.UNIT }.testTag("${tag}_units"),
+        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End),
+    ) {
+        HabitDraft.UNITS.forEach { u ->
+            KeptChip(u, selected = selected == u, onClick = { onPick(u) }, modifier = Modifier.testTag("${tag}_unit_$u"))
+        }
+    }
+}
+
+/**
  * "How much?" and its stepper (52dp, radius 26, white, a 1.5dp `field` border; − and + 48dp
  * wide, 22/700 purple; the amount 17/800 tabular, at least 92dp). Side by side only when the
- * whole label fits on one line beside the stepper; otherwise the stepper goes under it.
+ * whole label fits on one line beside the stepper; otherwise the stepper goes under it. The
+ * weekly goal setup screen asks the same question with it (story #205); [tag] prefixes the test tags.
  */
 @Composable
-private fun AmountRow(draft: HabitDraft, onLess: () -> Unit, onMore: () -> Unit) {
+internal fun AmountRow(amount: String, canLess: Boolean, canMore: Boolean, onLess: () -> Unit, onMore: () -> Unit, tag: String = "habit") {
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
-    BoxWithConstraints(Modifier.fillMaxWidth().testTag("habit_amount_row")) {
+    BoxWithConstraints(Modifier.fillMaxWidth().testTag("${tag}_amount_row")) {
         val labelW = with(density) { measurer.measure(HabitsCopy.HOW_MUCH, LabelStyle, softWrap = false, maxLines = 1).size.width.toDp() }
-        val valueW = with(density) { measurer.measure(draft.amount, AmountStyle, softWrap = false, maxLines = 1).size.width.toDp() }
+        val valueW = with(density) { measurer.measure(amount, AmountStyle, softWrap = false, maxLines = 1).size.width.toDp() }
         val stepperW = 48.dp * 2 + maxOf(92.dp, valueW + 8.dp) + 3.dp
         val side = labelW + 12.dp + stepperW <= maxWidth
-        val label: @Composable () -> Unit = { Text(HabitsCopy.HOW_MUCH, Modifier.testTag("habit_how_much"), style = LabelStyle, color = D.ink) }
+        val label: @Composable () -> Unit = { Text(HabitsCopy.HOW_MUCH, Modifier.testTag("${tag}_how_much"), style = LabelStyle, color = D.ink) }
         val stepper: @Composable () -> Unit = {
             val shape = RoundedCornerShape(26.dp)
             Row(
                 Modifier.heightIn(min = 52.dp).clip(shape).background(D.white).border(1.5.dp, D.field, shape),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                StepButton("−", HabitsCopy.LESS, draft.canLess, onLess, "habit_less")
+                StepButton("−", HabitsCopy.LESS, canLess, onLess, "${tag}_less")
                 Text(
-                    draft.amount,
-                    Modifier.widthIn(min = 92.dp).padding(horizontal = 4.dp).testTag("habit_amount"),
+                    amount,
+                    Modifier.widthIn(min = 92.dp).padding(horizontal = 4.dp).testTag("${tag}_amount"),
                     style = AmountStyle, color = D.ink, textAlign = TextAlign.Center, maxLines = 1, softWrap = false,
                 )
-                StepButton("+", HabitsCopy.MORE, draft.canMore, onMore, "habit_more")
+                StepButton("+", HabitsCopy.MORE, canMore, onMore, "${tag}_more")
             }
         }
         if (side) {

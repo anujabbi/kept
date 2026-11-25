@@ -144,7 +144,7 @@ private fun Week(w: WeeklyLockScreen, onDone: () -> Unit) {
         Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 28.dp)) {
             DaybreakHabitRow(
                 title = w.activity,
-                detail = WeeklyLockCopy.TODAY,
+                detail = w.todayDetail,
                 state = HabitRowState.ToDo,
                 onTick = onDone,
                 onUndo = {},

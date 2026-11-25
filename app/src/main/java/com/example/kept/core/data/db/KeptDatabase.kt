@@ -140,8 +140,20 @@ val MIGRATION_7_8 = object : Migration(7, 8) {
     }
 }
 
+/**
+ * Schema 8 -> 9 (story #205, task #206): a weekly goal keeps a target, as a habit does. Both
+ * columns are nullable with no default, so a goal set before the upgrade has no target and reads
+ * as it did; its name, days, start date and sessions are untouched.
+ */
+val MIGRATION_8_9 = object : Migration(8, 9) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `weekly_goals` ADD COLUMN `targetValue` INTEGER")
+        db.execSQL("ALTER TABLE `weekly_goals` ADD COLUMN `unit` TEXT")
+    }
+}
+
 /** Every migration, in order. The app and the migration tests both use this list. */
-val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
 
 @Database(
     entities = [
@@ -155,7 +167,7 @@ val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRAT
         WeeklyGoalEntity::class,
         WeeklyGoalEntryEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)

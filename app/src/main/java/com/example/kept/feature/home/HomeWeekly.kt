@@ -31,6 +31,7 @@ import com.example.kept.core.domain.WeeklyCard
 import com.example.kept.core.domain.WeeklyCardCopy
 import com.example.kept.core.domain.WeeklyCardDay
 import com.example.kept.core.domain.WeeklyCardStatus
+import com.example.kept.core.domain.WeeklyGoalCopy
 import com.example.kept.core.domain.WeeklyGoalRules.DayState
 import com.example.kept.core.ui.AddRow
 import com.example.kept.core.ui.DaybreakColors
@@ -69,7 +70,7 @@ internal fun WeeklySection(goals: List<WeeklyGoalWeek>, actions: HomeActions, mo
             WeeklyGoalCard(
                 id = g.id,
                 activity = g.goal.title,
-                card = WeeklyCard.of(g.goal.title, g.week, lockEndedToday),
+                card = WeeklyCard.of(g.goal.title, g.week, lockEndedToday, WeeklyGoalCopy.target(g.goal.targetValue, g.goal.unit)),
                 onDone = { actions.onWeeklyDone(g.id) },
                 onUndo = { actions.onWeeklyUndo(g.id) },
             )
@@ -110,7 +111,7 @@ internal fun WeeklyGoalCard(id: Long, activity: String, card: WeeklyCard, onDone
         StatusLine(card.status, Modifier.testTag("home_weekly_status_$id"))
         DaybreakHabitRow(
             title = activity,
-            detail = WeeklyCardCopy.TODAY_ROW,
+            detail = card.todayDetail,
             state = if (card.doneToday) HabitRowState.Done else HabitRowState.ToDo,
             onTick = onDone,
             onUndo = onUndo,

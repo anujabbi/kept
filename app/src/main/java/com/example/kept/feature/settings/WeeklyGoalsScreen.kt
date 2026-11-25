@@ -55,7 +55,7 @@ fun WeeklyGoalsScreen(onBack: () -> Unit, onAdd: () -> Unit, onEdit: (Long) -> U
 /** One row of the list: what it shows and which goal it opens. */
 data class WeeklyGoalItem(val id: Long, val text: String, val iconKey: String) {
     companion object {
-        fun of(g: WeeklyGoalEntity) = WeeklyGoalItem(g.id, WeeklyGoalCopy.listRow(g.title, g.daysPerWeek), g.iconKey)
+        fun of(g: WeeklyGoalEntity) = WeeklyGoalItem(g.id, WeeklyGoalCopy.listRow(g.title, WeeklyGoalCopy.target(g.targetValue, g.unit), g.daysPerWeek), g.iconKey)
     }
 }
 

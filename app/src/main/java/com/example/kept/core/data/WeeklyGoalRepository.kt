@@ -79,9 +79,11 @@ class WeeklyGoalRepository @Inject constructor(
     /**
      * Adds a goal that counts from today. Returns the new id, or null when there are already
      * [WeeklyGoalRules.MAX_GOALS] active goals and nothing was added. Daily habits are not counted.
+     * [targetValue] and [unit] are how much each session is (story #205), or both null for none.
      */
-    suspend fun addGoal(title: String, daysPerWeek: Int): Long? {
+    suspend fun addGoal(title: String, daysPerWeek: Int, targetValue: Int? = null, unit: String? = null): Long? {
         val name = checked(title, daysPerWeek)
+        checkedTarget(targetValue, unit)
         return addLock.withLock {
             val active = goalDao.active()
             if (!WeeklyGoalRules.canAdd(active.size)) {
@@ -92,6 +94,7 @@ class WeeklyGoalRepository @Inject constructor(
                         title = name, iconKey = HabitIconRules.forName(name), daysPerWeek = daysPerWeek,
                         createdAt = time.nowMillis(), effectiveFrom = time.todayKey(),
                         sortOrder = (active.maxOfOrNull { it.sortOrder } ?: -1) + 1,
+                        targetValue = targetValue, unit = unit,
                     ),
                 )
             }
@@ -99,17 +102,19 @@ class WeeklyGoalRepository @Inject constructor(
     }
 
     /**
-     * Changes a goal's activity and days a week. The new target applies to the current week at
-     * once and logged sessions are kept; the day the goal started counting does not move.
+     * Changes a goal's activity, days a week and target (both null for none). The new days a
+     * week apply to the current week at once and logged sessions are kept; the day the goal
+     * started counting does not move.
      * Returns false when there is no such active goal.
      *
      * One conditional UPDATE, not a read and a write of the whole row: an edit racing a remove
      * used to be able to write `isActive = 1` back over it, bringing the goal back and, with three
      * others added meanwhile, passing [WeeklyGoalRules.MAX_GOALS] (review on #177).
      */
-    suspend fun updateGoal(id: Long, title: String, daysPerWeek: Int): Boolean {
+    suspend fun updateGoal(id: Long, title: String, daysPerWeek: Int, targetValue: Int? = null, unit: String? = null): Boolean {
         val name = checked(title, daysPerWeek)
-        return goalDao.updateActive(id, name, HabitIconRules.forName(name), daysPerWeek) > 0
+        checkedTarget(targetValue, unit)
+        return goalDao.updateActive(id, name, HabitIconRules.forName(name), daysPerWeek, targetValue, unit) > 0
     }
 
     /** Removes a goal from the active set. Its row and its sessions stay, as a removed habit's do. */
@@ -133,5 +138,12 @@ class WeeklyGoalRepository @Inject constructor(
         require(name.isNotEmpty() && name.length <= HabitDraft.MAX_TITLE) { "weekly goal title must be 1 to ${HabitDraft.MAX_TITLE} characters" }
         require(WeeklyGoalRules.isValidDaysPerWeek(daysPerWeek)) { "days per week must be ${WeeklyGoalRules.MIN_DAYS} to ${WeeklyGoalRules.MAX_DAYS}" }
         return name
+    }
+
+    /** A target is 1 to [HabitDraft.MAX_TARGET] in a named unit, or no target at all: both null. */
+    private fun checkedTarget(targetValue: Int?, unit: String?) {
+        if (targetValue == null && unit == null) return
+        require(targetValue != null && targetValue in 1..HabitDraft.MAX_TARGET) { "weekly goal target must be 1 to ${HabitDraft.MAX_TARGET}" }
+        require(!unit.isNullOrBlank()) { "weekly goal target needs a unit" }
     }
 }

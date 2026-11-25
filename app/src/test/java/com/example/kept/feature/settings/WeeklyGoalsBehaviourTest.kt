@@ -98,7 +98,7 @@ class WeeklyGoalsBehaviourTest {
     @Test fun the_list_shows_each_goal_and_a_row_opens_it() {
         val opened = mutableListOf<Long>()
         rule.setContent { Shot { WeeklyGoalsContent(WeeklyGoalsFixtures.TWO, {}, {}, onEdit = { opened += it }) } }
-        assertEquals("Exercise · 4 days a week", text("goal_text_1"))
+        assertEquals("Exercise · 30 min · 4 days a week", text("goal_text_1"))
         assertEquals("Read · 1 day a week", text("goal_text_2"))
         rule.onNodeWithTag("goal_row_2").performClick()
         rule.onNodeWithTag("goal_row_1").performClick()
@@ -176,7 +176,7 @@ class WeeklyGoalsBehaviourTest {
         for (p in WeeklyGoalDraft.QUICK_PICKS) {
             rule.onNodeWithTag("goal_pick_$p").performClick().assertIsSelected()
             assertEquals(p, text("goal_name"))
-            assertEquals("$p, 3 days a week", text("goal_summary_title"))
+            assertTrue(text("goal_summary_title").startsWith("$p, ") && text("goal_summary_title").endsWith(", 3 days a week"))
             WeeklyGoalDraft.QUICK_PICKS.filter { it != p }.forEach { rule.onNodeWithTag("goal_pick_$it").assertIsNotSelected() }
         }
         rule.onNodeWithTag("goal_save").assertIsEnabled()
@@ -201,9 +201,9 @@ class WeeklyGoalsBehaviourTest {
         rule.onNodeWithTag("goal_day_4").performClick().assertIsSelected()
         rule.onNodeWithTag("goal_day_3").assertIsNotSelected()
         assertEquals("4 of 7", text("goal_days_count"))
-        assertEquals("Exercise, 4 days a week", text("goal_summary_title"))
+        assertEquals("Exercise, 30 min, 4 days a week", text("goal_summary_title"))
         rule.onNodeWithTag("goal_save").performClick()
-        assertEquals(WeeklyGoalDraft("Exercise", 4), saved)
+        assertEquals(WeeklyGoalDraft("Exercise", 4, 30, "min"), saved)
         assertEquals(0, closed)
     }
 
@@ -212,16 +212,65 @@ class WeeklyGoalsBehaviourTest {
         rule.onNodeWithTag("goal_seven_hint").assertDoesNotExist()
         rule.onNodeWithTag("goal_day_7").performClick()
         rule.onNodeWithTag("goal_seven_hint").assertTextEquals("7 days a week locks every day until it's done.")
-        assertEquals("Exercise, 7 days a week", text("goal_summary_title"))
+        assertEquals("Exercise, 20 min, 7 days a week", text("goal_summary_title"))
         rule.onNodeWithTag("goal_day_1").performClick()
         rule.onNodeWithTag("goal_seven_hint").assertDoesNotExist()
-        assertEquals("Exercise, 1 day a week", text("goal_summary_title"))
+        assertEquals("Exercise, 20 min, 1 day a week", text("goal_summary_title"))
         assertEquals("1 of 7", text("goal_days_count"))
         rule.onNodeWithTag("goal_pick_Read").performClick()
-        assertEquals("Read, 1 day a week", text("goal_summary_title"))
+        assertEquals("Read, 10 pages, 1 day a week", text("goal_summary_title"))
         rule.onNodeWithTag("goal_name").performTextReplacement("Call grandma")
         rule.onNodeWithTag("goal_day_2").performClick()
-        assertEquals("Call grandma, 2 days a week", text("goal_summary_title"))
+        assertEquals("Call grandma, 10 pages, 2 days a week", text("goal_summary_title"))
+    }
+
+    // --- the target (story #205, task #206) ----------------------------------------------------
+
+    @Test fun exercise_fills_30_min_the_stepper_changes_it_and_save_carries_it() {
+        showSetup()
+        rule.onNodeWithTag("goal_amount_row").assertDoesNotExist()
+        rule.onNodeWithTag("goal_pick_Exercise").performClick()
+        assertEquals("How much?", text("goal_how_much"))
+        assertEquals("30 min", text("goal_amount"))
+        rule.onNodeWithTag("goal_units").assertDoesNotExist()
+        rule.onNodeWithTag("goal_day_4").performClick()
+        assertEquals("Exercise, 30 min, 4 days a week", text("goal_summary_title"))
+        rule.onNodeWithTag("goal_more").performClick()
+        rule.onNodeWithTag("goal_more").performClick()
+        rule.onNodeWithTag("goal_less").performClick()
+        assertEquals("35 min", text("goal_amount"))
+        assertEquals("Exercise, 35 min, 4 days a week", text("goal_summary_title"))
+        rule.onNodeWithTag("goal_save").performClick()
+        assertEquals(WeeklyGoalDraft("Exercise", 4, 35, "min"), saved)
+    }
+
+    @Test fun a_custom_name_shows_the_unit_chips_and_one_time_reads_1_time() {
+        showSetup()
+        rule.onNodeWithTag("goal_name").performTextInput("Call grandma")
+        rule.onNodeWithTag("goal_units").performScrollTo()
+        for (u in listOf("min", "pages", "times", "glasses")) rule.onNodeWithTag("goal_unit_$u").assertExists()
+        rule.onNodeWithTag("goal_unit_min").assertIsSelected()
+        rule.onNodeWithTag("goal_unit_times").performClick().assertIsSelected()
+        assertEquals("1 time", text("goal_amount"))
+        rule.onNodeWithTag("goal_less").assertIsNotEnabled()
+        assertEquals("Call grandma, 1 time, 3 days a week", text("goal_summary_title"))
+        rule.onNodeWithTag("goal_more").performClick()
+        assertEquals("2 times", text("goal_amount"))
+        rule.onNodeWithTag("goal_save").performClick()
+        assertEquals(WeeklyGoalDraft("Call grandma", 3, 2, "times"), saved)
+    }
+
+    @Test fun a_goal_with_no_target_opens_with_one_and_saving_gives_it_that_target() {
+        showSetup(WeeklyGoalDraft.of("Exercise", 4, null, null), existing = true)
+        assertEquals("30 min", text("goal_amount"))
+        assertEquals("Exercise, 30 min, 4 days a week", text("goal_summary_title"))
+        rule.onNodeWithTag("goal_save").performClick()
+        assertEquals(WeeklyGoalDraft("Exercise", 4, 30, "min"), saved)
+    }
+
+    @Test fun the_list_row_carries_the_target() {
+        val g = WeeklyGoalEntity(id = 7, title = "Exercise", iconKey = "run", daysPerWeek = 4, createdAt = 1, effectiveFrom = "2026-11-21", targetValue = 30, unit = "min")
+        assertEquals("Exercise · 30 min · 4 days a week", WeeklyGoalItem.of(g).text.replace(WeeklyGoalCopy.NBSP, ' '))
     }
 
     @Test fun close_cancels_without_saving() {
@@ -319,7 +368,7 @@ class WeeklyGoalsBehaviourTest {
     private suspend fun active() = repo.observeGoals().first()
 
     @Test fun saving_exercise_4_stores_one_active_goal_from_today() = runBlocking {
-        vm.add(WeeklyGoalDraft("Exercise", 4)).join()
+        vm.add(WeeklyGoalDraft().pick("Exercise").withDays(4)).join()
         val goal = active().single()
         assertEquals("Exercise", goal.title)
         assertEquals(4, goal.daysPerWeek)
@@ -327,7 +376,18 @@ class WeeklyGoalsBehaviourTest {
         assertEquals("2026-11-21", goal.effectiveFrom)
         assertEquals(HabitIconRules.forName("Exercise"), goal.iconKey)
         assertEquals("run", goal.iconKey)
-        assertEquals("Exercise · 4 days a week", WeeklyGoalItem.of(goal).text.replace(WeeklyGoalCopy.NBSP, ' '))
+        assertEquals("Exercise · 30 min · 4 days a week", WeeklyGoalItem.of(goal).text.replace(WeeklyGoalCopy.NBSP, ' '))
+    }
+
+    @Test fun adding_then_editing_the_target_updates_the_list_row() = runBlocking {
+        vm.add(WeeklyGoalDraft().pick("Exercise").withDays(4)).join()
+        val goal = active().single()
+        assertEquals(30 to "min", goal.targetValue to goal.unit)
+        assertEquals("Exercise · 30 min · 4 days a week", WeeklyGoalItem.of(goal).text.replace(WeeklyGoalCopy.NBSP, ' '))
+        val opened = WeeklyGoalDraft.of(goal.title, goal.daysPerWeek, goal.targetValue, goal.unit)
+        assertEquals("30 min", opened.amount.replace(WeeklyGoalCopy.NBSP, ' '))
+        vm.save(goal.id, opened.more().more().more()).join()
+        assertEquals("Exercise · 45 min · 4 days a week", WeeklyGoalItem.of(active().single()).text.replace(WeeklyGoalCopy.NBSP, ' '))
     }
 
     @Test fun a_custom_name_is_saved_trimmed_with_its_icon() = runBlocking {
@@ -364,7 +424,7 @@ class WeeklyGoalsBehaviourTest {
         assertEquals("Swim", goal.title)
         assertEquals(2, goal.daysPerWeek)
         assertEquals("the start date does not move", "2026-11-09", goal.effectiveFrom)
-        assertEquals("Swim · 2 days a week", WeeklyGoalItem.of(goal).text.replace(WeeklyGoalCopy.NBSP, ' '))
+        assertEquals("Swim · 20 min · 2 days a week", WeeklyGoalItem.of(goal).text.replace(WeeklyGoalCopy.NBSP, ' '))
         val week = repo.thisWeek().single().week
         assertEquals("both sessions are still counted", 2, week.done)
         assertEquals(2, week.target)

@@ -112,7 +112,7 @@ fun WeeklyGoalEditScreen(
         !s.loaded || (goalId != null && goal == null) -> Box(Modifier.fillMaxSize().background(D.cream))
         goal == null -> WeeklyGoalEditPage(WeeklyGoalDraft(), onClose = close, onSave = { vm.add(it); close() }, sprig = sprig)
         else -> WeeklyGoalEditPage(
-            WeeklyGoalDraft(goal.title, goal.daysPerWeek),
+            WeeklyGoalDraft.of(goal.title, goal.daysPerWeek, goal.targetValue, goal.unit),
             onClose = close,
             onSave = { d -> settings.requestWeeklyGoalChange(goal.id, goal.daysPerWeek, d.days) { if (!closed) { vm.save(goal.id, d); close() } } },
             sprig = sprig,
@@ -137,13 +137,14 @@ object WeeklyGoalEditGone {
 data class SetupSprig(val form: SprigForm, val wilted: Boolean = false)
 
 private val DraftSaver = listSaver<WeeklyGoalDraft, Any>(
-    save = { listOf(it.title, it.days) },
-    restore = { WeeklyGoalDraft(it[0] as String, it[1] as Int) },
+    save = { listOf(it.title, it.days, it.target, it.unit) },
+    restore = { WeeklyGoalDraft(it[0] as String, it[1] as Int, it[2] as Int, it[3] as String) },
 )
 
 /**
- * The two questions (mockup 1): what (the Add a habit name field, five quick picks and
- * "+ Custom") and how many days a week (chips 1 to 7), then the summary card that follows both.
+ * The questions (mockup 1): what (the Add a habit name field, five quick picks and "+ Custom"),
+ * how much each time once there is an activity (Add a habit's stepper and unit chips; story
+ * #205) and how many days a week (chips 1 to 7), then the summary card that follows them all.
  * The rules live in [WeeklyGoalDraft]. Under a close button the questions scroll; "Save goal"
  * (and, for an existing goal, a red quiet "Delete goal", [onDelete]) stay fixed at the bottom.
  *
@@ -216,6 +217,14 @@ fun WeeklyGoalEditPage(
                             KeptChip(p, selected = draft.isPicked(p), onClick = { draft = draft.pick(p) }, modifier = Modifier.testTag("goal_pick_$p"))
                         }
                         CustomChip { nameFocus.requestFocus(); keyboard?.show() }
+                    }
+                }
+
+                // How much: shown once there is an activity, as the target goes with it.
+                if (draft.name.isNotEmpty()) {
+                    Column(Modifier.padding(horizontal = side), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        AmountRow(draft.amount, draft.canLess, draft.canMore, onLess = { draft = draft.less() }, onMore = { draft = draft.more() }, tag = "goal")
+                        if (draft.showsUnits) UnitChips(draft.unit, onPick = { draft = draft.withUnit(it) }, tag = "goal")
                     }
                 }
 

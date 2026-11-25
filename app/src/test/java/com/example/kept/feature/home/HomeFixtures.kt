@@ -118,11 +118,15 @@ internal object HomeFixtures {
         vararg sessions: Int,
         on: LocalDate = today,
         from: LocalDate = LocalDate.of(2026, 11, 1),
+        target: Pair<Int, String>? = null,
     ): WeeklyGoalWeek {
         val start = WeeklyGoalRules.weekStart(on)
         val dates = sessions.map { start.plusDays(it.toLong()) }.toSet()
         return WeeklyGoalWeek(
-            WeeklyGoalEntity(id = id, title = title, iconKey = "run", daysPerWeek = daysPerWeek, createdAt = 0, effectiveFrom = from.toString()),
+            WeeklyGoalEntity(
+                id = id, title = title, iconKey = "run", daysPerWeek = daysPerWeek, createdAt = 0, effectiveFrom = from.toString(),
+                targetValue = target?.first, unit = target?.second,
+            ),
             WeeklyGoalRules.week(WeeklyGoalRules.Goal(daysPerWeek, from), dates, on),
             // A session logged today was logged in time, unless a test says otherwise.
             loggedTodayAt = if (on in dates) DUE - 1 else null,

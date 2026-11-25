@@ -156,10 +156,14 @@ interface WeeklyGoalDao {
     /**
      * Changes an active goal in one statement and returns the rows changed: 1, or 0 when the goal
      * is unknown or removed. Nothing is read first, so a remove that lands at the same moment
-     * cannot be written over, and `isActive` is never written here.
+     * cannot be written over, and `isActive` is never written here. The target is written with
+     * the rest (story #205).
      */
-    @Query("UPDATE weekly_goals SET title = :title, iconKey = :iconKey, daysPerWeek = :daysPerWeek WHERE id = :id AND isActive = 1")
-    suspend fun updateActive(id: Long, title: String, iconKey: String, daysPerWeek: Int): Int
+    @Query(
+        "UPDATE weekly_goals SET title = :title, iconKey = :iconKey, daysPerWeek = :daysPerWeek, targetValue = :targetValue, unit = :unit " +
+            "WHERE id = :id AND isActive = 1",
+    )
+    suspend fun updateActive(id: Long, title: String, iconKey: String, daysPerWeek: Int, targetValue: Int?, unit: String?): Int
 }
 
 @Dao

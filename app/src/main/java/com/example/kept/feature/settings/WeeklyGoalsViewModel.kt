@@ -43,10 +43,10 @@ class WeeklyGoalsViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), WeeklyGoalsUi())
 
     /** A new goal counts from today. At the limit nothing is added. */
-    fun add(d: WeeklyGoalDraft) = appScope.launch { if (d.canSave) goals.addGoal(d.name, d.days) }
+    fun add(d: WeeklyGoalDraft) = appScope.launch { if (d.canSave) goals.addGoal(d.name, d.days, d.target, d.unit) }
 
-    /** The new activity and days apply at once; this week's logged sessions are kept. */
-    fun save(id: Long, d: WeeklyGoalDraft) = appScope.launch { if (d.canSave) goals.updateGoal(id, d.name, d.days) }
+    /** The new activity, target and days apply at once; this week's logged sessions are kept. */
+    fun save(id: Long, d: WeeklyGoalDraft) = appScope.launch { if (d.canSave) goals.updateGoal(id, d.name, d.days, d.target, d.unit) }
 
     fun remove(id: Long) = appScope.launch { goals.removeGoal(id) }
 }
