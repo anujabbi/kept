@@ -39,13 +39,23 @@ object OnboardingFixtures {
     /** Step 1 as it opens: Exercise and Read picked. */
     val habits = OnboardingState(step = OnboardingStep.HABITS)
 
-    /** Ten picked: every preset and five of their own. */
+    /** Ten every-day habits: every preset but Exercise (4 days a week) and six of their own. */
     val habitsAtLimit = OnboardingState(
         step = OnboardingStep.HABITS,
-        chosen = HabitTemplates.list + (1..5).map { HabitTemplate("Own habit $it", "star", ProofType.MANUAL, 5, "min") },
+        chosen = HabitTemplates.list + (1..6).map { HabitTemplate("Own habit $it", "star", ProofType.MANUAL, 5, "min") },
     )
 
     val window = LockWindowRules.Window(7 * 60, 21 * 60)
+
+    /** Exercise's sheet as it opens: some days a week, 4 picked, "Exercise, 30 min, 4 days a week". */
+    val sheetSomeDays = OnboardingFlow.openCadence(habits, "Exercise")
+
+    /** Tidy room's sheet with three weekly goals chosen: "Some days a week" off and the limit line. */
+    val sheetAtLimit = OnboardingState(
+        step = OnboardingStep.HABITS,
+        chosen = HabitTemplates.list,
+        weeklyDays = mapOf("Exercise" to 4, "Read" to 3, "Practice" to 2),
+    ).let { OnboardingFlow.openCadence(it, "Tidy room") }
 
     /** The shutdown step with 10 PM picked: the first row, so it shows at font 2.0 on a small screen too. */
     const val SHUTDOWN_PICKED = 22 * 60
@@ -59,8 +69,10 @@ object OnboardingFixtures {
 /** Every screen the issue lists, by golden name. */
 val onboardingScreens: List<Pair<String, @Composable () -> Unit>> = listOf(
     "welcome" to { WelcomeStep(onStart = {}) },
-    "habits" to { HabitsStep(OnboardingFixtures.habits, {}, {}, {}, {}) },
-    "habits_limit" to { HabitsStep(OnboardingFixtures.habitsAtLimit, {}, {}, {}, {}) },
+    "habits" to { HabitsStep(OnboardingFixtures.habits, {}, {}, {}, {}, {}) },
+    "habits_limit" to { HabitsStep(OnboardingFixtures.habitsAtLimit, {}, {}, {}, {}, {}) },
+    "cadence_sheet" to { CadenceSheetBody(OnboardingFixtures.sheetSomeDays, CadenceActions.None) },
+    "cadence_sheet_limit" to { CadenceSheetBody(OnboardingFixtures.sheetAtLimit, CadenceActions.None) },
     "add_habit" to { AddHabitPage(onBack = {}, onSave = {}) },
     "shutdown" to { ShutdownStep(null, {}, {}, {}, {}) },
     "shutdown_picked" to { ShutdownStep(OnboardingFixtures.SHUTDOWN_PICKED, {}, {}, {}, {}) },
@@ -68,7 +80,8 @@ val onboardingScreens: List<Pair<String, @Composable () -> Unit>> = listOf(
     "exceptions" to { ExceptionsContent(BodyMode.ONBOARDING, emptyList(), OnboardingFixtures.apps, "", {}, { _, _ -> }, {}, {}) },
     "permissions_missing" to { permissions(BodyMode.ONBOARDING, OnboardingFixtures.oneRequiredMissing) },
     "permissions_all" to { permissions(BodyMode.ONBOARDING, OnboardingFixtures.allGranted) },
-    "ready" to { ReadyStep(saving = false, onBack = {}, onStart = {}) },
+    "ready" to { ReadyStep(saving = false, hasWeeklyGoal = false, onBack = {}, onStart = {}) },
+    "ready_weekly" to { ReadyStep(saving = false, hasWeeklyGoal = true, onBack = {}, onStart = {}) },
     "exceptions_settings" to { ExceptionsContent(BodyMode.SETTINGS, emptyList(), OnboardingFixtures.apps, "", {}, { _, _ -> }, {}, {}) },
     "permissions_settings" to { permissions(BodyMode.SETTINGS, OnboardingFixtures.oneRequiredMissing) },
 )
@@ -156,6 +169,11 @@ class OnboardingShots(private val rule: ComposeContentTestRule, private val pref
                     assertTrue("$at: the title runs into the hill", bounds("ready_title").bottom <= bounds("ready_crest", unmerged = true).top)
                     assertOnScreen(at, "onboarding_finish")
                 }
+                "cadence_sheet", "cadence_sheet_limit" -> {
+                    assertNoWordSplit(rule, "cadence_title", at)
+                    assertOnScreen(at, "cadence_done")
+                }
+                "ready_weekly" -> assertOnScreen(at, "onboarding_finish")
                 else -> {
                     assertNoWordSplit(rule, "page_title", at)
                     if (name != "add_habit" && !name.endsWith("_settings")) assertOnScreen(at, "onboarding_next")

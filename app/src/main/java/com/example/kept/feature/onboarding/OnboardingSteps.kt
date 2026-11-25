@@ -29,7 +29,14 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -44,7 +51,10 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.SpanStyle
@@ -62,6 +72,8 @@ import com.example.kept.core.domain.HabitDraft
 import com.example.kept.core.domain.HabitLimits
 import com.example.kept.core.domain.LockWindowRules
 import com.example.kept.core.domain.OnboardingCopy
+import com.example.kept.core.domain.ProofType
+import com.example.kept.core.domain.WeeklyGoalCopy
 import com.example.kept.core.domain.ReadySprig
 import com.example.kept.core.domain.SprigForm
 import com.example.kept.core.domain.SprigPose
@@ -188,15 +200,17 @@ private fun WelcomeText(width: Dp, modifier: Modifier = Modifier) {
 // Step 1: habits (A10)
 
 /**
- * "What will you do every day?" (`A10-Onb-Habits`): the six presets and any habit added with
- * "Add your own", each toggled by a tap (purple ring and check when picked). Continue is
- * disabled with none picked and the footer counts the picks. At [HabitLimits.MAX_HABITS] the
- * "Add your own" row gives way to [HabitLimits.LIMIT_REACHED].
+ * "What habits will you keep?" (`A10-Onb-Habits`, #205): the presets and any habit added with
+ * "Add your own", each toggled by a tap (purple ring and check when picked). A ticked row shows
+ * its how-often chip, which opens [CadenceSheet]. Continue needs one every-day habit, and the
+ * footer counts daily habits and weekly goals apart. At [HabitLimits.MAX_HABITS] every-day habits
+ * the "Add your own" row gives way to [HabitLimits.LIMIT_REACHED].
  */
 @Composable
 internal fun HabitsStep(
     s: OnboardingState,
     onToggle: (HabitTemplate) -> Unit,
+    onCadence: (String) -> Unit,
     onAddOwn: () -> Unit,
     onBack: () -> Unit,
     onContinue: () -> Unit,
@@ -208,9 +222,9 @@ internal fun HabitsStep(
         line = OnboardingCopy.HABITS_LINE,
         modifier = Modifier.testTag("onboarding_habits"),
         footer = {
-            PrimaryButton(OnboardingCopy.CONTINUE, onClick = onContinue, enabled = s.chosen.isNotEmpty(), modifier = Modifier.testTag("onboarding_next"))
+            PrimaryButton(OnboardingCopy.CONTINUE, onClick = onContinue, enabled = s.canContinue, modifier = Modifier.testTag("onboarding_next"))
             Text(
-                OnboardingCopy.habitsPicked(s.chosen.size),
+                OnboardingCopy.habitsFooter(s.daily.size, s.weekly.size),
                 Modifier.testTag("onboarding_habit_count"),
                 style = DaybreakType.caption, fontWeight = FontWeight.SemiBold, color = D.muted, textAlign = TextAlign.Center,
             )
@@ -218,7 +232,8 @@ internal fun HabitsStep(
     ) {
         (HabitTemplates.list + custom).forEach { t ->
             item(key = "habit_${t.title}") {
-                PresetRow(t, picked = s.chosen.any { it.title == t.title }, onToggle = { onToggle(t) })
+                val picked = s.chosen.any { it.title == t.title }
+                PresetRow(t, picked, s.daysOf(t.title), onToggle = { onToggle(t) }, onCadence = { onCadence(t.title) })
             }
         }
         item(key = "add_own") {
@@ -235,9 +250,12 @@ internal fun HabitsStep(
     }
 }
 
-/** A preset row: 64dp, radius 20, 2dp ring; picked is purple pale with a purple ring and check. */
+/**
+ * A preset row: 64dp, radius 20, 2dp ring; picked is purple pale with a purple ring and check,
+ * and the how-often chip under the habit's detail.
+ */
 @Composable
-private fun PresetRow(t: HabitTemplate, picked: Boolean, onToggle: () -> Unit) {
+private fun PresetRow(t: HabitTemplate, picked: Boolean, days: Int?, onToggle: () -> Unit, onCadence: () -> Unit) {
     val shape = RoundedCornerShape(20.dp)
     Row(
         Modifier.fillMaxWidth().heightIn(min = 64.dp).clip(shape)
@@ -255,6 +273,7 @@ private fun PresetRow(t: HabitTemplate, picked: Boolean, onToggle: () -> Unit) {
         Column(Modifier.weight(1f)) {
             Text(t.title, style = DaybreakType.rowTitle, color = D.ink)
             Text(OnboardingCopy.habitDetail(t.proofType, t.targetValue, t.unit), style = DaybreakType.caption, color = D.muted)
+            if (picked) CadenceChip(t.title, days, onCadence)
         }
         Box(
             Modifier.size(28.dp).clip(CircleShape)
@@ -264,6 +283,180 @@ private fun PresetRow(t: HabitTemplate, picked: Boolean, onToggle: () -> Unit) {
         ) { if (picked) Icon(DaybreakIcons.Check, null, Modifier.size(15.dp), tint = D.white) }
     }
 }
+
+/**
+ * The how-often chip (#205): "Every day" or "4 days a week", a white pill with a purple ring and
+ * a chevron. Its touch target is 48dp tall; TalkBack reads "Exercise, 4 days a week. Change how
+ * often" as a button.
+ */
+@Composable
+private fun CadenceChip(title: String, days: Int?, onClick: () -> Unit) {
+    val label = OnboardingCopy.cadence(days)
+    Box(
+        Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+            .testTag("onboarding_cadence_$title")
+            .clickable(role = Role.Button, onClick = onClick)
+            // One label, read once: the visible "4 days a week" would otherwise be read again after it.
+            .clearAndSetSemantics {
+                contentDescription = OnboardingCopy.cadenceDescription(title, days)
+                role = Role.Button
+                onClick { onClick(); true }
+            },
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Row(
+            Modifier.clip(CircleShape).background(D.white).border(1.5.dp, D.purpleDone, CircleShape)
+                .padding(start = 12.dp, end = 8.dp, top = 5.dp, bottom = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(label, style = DaybreakType.caption, fontWeight = FontWeight.Bold, color = D.purpleInk)
+            Icon(DaybreakIcons.Chevron, null, Modifier.size(14.dp).rotate(90f), tint = D.purpleInk)
+        }
+    }
+}
+
+/** What the how-often sheet's controls do; the screen and the tests wire them to [OnboardingFlow]. */
+class CadenceActions(
+    val onEveryDay: () -> Unit,
+    val onSomeDays: () -> Unit,
+    val onDays: (Int) -> Unit,
+    val onDone: () -> Unit,
+    val onDismiss: () -> Unit,
+) {
+    companion object {
+        val None = CadenceActions({}, {}, {}, {}, {})
+    }
+}
+
+/** The how-often sheet (#205), while [OnboardingState.sheet] is open: a cream Daybreak bottom sheet. */
+@Composable
+internal fun CadenceSheet(s: OnboardingState, actions: CadenceActions) {
+    if (s.sheet == null || s.sheetHabit == null) return
+    ModalBottomSheet(
+        onDismissRequest = actions.onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = D.cream,
+        shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp),
+    ) { CadenceSheetBody(s, actions) }
+}
+
+/**
+ * The sheet's content: "How often will you exercise?", the two options, the 1 to 6 day picker
+ * with the weekly goal line under it, the summary card and "Done". At three weekly goals "Some
+ * days a week" is off on an every-day habit with [WeeklyGoalCopy.LIMIT_REACHED] under it.
+ */
+@Composable
+internal fun CadenceSheetBody(s: OnboardingState, actions: CadenceActions) {
+    val sheet = s.sheet ?: return
+    val habit = s.sheetHabit ?: return
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val width = maxWidth
+        // Done stays in view under the scrolling options, as a step page's footer does.
+        Column(Modifier.fillMaxWidth().navigationBarsPadding().testTag("cadence_sheet")) {
+            Column(
+                Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(rememberScrollState())
+                    .padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                val title = OnboardingCopy.sheetTitle(habit.title)
+                Text(
+                    title,
+                    Modifier.padding(horizontal = 4.dp, vertical = 4.dp).testTag("cadence_title"),
+                    style = fitLongestWord(title, SheetTitleStyle, width - 48.dp),
+                    color = D.ink,
+                )
+                Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OptionRow(OnboardingCopy.EVERY_DAY, sheet.days == null, s.sheetCanEveryDay, actions.onEveryDay, "cadence_every_day")
+                    OptionRow(OnboardingCopy.SOME_DAYS, sheet.days != null, s.sheetCanSomeDays, actions.onSomeDays, "cadence_some_days")
+                }
+                if (!s.sheetCanSomeDays) LimitLine(WeeklyGoalCopy.LIMIT_REACHED, "cadence_limit")
+                if (!s.sheetCanEveryDay) LimitLine(HabitLimits.LIMIT_REACHED, "cadence_daily_limit")
+                if (sheet.days != null) {
+                    Text(WeeklyGoalCopy.DAYS_LABEL, Modifier.padding(start = 4.dp, top = 4.dp), style = DaybreakType.body.copy(fontWeight = FontWeight.Bold), color = D.ink)
+                    DayPicker(sheet.days, actions.onDays)
+                    Text(WeeklyGoalCopy.SUMMARY_BODY, Modifier.padding(horizontal = 4.dp), style = DaybreakType.caption, color = D.inkSoft)
+                }
+                Text(
+                    OnboardingCopy.sheetSummary(habit.title, weeklyTarget(habit), sheet.days),
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(D.purpleTint)
+                        .padding(horizontal = 18.dp, vertical = 14.dp).testTag("cadence_summary"),
+                    style = DaybreakType.button.copy(fontWeight = FontWeight.ExtraBold),
+                    color = D.ink,
+                )
+            }
+            PrimaryButton(
+                OnboardingCopy.DONE, onClick = actions.onDone,
+                modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 24.dp).testTag("cadence_done"),
+            )
+        }
+    }
+}
+
+/** The target beside the cadence: "30 min"; none for a photo habit, which a weekly goal cannot prove. */
+private fun weeklyTarget(t: HabitTemplate): String? =
+    if (t.proofType == ProofType.PHOTO) null else WeeklyGoalCopy.target(t.targetValue, t.unit)
+
+private val SheetTitleStyle = DaybreakType.pageTitle.copy(fontSize = 28.sp, lineHeight = (28 * 1.05).sp)
+
+/** An option: the preset row's shape as a radio button; off, it is greyed and does nothing. */
+@Composable
+private fun OptionRow(label: String, picked: Boolean, enabled: Boolean, onPick: () -> Unit, tag: String) {
+    val shape = RoundedCornerShape(20.dp)
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(shape)
+            .background(if (picked) D.purplePale else D.white)
+            .border(2.dp, if (picked) D.purple else D.lineSoft, shape)
+            .selectable(selected = picked, enabled = enabled, role = Role.RadioButton, onClick = onPick)
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .testTag(tag),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(label, Modifier.weight(1f), style = DaybreakType.rowTitle, color = if (enabled) D.ink else D.disabled)
+        Box(
+            Modifier.size(24.dp).clip(CircleShape)
+                .background(if (picked) D.purple else Color.Transparent)
+                .border(2.dp, if (picked) D.purple else if (enabled) D.ring else D.lineSoft, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) { if (picked) Icon(DaybreakIcons.Check, null, Modifier.size(13.dp), tint = D.white) }
+    }
+}
+
+@Composable
+private fun LimitLine(text: String, tag: String) {
+    Text(
+        text,
+        Modifier.padding(horizontal = 4.dp).semantics { liveRegion = LiveRegionMode.Polite }.testTag(tag),
+        style = DaybreakType.caption, fontWeight = FontWeight.SemiBold, color = D.muted,
+    )
+}
+
+/** 1 to 6 as the weekly goal screen's day chips: 48dp rounds, the chosen one purple. */
+@Composable
+private fun DayPicker(selected: Int, onPick: (Int) -> Unit) {
+    Row(Modifier.fillMaxWidth().selectableGroup().testTag("cadence_days")) {
+        OnboardingCadence.DAY_CHOICES.forEach { n ->
+            val on = n == selected
+            Box(
+                Modifier.weight(1f).heightIn(min = 48.dp)
+                    .selectable(selected = on, role = Role.RadioButton, onClick = { onPick(n) })
+                    .semantics { contentDescription = WeeklyGoalCopy.days(n) }
+                    .testTag("cadence_day_$n"),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    Modifier.padding(horizontal = 3.dp).fillMaxWidth().heightIn(min = 48.dp)
+                        .clip(CircleShape).background(if (on) D.purple else D.white)
+                        .then(if (on) Modifier else Modifier.border(1.5.dp, D.field, CircleShape)),
+                    contentAlignment = Alignment.Center,
+                ) { Text(n.toString(), style = DayStyle, color = if (on) D.white else D.ink, maxLines = 1) }
+            }
+        }
+    }
+}
+
+private val DayStyle = DaybreakType.button.copy(fontSize = 18.sp, lineHeight = 22.sp, fontWeight = FontWeight.ExtraBold, fontFeatureSettings = "tnum")
 
 /** "Add your own": a 64dp dashed row with a white plus tile. */
 @Composable
@@ -533,7 +726,7 @@ private fun StepButton(sign: String, description: String, enabled: Boolean, styl
  * finishes onboarding. Widths and the crest come from the real screen ([ReadySprig]).
  */
 @Composable
-internal fun ReadyStep(saving: Boolean, onBack: () -> Unit, onStart: () -> Unit) {
+internal fun ReadyStep(saving: Boolean, hasWeeklyGoal: Boolean, onBack: () -> Unit, onStart: () -> Unit) {
     val density = LocalDensity.current
     val inset = with(density) { WindowInsets.statusBars.getTop(this).toDp() }
     var titlePx by remember { mutableIntStateOf(0) }
@@ -581,6 +774,10 @@ internal fun ReadyStep(saving: Boolean, onBack: () -> Unit, onStart: () -> Unit)
                 RuleLine(DaybreakIcons.Growth, D.greenTint, OnboardingCopy.RULE_GROWS_BOLD, OnboardingCopy.RULE_GROWS)
                 RuleLine(DaybreakIcons.Padlock, D.purpleTint, OnboardingCopy.RULE_BREAKS_BOLD, OnboardingCopy.RULE_BREAKS)
                 RuleLine(DaybreakIcons.ShieldDuo, D.shieldTile, OnboardingCopy.RULE_SHIELD_BOLD, OnboardingCopy.RULE_SHIELD)
+                // Only with a weekly goal chosen (#205); otherwise the page is as before.
+                if (hasWeeklyGoal) {
+                    RuleLine(DaybreakIcons.Clock, D.purpleTint, OnboardingCopy.RULE_WEEKLY_BOLD, OnboardingCopy.RULE_WEEKLY, tint = D.purple, tag = "ready_weekly")
+                }
             }
             StepFooter {
                 PrimaryButton(
@@ -596,17 +793,24 @@ internal fun ReadyStep(saving: Boolean, onBack: () -> Unit, onStart: () -> Unit)
 
 /** A rule: a 40dp round tile with the duotone icon, then 15/1.4 text with its bold opening in ink. */
 @Composable
-private fun RuleLine(icon: androidx.compose.ui.graphics.vector.ImageVector, tile: Color, bold: String, rest: String) {
+private fun RuleLine(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    tile: Color,
+    bold: String,
+    rest: String,
+    tint: Color = Color.Unspecified,
+    tag: String? = null,
+) {
     Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         Box(Modifier.size(40.dp).clip(CircleShape).background(tile), contentAlignment = Alignment.Center) {
-            Icon(icon, null, Modifier.size(24.dp), tint = Color.Unspecified)
+            Icon(icon, null, Modifier.size(24.dp), tint = tint)
         }
         Text(
             buildAnnotatedString {
                 withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = D.ink)) { append(bold) }
                 append(rest)
             },
-            Modifier.weight(1f),
+            Modifier.weight(1f).then(if (tag != null) Modifier.testTag(tag) else Modifier),
             style = DaybreakType.body,
             color = D.inkSoft,
         )

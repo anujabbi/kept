@@ -1704,3 +1704,25 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     but no habit preset, gets them. The delete confirm still names the goal by its name and days.
   - *Shared, not copied.* `AmountRow` and the unit chips moved out of Add a habit as internal
     composables with a test-tag prefix; Add a habit's tags are unchanged.
+- **Onboarding step 1: every day or some days a week (task #207, story #205).** Each ticked habit
+  has a how-often chip and sheet; "Start today" writes some-days habits as weekly goals.
+  - *Photo habits can be weekly, with no target (owner, 25 Nov 2026,
+    https://github.com/anujabbi/kept/issues/205#issuecomment-7176310008).* Weekly goals have no
+    photo proof, so Tidy room (or a custom habit with "Prove it with a photo") set to some days
+    a week becomes a weekly goal logged with one tap and with no target: "Tidy room, 2 days a
+    week". Its sheet summary reads the same.
+  - *Writes.* Continue on step 1 writes every-day habits only (`dailyHabitRows`); the weekly goals
+    are written once, on "Start today" (`addOnboardingGoals`), counting from that day. The camera
+    step still asks whenever any ticked habit is a photo habit, weekly or not.
+    `onboarding_completed`'s `habit_count` keeps counting every ticked row; no new analytics.
+  - *Same data as Settings.* A weekly goal from onboarding takes its icon from its name
+    (`HabitIconRules.forName`), as every weekly goal does, not the icon a custom habit picked.
+  - *Not in the issue.* At ten every-day habits a weekly habit's sheet turns "Every day" off and
+    shows `HabitLimits.LIMIT_REACHED`, the mirror of the three-goal limit; Exercise can still be
+    ticked as weekly then. "Some days a week" starts at the habit's own days, otherwise 3
+    (`WeeklyGoalRules.DEFAULT_DAYS`). Dismissing the sheet without Done keeps the cadence it opened
+    with. The chip sits under the habit's detail line, so a ticked row grows to fit its 48dp touch
+    target.
+  - *`WeeklyGoalRepository.updateGoal` has no target defaults.* The #206 review noted a caller
+    passing only title and days would quietly erase the target; `targetValue` and `unit` are now
+    required (null, null still means no target), and every caller says which it means.
