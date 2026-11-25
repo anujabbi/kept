@@ -15,8 +15,8 @@ class WeeklyGoalCardTest {
     private fun day(n: Int) = sun.plusDays(n.toLong())
     private val longAgo = LocalDate.of(2026, 11, 1)
 
-    private fun card(target: Int, today: LocalDate, vararg sessions: LocalDate, from: LocalDate = longAgo, activity: String = "Exercise") =
-        WeeklyCard.of(activity, WeeklyGoalRules.week(WeeklyGoalRules.Goal(target, from), sessions.toSet(), today))
+    private fun card(target: Int, today: LocalDate, vararg sessions: LocalDate, from: LocalDate = longAgo, activity: String = "Exercise", goalTarget: String? = null) =
+        WeeklyCard.of(activity, WeeklyGoalRules.week(WeeklyGoalRules.Goal(target, from), sessions.toSet(), today), goalTarget = goalTarget)
 
     private fun WeeklyCard.plainTitle() = title.replace(WeeklyCardCopy.NBSP, ' ')
     private fun WeeklyCard.states() = days.map { it.state }
@@ -161,5 +161,12 @@ class WeeklyGoalCardTest {
         assertEquals("Today", WeeklyCardCopy.TODAY_ROW)
         assertEquals("Add a weekly goal", WeeklyCardCopy.ADD)
         assertEquals("For things you don't need to do every day.", WeeklyCardCopy.ADD_LINE)
+    }
+
+    @Test fun `the today row carries the goal's target, and reads Today alone without one`() {
+        assertEquals("Today · 30 min", card(4, day(3), goalTarget = "30${WeeklyCardCopy.NBSP}min").todayDetail.replace(WeeklyCardCopy.NBSP, ' '))
+        assertEquals("a migrated goal reads as before", "Today", card(4, day(3)).todayDetail)
+        assertEquals("the title keeps its cadence", "Exercise · 0 of 4 this week", card(4, day(3), goalTarget = "30 min").title.replace(WeeklyCardCopy.NBSP, ' '))
+        assertEquals("Today", WeeklyCardCopy.todayRow(null))
     }
 }

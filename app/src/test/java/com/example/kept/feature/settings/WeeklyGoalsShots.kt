@@ -23,16 +23,19 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 
 object WeeklyGoalsFixtures {
-    private fun item(id: Long, title: String, days: Int) = WeeklyGoalItem(id, WeeklyGoalCopy.listRow(title, days), HabitIconRules.forName(title))
+    private fun item(id: Long, title: String, days: Int, target: String? = null) =
+        WeeklyGoalItem(id, WeeklyGoalCopy.listRow(title, target, days), HabitIconRules.forName(title))
 
-    /** The issue's example and one more. */
-    val TWO: List<WeeklyGoalItem> = listOf(item(1, "Exercise", 4), item(2, "Read", 1))
+    /** The issue's example with its target, and one set before targets (story #205). */
+    val TWO: List<WeeklyGoalItem> = listOf(item(1, "Exercise", 4, WeeklyGoalCopy.target(30, "min")), item(2, "Read", 1))
 
     /** At the limit, with a name as long as the field allows. */
     val THREE: List<WeeklyGoalItem> = TWO + item(3, "Practice guitar with my band", 7)
 
-    /** Mockup 1: Exercise, 4 days a week. */
-    val FILLED = WeeklyGoalDraft("Exercise", 4)
+    /** Mockup 1: Exercise, 30 min, 4 days a week. */
+    val FILLED = WeeklyGoalDraft().pick("Exercise").withDays(4)
+
+    /** A name that is no quick pick, so the unit chips show too. */
     val SEVEN = WeeklyGoalDraft("Tidy room", 7)
     val SPRIG = SetupSprig(SprigForm.BLOOM)
 }
@@ -138,6 +141,28 @@ class WeeklyGoalsShots(private val rule: ComposeContentTestRule, private val pre
                 }
                 rule.onNodeWithTag("goal_custom").performScrollTo()
                 assertInWidth(at, "goal_custom")
+                // How much (story #205): with an activity, the stepper and, for a custom name, the
+                // unit chips lie inside the width, and the label does not split.
+                if (name != "setup") {
+                    rule.onNodeWithTag("goal_amount_row").performScrollTo()
+                    rule.waitForIdle()
+                    assertInWidth(at, "goal_amount_row")
+                    assertInWidth(at, "goal_less")
+                    assertInWidth(at, "goal_more")
+                    assertNoWordSplit(rule, "goal_how_much", at)
+                    assertNoWordSplit(rule, "goal_amount", at)
+                    val less = bounds("goal_less")
+                    val amount = bounds("goal_amount")
+                    val more = bounds("goal_more")
+                    assertTrue("$at: the stepper's parts overlap", less.right <= amount.left + 0.5f && amount.right <= more.left + 0.5f)
+                    if (name == "setup_seven") {
+                        rule.onNodeWithTag("goal_units").performScrollTo()
+                        rule.waitForIdle()
+                        for (u in listOf("min", "pages", "times", "glasses")) assertInWidth(at, "goal_unit_$u")
+                    }
+                } else {
+                    rule.onNodeWithTag("goal_amount_row").assertDoesNotExist()
+                }
                 rule.onNodeWithTag("goal_days").performScrollTo()
                 rule.waitForIdle()
                 assertNoWordSplit(rule, "goal_days_label", at)

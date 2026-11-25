@@ -17,6 +17,9 @@ object WeeklyLockCopy {
     /** The detail on a weekly session's row in the habits list, when habits hold the lock too. */
     const val ROW_DETAIL = "This week"
 
+    /** [ROW_DETAIL] with the goal's target beside it: "This week · 30 min"; as before with none (story #205). */
+    fun rowDetail(target: String?): String = if (target == null) ROW_DETAIL else "$ROW_DETAIL · $target"
+
     const val LEGEND_DONE = "Done"
     const val LEGEND_SKIPPED = "Skipped"
     const val LEGEND_TODAY = "Today"
@@ -67,6 +70,8 @@ data class WeeklyLockScreen(
     val days: List<WeeklyCardDay>,
     /** The today row's title: the activity as the person wrote it. */
     val activity: String,
+    /** The today row's detail: "Today · 30 min", or "Today" for a goal with no target. */
+    val todayDetail: String,
     /** "Skip today and tomorrow locks too.", or null on the one day it would be untrue. */
     val hint: String?,
     val button: String,
@@ -74,14 +79,16 @@ data class WeeklyLockScreen(
     companion object {
         /**
          * [daysPerWeek] is the goal's full target, which decides the hint on a Saturday: tomorrow
-         * is a new week, and only a 7-day goal locks on its Sunday.
+         * is a new week, and only a 7-day goal locks on its Sunday. [goalTarget] is the goal's
+         * target as [WeeklyGoalCopy.target] reads it, or null.
          */
-        fun of(activity: String, week: WeeklyGoalRules.Week, daysPerWeek: Int): WeeklyLockScreen = WeeklyLockScreen(
+        fun of(activity: String, week: WeeklyGoalRules.Week, daysPerWeek: Int, goalTarget: String? = null): WeeklyLockScreen = WeeklyLockScreen(
             headline = WeeklyLockCopy.headline(week.remaining, week.needed),
             line = WeeklyLockCopy.line(activity, week.done, week.target, week.canStillHitTarget),
             summary = WeeklyLockCopy.summary(activity, week.done, week.target),
             days = week.days.map(WeeklyCardDay::of),
             activity = activity,
+            todayDetail = WeeklyCardCopy.todayRow(goalTarget),
             hint = WeeklyLockCopy.HINT.takeIf { week.remaining > 1 || daysPerWeek >= WeeklyGoalRules.MAX_DAYS },
             button = WeeklyLockCopy.markDone(activity),
         )

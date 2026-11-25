@@ -24,8 +24,23 @@ object WeeklyGoalCopy {
     fun count(n: Int): String =
         if (WeeklyGoalRules.canAdd(n)) "$n${NBSP}of${NBSP}${WeeklyGoalRules.MAX_GOALS}${NBSP}weekly${NBSP}goals" else LIMIT_REACHED
 
-    /** A row of the list: "Exercise · 4 days a week". The days part never wraps. */
-    fun listRow(title: String, days: Int): String = "$title · ${days(days)}"
+    /**
+     * A row of the list: "Exercise · 30 min · 4 days a week", or "Exercise · 4 days a week" for a
+     * goal with no [target] (one set before targets, story #205). The days part never wraps.
+     */
+    fun listRow(title: String, target: String?, days: Int): String =
+        if (target == null) "$title · ${days(days)}" else "$title · $target · ${days(days)}"
+
+    /**
+     * A goal's target as it reads beside its cadence: "30 min", "10 pages", "1 time", "3 times";
+     * null for a goal with none. As [HabitDraft.amount], except one time is "1 time", never
+     * "Once a day", which would contradict "4 days a week". Never wraps.
+     */
+    fun target(value: Int?, unit: String?): String? = when {
+        value == null || unit == null -> null
+        value == 1 && unit == HabitDraft.TIMES -> "1${NBSP}time"
+        else -> HabitDraft.amount(value, unit)
+    }
 
     // Setup
     const val TITLE = "Weekly goal"
@@ -44,22 +59,38 @@ object WeeklyGoalCopy {
     /** Beside "How many days a week?": "4 of 7". */
     fun daysCount(n: Int): String = "$n${NBSP}of${NBSP}${WeeklyGoalRules.MAX_DAYS}"
 
-    /** The summary card's title: "Exercise, 4 days a week"; the days alone until there is an activity. */
-    fun summary(name: String, days: Int): String = if (name.isEmpty()) days(days) else "$name, ${days(days)}"
+    /**
+     * The summary card's title: "Exercise, 30 min, 4 days a week", "Exercise, 4 days a week" with
+     * no [target]; the days alone until there is an activity.
+     */
+    fun summary(name: String, target: String?, days: Int): String = when {
+        name.isEmpty() -> days(days)
+        target == null -> "$name, ${days(days)}"
+        else -> "$name, $target, ${days(days)}"
+    }
 
     // Delete
     const val DELETE = "Delete goal"
     const val DELETE_TITLE = "Delete this weekly goal?"
 
     /** The confirm's line: what goes away. */
-    fun deleteBody(name: String, days: Int): String = "${summary(name, days)} will be removed from your weekly goals."
+    fun deleteBody(name: String, days: Int): String = "${summary(name, null, days)} will be removed from your weekly goals."
 }
 
 /**
- * What the weekly goal setup screen holds while the person fills it in: an activity and how many
- * days a week. Every change returns a new draft, so the rules are tested here, not in the screen.
+ * What the weekly goal setup screen holds while the person fills it in: an activity, how much
+ * each session is (a [target] in a [unit], as a habit's; story #205) and how many days a week.
+ * Every change returns a new draft, so the rules are tested here, not in the screen.
+ *
+ * A draft always has a target, so a goal saved from it always gets one; only goals set before
+ * targets have none ([of]). The amount and its steps are [HabitDraft]'s.
  */
-data class WeeklyGoalDraft(val title: String = "", val days: Int = WeeklyGoalRules.DEFAULT_DAYS) {
+data class WeeklyGoalDraft(
+    val title: String = "",
+    val days: Int = WeeklyGoalRules.DEFAULT_DAYS,
+    val target: Int = HabitDraft.UNIT_START.getValue(HabitDraft.MIN),
+    val unit: String = HabitDraft.MIN,
+) {
     /** The activity as it will be saved: trimmed, at most [HabitDraft.MAX_TITLE] characters. */
     val name: String get() = title.trim()
 
@@ -69,8 +100,29 @@ data class WeeklyGoalDraft(val title: String = "", val days: Int = WeeklyGoalRul
     /** The field stops at [HabitDraft.MAX_TITLE] characters, typed or pasted. */
     fun withTitle(t: String): WeeklyGoalDraft = copy(title = t.take(HabitDraft.MAX_TITLE))
 
-    /** A quick pick fills the activity. */
-    fun pick(activity: String): WeeklyGoalDraft = withTitle(activity)
+    /** A quick pick fills the activity, and the target too when it is a habit quick pick (Exercise 30 min). */
+    fun pick(activity: String): WeeklyGoalDraft {
+        val preset = HabitDraft.PRESETS.firstOrNull { it.title == activity }
+        val named = withTitle(activity)
+        return if (preset == null) named else named.copy(target = preset.target, unit = preset.unit)
+    }
+
+    /** The unit chips show for an activity that is not a habit quick pick, as on Add a habit. */
+    val showsUnits: Boolean get() = name.isNotEmpty() && HabitDraft.PRESETS.none { it.title == name }
+
+    /** What the stepper reads: "30 min", "1 time". */
+    val amount: String get() = WeeklyGoalCopy.target(target, unit)!!
+
+    /** The stepper's step: 5 for minutes, 1 for everything else. */
+    val step: Int get() = HabitDraft.step(unit)
+    val canLess: Boolean get() = target > step
+    val canMore: Boolean get() = target + step <= HabitDraft.MAX_TARGET
+
+    fun less(): WeeklyGoalDraft = copy(target = maxOf(step, target - step))
+    fun more(): WeeklyGoalDraft = if (canMore) copy(target = target + step) else this
+
+    /** A unit chip sets the unit and its start value (min 20, pages 10, times 1, glasses 8). */
+    fun withUnit(u: String): WeeklyGoalDraft = copy(unit = u, target = HabitDraft.UNIT_START[u] ?: target)
 
     /** A day chip; anything outside 1 to 7 is pulled back in. */
     fun withDays(n: Int): WeeklyGoalDraft = copy(days = n.coerceIn(WeeklyGoalRules.MIN_DAYS, WeeklyGoalRules.MAX_DAYS))
@@ -82,7 +134,7 @@ data class WeeklyGoalDraft(val title: String = "", val days: Int = WeeklyGoalRul
     val showsSevenHint: Boolean get() = days == WeeklyGoalRules.MAX_DAYS
 
     val daysCount: String get() = WeeklyGoalCopy.daysCount(days)
-    val summary: String get() = WeeklyGoalCopy.summary(name, days)
+    val summary: String get() = WeeklyGoalCopy.summary(name, amount, days)
 
     /** The icon the goal will get ([HabitIconRules]). */
     val iconKey: String get() = HabitIconRules.forName(name)
@@ -92,6 +144,15 @@ data class WeeklyGoalDraft(val title: String = "", val days: Int = WeeklyGoalRul
         val QUICK_PICKS = listOf("Exercise", "Read", "Practice", "Study", "Tidy room")
 
         val DAY_CHOICES: List<Int> = (WeeklyGoalRules.MIN_DAYS..WeeklyGoalRules.MAX_DAYS).toList()
+
+        /**
+         * The draft for a saved goal. One with no target (set before targets) starts at the
+         * default for its name, its habit quick pick's or 20 min, and saving writes it: that is
+         * how editing adds one.
+         */
+        fun of(title: String, days: Int, target: Int?, unit: String?): WeeklyGoalDraft =
+            if (target == null || unit == null) WeeklyGoalDraft(days = days).pick(title)
+            else WeeklyGoalDraft(title, days, target.coerceIn(1, HabitDraft.MAX_TARGET), unit)
     }
 }
 

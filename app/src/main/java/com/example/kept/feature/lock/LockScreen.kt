@@ -58,6 +58,7 @@ import com.example.kept.core.domain.HomeSprig
 import com.example.kept.core.domain.LockCopy
 import com.example.kept.core.domain.LockSprig
 import com.example.kept.core.domain.ProofType
+import com.example.kept.core.domain.WeeklyGoalCopy
 import com.example.kept.core.domain.WeeklyLockCopy
 import com.example.kept.core.ui.DaybreakColors
 import com.example.kept.core.ui.DaybreakHabitRow
@@ -263,7 +264,7 @@ private fun HabitsPage(today: TodaySummary, weekly: List<WeeklyGoalWeek>, open: 
                     weekly.forEach { g ->
                         DaybreakHabitRow(
                             title = g.goal.title,
-                            detail = WeeklyLockCopy.ROW_DETAIL,
+                            detail = WeeklyLockCopy.rowDetail(WeeklyGoalCopy.target(g.goal.targetValue, g.goal.unit)),
                             state = if (g.week.doneToday) HabitRowState.Done else HabitRowState.ToDo,
                             onTick = { actions.onWeeklyLog(g.id) },
                             onUndo = { actions.onWeeklyUndo(g.id) },

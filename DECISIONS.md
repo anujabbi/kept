@@ -1681,3 +1681,26 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
   - *Opening is now asynchronous.* The recap opens once the edit returns, a few milliseconds
     after Home shows, rather than in the same frame. If the activity is recreated inside that
     window the recap for that day is not shown; History still has the day.
+- **A weekly goal keeps a target (task #206, story #205).** `weekly_goals` gains nullable
+  `targetValue` and `unit` (schema 8 -> 9, `MIGRATION_8_9`). Planner's choices, from the plan on #205:
+  - *How a target is met.* As a MANUAL daily habit's: never counted up, one tap logs the session
+    (`WeeklyGoalRepository.logToday`), and it counts one of the week's days. `WeeklyGoalRules`
+    and `weekly_goal_entries` do not change. Weekly goals have no proof type, so the setup screen
+    has no photo toggle and the target is always an amount and a unit.
+  - *Every goal saved from Settings has a target.* A habit quick pick fills it (Exercise 30 min,
+    Read 10 pages, Practice 20 min, Study 45 min); otherwise it starts at 20 min, as Add a habit
+    does. Only goals set before the upgrade have none. Opening one shows the default for its
+    name and saving writes it: that is how "editing can add one" works. A goal cannot be saved
+    from Settings with no target.
+  - *Where the target shows.* The card and lock titles keep their cadence ("Exercise · 1 of 4
+    this week", "Exercise · 0 of 4"); the target goes on the today row's detail ("Today · 30
+    min", and "This week · 30 min" on the habits face). The list row and the setup summary carry
+    it between the name and the days.
+  - *One time reads "1 time".* `WeeklyGoalCopy.target` is `HabitDraft.amount` except one time,
+    which a habit reads "Once a day"; beside "4 days a week" that would contradict the cadence.
+  - *Not in the issue.* The stepper shows once the activity has text, as the target goes with
+    the activity; with an empty field the page is as before. The unit chips show only for a name
+    that is not a habit quick pick (`HabitDraft.showsUnits`), so "Tidy room", a weekly quick pick
+    but no habit preset, gets them. The delete confirm still names the goal by its name and days.
+  - *Shared, not copied.* `AmountRow` and the unit chips moved out of Add a habit as internal
+    composables with a test-tag prefix; Add a habit's tags are unchanged.

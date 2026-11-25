@@ -141,6 +141,38 @@ class WeeklyGoalRepositoryTest {
         assertFalse(goals.updateGoal(id + 99, "Read", 2))
     }
 
+    // --- the target (story #205, task #206) ----------------------------------------------------
+
+    @Test fun add_and_update_store_the_target_and_a_goal_can_have_none() = runBlocking {
+        val id = goals.addGoal("Exercise", 4, 30, "min")!!
+        assertEquals(30 to "min", db.weeklyGoalDao().byId(id)!!.let { it.targetValue to it.unit })
+        assertTrue(goals.updateGoal(id, "Exercise", 4, 45, "min"))
+        assertEquals(45 to "min", db.weeklyGoalDao().byId(id)!!.let { it.targetValue to it.unit })
+        val bare = goals.addGoal("Tidy room", 2)!!
+        assertEquals("no target", null to null, db.weeklyGoalDao().byId(bare)!!.let { it.targetValue to it.unit })
+        assertTrue("editing can add one", goals.updateGoal(bare, "Tidy room", 2, 1, "times"))
+        assertEquals(1 to "times", db.weeklyGoalDao().byId(bare)!!.let { it.targetValue to it.unit })
+        // A target changes nothing about the week: one tap logs one session.
+        assertTrue(goals.logToday(id))
+        assertEquals(1, week(id).done)
+    }
+
+    @Test fun an_invalid_target_is_rejected() {
+        for ((v, u) in listOf(0 to "min", 1000 to "min", 30 to " ", 30 to null, null to "min")) {
+            assertThrows("$v $u", IllegalArgumentException::class.java) { runBlocking { goals.addGoal("Exercise", 4, v, u) } }
+        }
+        val id = runBlocking { goals.addGoal("Exercise", 4, 999, "pages")!! }
+        assertThrows(IllegalArgumentException::class.java) { runBlocking { goals.updateGoal(id, "Exercise", 4, 0, "min") } }
+        assertEquals(999, runBlocking { db.weeklyGoalDao().byId(id)!!.targetValue })
+    }
+
+    @Test fun updating_a_removed_goal_with_a_target_still_does_nothing() = runBlocking {
+        val id = goals.addGoal("Exercise", 4, 30, "min")!!
+        goals.removeGoal(id)
+        assertFalse(goals.updateGoal(id, "Exercise", 4, 45, "min"))
+        assertEquals(30, db.weeklyGoalDao().byId(id)!!.targetValue)
+    }
+
     // --- an edit racing a remove (review on #177, closed in #173) --------------------------------
 
     /**

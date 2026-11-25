@@ -22,8 +22,8 @@ class WeeklyLockCopyTest {
     private fun week(target: Int, today: LocalDate, vararg done: LocalDate, from: LocalDate = longAgo) =
         WeeklyGoalRules.week(WeeklyGoalRules.Goal(target, from), done.toSet(), today)
 
-    private fun screen(target: Int, today: LocalDate, vararg done: LocalDate, activity: String = "Exercise") =
-        WeeklyLockScreen.of(activity, week(target, today, *done), target)
+    private fun screen(target: Int, today: LocalDate, vararg done: LocalDate, activity: String = "Exercise", goalTarget: String? = null) =
+        WeeklyLockScreen.of(activity, week(target, today, *done), target, goalTarget)
 
     /** The count's no-break spaces read as spaces. */
     private fun String.plain(): String = replace(WeeklyLockCopy.NBSP, ' ')
@@ -99,6 +99,14 @@ class WeeklyLockCopyTest {
         assertEquals("3 days left, 3 to go.", s.headline)
         assertEquals("Exercise · 0 of 3", s.summary.plain())
         assertEquals(listOf("NOT_COUNTED", "NOT_COUNTED", "NOT_COUNTED", "NOT_COUNTED", "TODAY"), s.days.take(5).map { it.state.name })
+    }
+
+    @Test fun `the today row and the habits face's weekly row carry the target, and read as before without one`() {
+        assertEquals("Today · 30 min", screen(4, wednesday, goalTarget = "30${WeeklyLockCopy.NBSP}min").todayDetail.plain())
+        assertEquals("Today", screen(4, wednesday).todayDetail)
+        assertEquals("the summary keeps its cadence", "Exercise · 0 of 4", screen(4, wednesday, goalTarget = "30 min").summary.plain())
+        assertEquals("This week · 30 min", WeeklyLockCopy.rowDetail("30${WeeklyLockCopy.NBSP}min").plain())
+        assertEquals("This week", WeeklyLockCopy.rowDetail(null))
     }
 
     @Test fun `an activity reads as part of the sentence`() {

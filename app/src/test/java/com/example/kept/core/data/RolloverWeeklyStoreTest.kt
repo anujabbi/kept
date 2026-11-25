@@ -267,7 +267,7 @@ class RolloverWeeklyStoreTest {
         read("2026-11-25")
         goTo("2026-11-25", "21:10")
         db.weeklyGoalDao().deactivate(gone)
-        assertEquals(1, db.weeklyGoalDao().updateActive(lowered, "Read Dune", "book", 2))
+        assertEquals(1, db.weeklyGoalDao().updateActive(lowered, "Read Dune", "book", 2, null, null))
 
         rollOn("2026-11-26")
 

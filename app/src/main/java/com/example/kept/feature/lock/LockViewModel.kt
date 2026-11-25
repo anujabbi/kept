@@ -21,6 +21,7 @@ import com.example.kept.core.domain.LockMode
 import com.example.kept.core.domain.LockPolicy
 import com.example.kept.core.domain.LockReason
 import com.example.kept.core.domain.LockScreenKind
+import com.example.kept.core.domain.WeeklyGoalCopy
 import com.example.kept.core.domain.WeeklyLockScreen
 import com.example.kept.core.domain.NightWindow
 import com.example.kept.core.domain.MomentRules
@@ -81,7 +82,7 @@ data class LockUi(
     val weeklyGoal: WeeklyGoalWeek? get() = weeklyMustDo.firstOrNull()?.takeIf { kind == LockScreenKind.WEEKLY }
 
     /** What the weekly variant shows, or null on the other faces. */
-    val weekly: WeeklyLockScreen? get() = weeklyGoal?.let { WeeklyLockScreen.of(it.goal.title, it.week, it.goal.daysPerWeek) }
+    val weekly: WeeklyLockScreen? get() = weeklyGoal?.let { WeeklyLockScreen.of(it.goal.title, it.week, it.goal.daysPerWeek, WeeklyGoalCopy.target(it.goal.targetValue, it.goal.unit)) }
 
     /**
      * The "This week" rows of the habits list: every goal whose today is a must-do day, logged
