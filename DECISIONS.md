@@ -1712,7 +1712,7 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     a week becomes a weekly goal logged with one tap and with no target: "Tidy room, 2 days a
     week". Its sheet summary reads the same.
   - *Writes.* Continue on step 1 writes every-day habits only (`dailyHabitRows`); the weekly goals
-    are written once, on "Start today" (`addOnboardingGoals`), counting from that day. The camera
+    are written on "Start today" (`WeeklyGoalRepository.replaceAll`), counting from that day. The camera
     step still asks whenever any ticked habit is a photo habit, weekly or not.
     `onboarding_completed`'s `habit_count` keeps counting every ticked row; no new analytics.
   - *Same data as Settings.* A weekly goal from onboarding takes its icon from its name
@@ -1723,6 +1723,13 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     (`WeeklyGoalRules.DEFAULT_DAYS`). Dismissing the sheet without Done keeps the cadence it opened
     with. The chip sits under the habit's detail line, so a ticked row grows to fit its 48dp touch
     target.
+  - *"Start today" replaces the weekly goals, it does not add them (review on #210).* If the
+    process dies after the goals are written but before onboarding is marked done, onboarding
+    runs again on the next launch; appending would add Exercise twice and, at three goals, drop
+    the rest at `MAX_GOALS`. `WeeklyGoalRepository.replaceAll` deactivates the active goals and
+    inserts the new ones in one Room transaction under the add lock, the same way
+    `HabitRepository.replaceAll` already treats daily habits. Replaced goals keep their rows and
+    sessions, as a removed goal's do.
   - *`WeeklyGoalRepository.updateGoal` has no target defaults.* The #206 review noted a caller
     passing only title and days would quietly erase the target; `targetValue` and `unit` are now
     required (null, null still means no target), and every caller says which it means.

@@ -260,7 +260,7 @@ class OnboardingViewModel @Inject constructor(
      * Persists the every-day habits and the first-use date when leaving step 1 so the
      * exceptions/permission steps can already use them. Weekly goals, the shutdown time and the
      * lock window are written on "Start today" (the window only if it was moved): see
-     * [addOnboardingGoals], [onboardingShutdown] and [onboardingLockWindow].
+     * [weeklyGoalPlans], [onboardingShutdown] and [onboardingLockWindow].
      */
     fun persistDraft() = viewModelScope.launch {
         val s = _state.value
@@ -272,7 +272,9 @@ class OnboardingViewModel @Inject constructor(
         _state.update { it.copy(saving = true) }
         persistDraft().join()
         val s = _state.value
-        weeklyGoals.addOnboardingGoals(s.weeklyGoalPlans)
+        // Replaces rather than adds: a "Start today" retried after the process died between this
+        // and onboardingFinished must not add the goals twice (review on #210).
+        weeklyGoals.replaceAll(s.weeklyGoalPlans)
         prefs.updateSettings {
             it.onboardingShutdown(s.shutdownMinute).onboardingLockWindow(s.window.takeIf { s.windowTouched }).onboardingFinished(time.today())
         }

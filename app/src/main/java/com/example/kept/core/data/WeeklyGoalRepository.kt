@@ -32,6 +32,9 @@ data class WeeklyGoalWeek(val goal: WeeklyGoalEntity, val week: WeeklyGoalRules.
  */
 fun List<WeeklyGoalWeek>.mustDoLoggedAt(): List<Long?> = filter { it.week.todayCounts }.map { it.loggedTodayAt }
 
+/** A weekly goal to add: its activity, days a week and target ([targetValue] and [unit] both null for none). */
+data class WeeklyGoalSpec(val title: String, val daysPerWeek: Int, val targetValue: Int?, val unit: String?)
+
 /**
  * Weekly goals (issue #165): "X days a week", at most one session a day. The week's progress is
  * never stored; every read counts `weekly_goal_entries` for the Sunday-to-Saturday week that
@@ -99,6 +102,26 @@ class WeeklyGoalRepository @Inject constructor(
                 )
             }
         }
+    }
+
+    /**
+     * Replaces the active goals with [goals], each counting from today, in one transaction
+     * (onboarding's "Start today", #207). Running it again leaves the same set, so a "Start
+     * today" retried after the process died cannot add a goal twice or run into
+     * [WeeklyGoalRules.MAX_GOALS]. Removed goals keep their rows and sessions, as [removeGoal]'s do.
+     */
+    suspend fun replaceAll(goals: List<WeeklyGoalSpec>) {
+        require(goals.size <= WeeklyGoalRules.MAX_GOALS) { "at most ${WeeklyGoalRules.MAX_GOALS} weekly goals" }
+        val rows = goals.mapIndexed { i, g ->
+            val name = checked(g.title, g.daysPerWeek)
+            checkedTarget(g.targetValue, g.unit)
+            WeeklyGoalEntity(
+                title = name, iconKey = HabitIconRules.forName(name), daysPerWeek = g.daysPerWeek,
+                createdAt = time.nowMillis(), effectiveFrom = time.todayKey(), sortOrder = i,
+                targetValue = g.targetValue, unit = g.unit,
+            )
+        }
+        addLock.withLock { goalDao.replaceActive(rows) }
     }
 
     /**

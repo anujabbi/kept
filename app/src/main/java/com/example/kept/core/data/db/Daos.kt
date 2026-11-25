@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
@@ -152,6 +153,14 @@ interface WeeklyGoalDao {
 
     @Insert suspend fun insert(goal: WeeklyGoalEntity): Long
     @Query("UPDATE weekly_goals SET isActive = 0 WHERE id = :id") suspend fun deactivate(id: Long)
+    @Query("UPDATE weekly_goals SET isActive = 0 WHERE isActive = 1") suspend fun deactivateAll()
+
+    /** Removes every active goal and adds [goals] in one transaction: all of it lands, or none. */
+    @Transaction
+    suspend fun replaceActive(goals: List<WeeklyGoalEntity>) {
+        deactivateAll()
+        goals.forEach { insert(it) }
+    }
 
     /**
      * Changes an active goal in one statement and returns the rows changed: 1, or 0 when the goal
