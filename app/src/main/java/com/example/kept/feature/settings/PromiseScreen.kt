@@ -5,7 +5,7 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -29,7 +31,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -55,7 +56,9 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInParent
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
@@ -155,11 +158,15 @@ fun PromisePage(
         }
     }
 
-    // Where the sentence ends inside the middle box, so an open list hangs under it.
+    // Where the sentence ends on the page, so an open list hangs under it.
     var sentenceBottom by remember { mutableFloatStateOf(0f) }
     val density = LocalDensity.current
 
-    Box(modifier.fillMaxSize().background(D.cream).imePadding().testTag("promise_page")) {
+    // The page's own coordinates, so an open list hangs under the sentence as drawn (padding and
+    // scroll included), and may reach down over Done, as the mockup's days list does.
+    var page by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    BoxWithConstraints(modifier.fillMaxSize().background(D.cream).imePadding().onGloballyPositioned { page = it }.testTag("promise_page")) {
+        val pageHeight = maxHeight
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
             Row(
                 Modifier.fillMaxWidth().padding(start = 24.dp, end = 12.dp, top = 12.dp),
@@ -184,7 +191,10 @@ fun PromisePage(
                         draft, open, typing,
                         onOpen = { b -> if (!cheering) open = if (open == b) null else b },
                         onType = { draft = draft.withActivity(it) },
-                        modifier = Modifier.onGloballyPositioned { sentenceBottom = it.boundsInParent().bottom },
+                        modifier = Modifier.onGloballyPositioned { c ->
+                            val b = page
+                            sentenceBottom = if (b != null && b.isAttached) b.localBoundingBoxOf(c).bottom else c.boundsInParent().bottom
+                        },
                     )
                     val line = draft.line
                     if (line != null) {
@@ -194,18 +204,6 @@ fun PromisePage(
                             style = DaybreakType.bodySmall, fontWeight = FontWeight.SemiBold, color = D.muted, textAlign = TextAlign.Center,
                         )
                     }
-                }
-                val list = open
-                if (list != null) {
-                    // A tap outside the list closes it, as a dropdown does.
-                    Box(Modifier.fillMaxSize().clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { open = null })
-                    val top = with(density) { (sentenceBottom).toDp() } + 4.dp
-                    OptionsList(
-                        list, draft, limits,
-                        onPick = { d -> if (d.custom && list == PromiseBlank.ACTIVITY) typing = true; draft = d; open = null },
-                        modifier = Modifier.padding(horizontal = 24.dp).offset(y = top.coerceAtMost(maxHeight - 120.dp))
-                            .heightIn(max = (maxHeight - top - 12.dp).coerceAtLeast(120.dp)),
-                    )
                 }
             }
             Column(
@@ -233,6 +231,20 @@ fun PromisePage(
                     }
                 }
             }
+        }
+        val list = open
+        if (list != null) {
+            // A tap outside the list closes it, as a dropdown does. Not in the semantics tree:
+            // TalkBack closes the list with Back or by picking.
+            Box(Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures { open = null } })
+            val top = with(density) { sentenceBottom.toDp() } + 4.dp
+            val bottomInset = with(density) { WindowInsets.navigationBars.getBottom(this).toDp() }
+            OptionsList(
+                list, draft, limits,
+                onPick = { d -> if (d.custom && list == PromiseBlank.ACTIVITY) typing = true; draft = d; open = null },
+                modifier = Modifier.padding(horizontal = 24.dp).offset(y = top.coerceAtMost(pageHeight - 160.dp))
+                    .heightIn(max = (pageHeight - top - bottomInset - 16.dp).coerceAtLeast(144.dp)),
+            )
         }
         if (cheering) CheeringSprig(form, Modifier.align(Alignment.BottomCenter))
     }
@@ -345,33 +357,31 @@ private fun ActivityField(draft: PromiseDraft, open: Boolean, onType: (String) -
 @Composable
 private fun OptionsList(blank: PromiseBlank, draft: PromiseDraft, limits: PromiseLimits, onPick: (PromiseDraft) -> Unit, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(22.dp)
-    Column(
-        modifier.fillMaxWidth().clip(shape).background(D.white).border(2.dp, D.purpleDone, shape)
-            .verticalScroll(rememberScrollState()).padding(8.dp)
-            .selectableGroup().testTag("promise_list_${blank.name.lowercase()}"),
-    ) {
-        when (blank) {
-            PromiseBlank.ACTIVITY -> {
-                PromiseRules.PRESETS.forEach { p -> Option(p.title, draft.preset == p, true, "promise_option_${p.title}") { onPick(draft.pick(p)) } }
-                Option(PromiseCopy.SOMETHING_ELSE, draft.custom, true, "promise_option_something_else", hint = PromiseCopy.TYPE_YOUR_OWN, accent = true) {
-                    onPick(if (draft.custom) draft else draft.somethingElse())
+    // The options scroll when the list is taller than the room under the sentence; the limit line
+    // stays in view under them.
+    Column(modifier.fillMaxWidth().clip(shape).background(D.white).border(2.dp, D.purpleDone, shape).testTag("promise_list_${blank.name.lowercase()}")) {
+        Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(8.dp).selectableGroup()) {
+            when (blank) {
+                PromiseBlank.ACTIVITY -> {
+                    PromiseRules.PRESETS.forEach { p -> Option(p.title, draft.preset == p, true, "promise_option_${p.title}") { onPick(draft.pick(p)) } }
+                    Option(PromiseCopy.SOMETHING_ELSE, draft.custom, true, "promise_option_something_else", hint = PromiseCopy.TYPE_YOUR_OWN, accent = true) {
+                        onPick(if (draft.custom) draft else draft.somethingElse())
+                    }
                 }
-            }
-            PromiseBlank.AMOUNT -> draft.amounts.forEach { n -> Option(n.toString(), n == draft.target, true, "promise_option_$n") { onPick(draft.withTarget(n)) } }
-            PromiseBlank.UNIT -> PromiseRules.UNITS.forEach { u -> Option(PromiseCopy.unitOption(u), u == draft.unit, true, "promise_option_$u") { onPick(draft.withUnit(u)) } }
-            PromiseBlank.DAYS -> {
-                draft.dayChoices.forEach { d ->
+                PromiseBlank.AMOUNT -> draft.amounts.forEach { n -> Option(n.toString(), n == draft.target, true, "promise_option_$n") { onPick(draft.withTarget(n)) } }
+                PromiseBlank.UNIT -> PromiseRules.UNITS.forEach { u -> Option(PromiseCopy.unitOption(u), u == draft.unit, true, "promise_option_$u") { onPick(draft.withUnit(u)) } }
+                PromiseBlank.DAYS -> draft.dayChoices.forEach { d ->
                     Option(PromiseCopy.daysOption(d), d == draft.days, limits.allows(d), "promise_option_days_${d ?: 0}") { onPick(draft.withDays(d)) }
                 }
-                if (limits.line != null) {
-                    Box(Modifier.padding(horizontal = 12.dp, vertical = 6.dp).fillMaxWidth().height1().background(D.line))
-                    Text(
-                        limits.line,
-                        Modifier.padding(horizontal = 14.dp, vertical = 6.dp).semantics { liveRegion = LiveRegionMode.Polite }.testTag("promise_limit"),
-                        style = DaybreakType.caption, fontWeight = FontWeight.SemiBold, color = D.muted,
-                    )
-                }
             }
+        }
+        if (blank == PromiseBlank.DAYS && limits.line != null) {
+            Box(Modifier.padding(horizontal = 20.dp).fillMaxWidth().height1().background(D.line))
+            Text(
+                limits.line,
+                Modifier.padding(start = 22.dp, end = 22.dp, top = 8.dp, bottom = 14.dp).semantics { liveRegion = LiveRegionMode.Polite }.testTag("promise_limit"),
+                style = DaybreakType.caption, fontWeight = FontWeight.SemiBold, color = D.muted,
+            )
         }
     }
 }

@@ -7,7 +7,11 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.text.TextLayoutResult
 import com.example.kept.core.data.HabitToday
 import com.example.kept.core.data.TodaySummary
 import com.example.kept.core.data.db.HabitEntity
@@ -58,9 +62,12 @@ class HomeRoomTest {
 
     @Test fun after_onboarding_the_banner_both_habits_and_the_whole_weekly_card_show_without_scrolling() {
         show(afterOnboarding())
-        val tabBar = rule.onRoot().fetchSemanticsNode().size.height / d - TAB_BAR_DP
+        // Robolectric draws no system bars; the kept_api35 emulator (412 x 915dp) has a 49dp status
+        // bar, which pushes the page down, and a 24dp navigation bar under the tab bar.
+        val tabBar = rule.onRoot().fetchSemanticsNode().size.height / d - TAB_BAR_DP - NAV_BAR_DP
         for (tag in listOf("home_first_landing", "home_habit_1", "home_habit_2", "home_weekly_card_1")) {
-            assertTrue("$tag ends at ${bottom(tag)}dp, under the tab bar at ${tabBar}dp", bottom(tag) <= tabBar)
+            val end = bottom(tag) + STATUS_BAR_DP
+            assertTrue("$tag ends at ${end}dp, under the tab bar at ${tabBar}dp", end <= tabBar)
         }
         // The sky is compact: the crest sits about 156dp down, not 396.
         assertTrue("crest at ${top("home_crest")}", top("home_crest") in 150f..170f)
@@ -88,6 +95,16 @@ class HomeRoomTest {
         rule.onNodeWithTag("home_habit_list").assertDoesNotExist()
     }
 
+    @Test fun at_font_2_the_weekly_today_row_keeps_its_title_whole() {
+        val current = mutableStateOf(afterOnboarding())
+        rule.setContent { Shot(2f) { HomeFrame(current.value) } }
+        rule.onNodeWithTag("home_weekly_today_1").performScrollTo()
+        val title = rule.onNode(hasText("Exercise") and hasAnyAncestor(hasTestTag("home_weekly_today_1")), useUnmergedTree = true).fetchSemanticsNode()
+        val layouts = mutableListOf<TextLayoutResult>()
+        title.config[SemanticsActions.GetTextLayoutResult].action!!.invoke(layouts)
+        assertEquals("\"Exercise\" is split across lines beside \"Today · 30 min\"", 1, layouts.single().lineCount)
+    }
+
     @Test fun a_goal_set_mid_week_says_why_this_week_asks_for_fewer() {
         show(afterOnboarding())
         val line = rule.onNodeWithTag("home_weekly_first_week_1").fetchSemanticsNode().config[SemanticsProperties.Text].joinToString { it.text }
@@ -107,5 +124,9 @@ class HomeRoomTest {
     private companion object {
         /** `KeptTabBar`'s height. */
         const val TAB_BAR_DP = 74f
+
+        /** The emulator's system bars, which Robolectric does not draw. */
+        const val STATUS_BAR_DP = 49f
+        const val NAV_BAR_DP = 24f
     }
 }

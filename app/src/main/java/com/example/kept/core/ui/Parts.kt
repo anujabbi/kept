@@ -30,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
@@ -280,8 +281,39 @@ fun DaybreakHabitRow(
                 trailing()
             }
         } else {
-            titleText(Modifier.weight(1f))
-            trailing()
+            TitleBesideTrailing(Modifier.weight(1f), gap = 12.dp, title = { titleText(Modifier) }, trailing = trailing)
+        }
+    }
+}
+
+/**
+ * A compact row's title with its detail on the right, as `A18-Parts` draws it; when the title's
+ * longest word would not fit beside the detail (a large font, "Today · 30 min"), the detail goes
+ * under the title instead, so no word is split (#218).
+ */
+@Composable
+private fun TitleBesideTrailing(modifier: Modifier, gap: Dp, title: @Composable () -> Unit, trailing: @Composable () -> Unit) {
+    Layout(content = { title(); trailing() }, modifier = modifier) { measurables, c ->
+        val (t, d) = measurables
+        val gapPx = gap.roundToPx()
+        val detailW = d.maxIntrinsicWidth(c.maxHeight)
+        val side = t.minIntrinsicWidth(c.maxHeight) + gapPx + detailW <= c.maxWidth
+        if (side) {
+            val dp = d.measure(c.copy(minWidth = 0))
+            val tp = t.measure(c.copy(minWidth = 0, maxWidth = (c.maxWidth - dp.width - gapPx).coerceAtLeast(0)))
+            val h = maxOf(tp.height, dp.height, c.minHeight)
+            layout(c.maxWidth, h) {
+                tp.place(0, (h - tp.height) / 2)
+                dp.place(c.maxWidth - dp.width, (h - dp.height) / 2)
+            }
+        } else {
+            val tp = t.measure(c.copy(minWidth = 0))
+            val dp = d.measure(c.copy(minWidth = 0))
+            val h = maxOf(tp.height + dp.height, c.minHeight)
+            layout(c.maxWidth, h) {
+                tp.place(0, (h - tp.height - dp.height) / 2)
+                dp.place(0, (h - tp.height - dp.height) / 2 + tp.height)
+            }
         }
     }
 }

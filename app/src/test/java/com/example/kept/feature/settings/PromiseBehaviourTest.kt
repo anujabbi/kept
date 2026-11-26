@@ -12,7 +12,9 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onChildren
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
@@ -60,8 +62,7 @@ class PromiseBehaviourTest {
     /** The labels of [blank]'s list, top to bottom. */
     private fun options(blank: String): List<String> {
         openList(blank)
-        val rows = rule.onNodeWithTag("promise_list_$blank").onChildren().fetchSemanticsNodes()
-            .filter { it.config.contains(SemanticsProperties.Selected) }
+        val rows = rule.onAllNodes(hasAnyAncestor(hasTestTag("promise_list_$blank")) and SemanticsMatcher.keyIsDefined(SemanticsProperties.Selected)).fetchSemanticsNodes()
             .map { n -> n.config[SemanticsProperties.Text].first().text.replace(WeeklyGoalCopy.NBSP, ' ') }
         openList(blank)
         return rows

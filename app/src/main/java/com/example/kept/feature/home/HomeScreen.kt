@@ -193,9 +193,9 @@ internal fun HomeContent(s: HomeUiState, actions: HomeActions, modifier: Modifie
                 )
             },
         ) {
-            // The page starts 14dp above the sky's bottom edge, so the first row sits about 40dp
-            // under the crest, as on the roomy Home before #218.
-            HomePage(s, actions, shieldOpen, toggleShield, Modifier.liftBy(14.dp))
+            // The page starts 24dp above the sky's bottom edge, so the first row sits about 28dp
+            // under the crest, clear of the hill's curve at the sides.
+            HomePage(s, actions, shieldOpen, toggleShield, Modifier.liftBy(24.dp))
         }
         if (shieldOpen) {
             // Tapping anywhere, the button included, closes the card. Not in the semantics tree:
@@ -216,7 +216,7 @@ private fun Modifier.liftBy(lift: Dp): Modifier = layout { m, c ->
     layout(p.width, (p.height - px).coerceAtLeast(0)) { p.place(0, -px) }
 }
 
-private const val TEXT_TOP = 22
+private const val TEXT_TOP = 16
 
 @Composable
 private fun BoxScope.HomeSprigOnSky(s: HomeUiState, top: Dp, size: Dp) {
@@ -242,7 +242,7 @@ private fun HeadlineBlock(s: HomeUiState, ink: Color, textWidth: Dp, modifier: M
     val headStyle = fitLongestWord(headline, DaybreakType.headline.copy(fontSize = 38.sp, lineHeight = 38.sp), textWidth)
     Column(modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
         StreakPill(s.sprig.streakDays, ink)
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(6.dp))
         Column(Modifier.width(textWidth)) {
             Text(headline, Modifier.testTag("home_headline"), style = headStyle, color = ink)
             Spacer(Modifier.height(8.dp))
@@ -310,7 +310,7 @@ private fun HomePage(s: HomeUiState, actions: HomeActions, shieldOpen: Boolean, 
         if (s.today.total == 0) AddFirstHabitRow(actions.onOpenHabits, Modifier.testTag("home_add_first"))
         s.today.habits.forEach { HomeHabitRow(it, roomy, actions) }
         val hasGoals = s.weeklyGoals.isNotEmpty()
-        if (hasGoals) WeeklySection(s.weeklyGoals, actions, Modifier.padding(top = 14.dp), lockEndedToday = s.pastDue)
+        if (hasGoals) WeeklySection(s.weeklyGoals, actions, Modifier.padding(top = 8.dp), lockEndedToday = s.pastDue)
         Column(Modifier.padding(start = 4.dp, end = 4.dp, top = 14.dp, bottom = if (hasGoals) 20.dp else 0.dp).testTag("home_week")) {
             Week(s, shieldOpen, onToggleShield)
         }

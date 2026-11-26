@@ -271,6 +271,8 @@ class OnboardingBehaviourTest {
         rule.onNodeWithTag("promise_limit").assertTextEquals(WeeklyGoalCopy.LIMIT_REACHED)
         rule.onNodeWithTag("promise_option_days_2").performClick()
         assertEquals("I will tidy room, every day.", promiseText())
+        // The list covers Done, as in the mockup; a tap on its blank closes it.
+        rule.onNodeWithTag("promise_blank_days").performClick()
         done()
         rule.onNodeWithTag("onboarding_habit_count").assertTextEquals("2 daily habits · 3 weekly goals")
     }

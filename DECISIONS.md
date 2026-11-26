@@ -1800,3 +1800,17 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     there for the same 1.5 s. Cancel and Back close without saving; Back first closes an open list.
   - *"Your promise"* is in sentence case, not the mockup's capitals, as Daybreak never uses all
     caps. The mockups' drag handle is left out: the page is not a sheet and cannot be dragged.
+  - *Found on the emulator walk, fixed before the PR.*
+    - Home on `kept_api35` has a 49dp status bar and a 24dp navigation bar, which the Robolectric
+      test did not have, and the weekly card ended under the tab bar. The headline now starts 16dp
+      under the status bar (was 22), the pill has 6dp under it (was 10), the page is lifted 24dp
+      into the sky's bottom edge (was 14, so the first row sits about 28dp under the crest, clear
+      of the hill's curve), and "This week" has 8dp above it (was 14). `HomeRoomTest` now counts
+      the emulator's bars.
+    - A compact row's detail on the right ("Today · 30 min" on the weekly card's row) split the
+      title inside a word at font 2.0 ("Exerci / se"); this was on `main` since #206. When the
+      title's longest word does not fit beside the detail, the detail now goes under the title
+      (`DaybreakHabitRow`, compact only). Rows where it fitted are unchanged.
+    - An open list hangs under the sentence and may cover Done, as the mockup's days list does;
+      it scrolls when it is taller than the room, and the limit line stays in view under it. A tap
+      outside the list closes it; that catcher is not in the TalkBack tree.
