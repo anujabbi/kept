@@ -41,7 +41,7 @@ story needs more than one PR; each task is one PR.
 | Status      | Owned by | Picks up when                         | Produces                                          | Hands off to                          |
 |-------------|----------|---------------------------------------|---------------------------------------------------|---------------------------------------|
 | Backlog     | owner    | -                                     | An issue from the Feature, User story or Bug form | Ready, when the requirement is final  |
-| Ready       | planner  | Status=Ready                          | Sub-issues if the work splits, a plan comment     | In progress, Agent=dev                |
+| Ready       | planner  | Status=Ready                          | Sub-issues if the work splits, a plan comment; for UI, today/after mockups reviewed as a first-time user | In progress, Agent=dev                |
 | In progress | dev      | Status=In progress, Agent=dev         | A branch, tests, a PR with `Closes #N`            | In review, Agent=reviewer             |
 | In review   | reviewer | Status=In review                      | A PR review: approve, or request changes          | QA, Agent=qa (or back to In progress) |
 | QA          | qa       | Status=QA                             | Acceptance checks run on a build, a QA comment    | Ship, Agent=release (or back)         |
