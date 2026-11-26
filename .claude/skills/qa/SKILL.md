@@ -26,6 +26,20 @@ output is a checklist comment with evidence. A box you did not personally observ
    `adb exec-out screencap -p > ../kept-qa-<N>-<item>.png`. Then spend ten minutes on the
    edges the list implies: rotate, background and return, kill the app, the lock window
    boundary, and a day rollover if the change touches rules.
+6a. **Look as a first-time user.** The acceptance list says what was promised, not whether it
+   is pleasant to use. On the screen the flow ends on (usually Home), at 412 × 915dp and font
+   1.0, with the data the card's own walk created, ask three questions:
+   - Does what this card added show on the first screen, or does the user have to scroll
+     to find it?
+   - Can the user change everything the screen tells them about it? For example, a target
+     that is shown but has no control anywhere to edit it.
+   - Would a new user know what to do next, and does the copy read naturally?
+   Each "no" becomes its own Backlog card: `gh issue create --label usability --title "<what
+   a user runs into>"`. Give the steps to reproduce it and a screenshot, then run
+   `scripts/board.sh add <new N>`. These cards never block this card, and they are not only
+   a note in your comment. A note in a comment is lost; 6 of 10 were lost in the 4-week
+   window before 26 Nov 2026. List the new card numbers at the end of your comment. Also
+   file a card for any line under **For the owner** in the PR body, unless it already has one.
 
 ## Record and hand off
 
