@@ -43,6 +43,10 @@ and night lockdown add no permission, and both are enforced by the same foregrou
 lock screen. In the copy above, "lock window" now covers the night lockdown hours too, when the
 user has switched night lockdown on (it is off by default).
 
+**Checked for 2.2 (issue #247).** `git diff 00d9a59..62d4e51 -- app/src/main/AndroidManifest.xml` is
+empty: the per-habit cadence, the promise screen and Your promises add no permission and no new
+way to start the lock. The copy above still holds.
+
 ## 3. Demo video
 
 Play requires a video for the sensitive-permission declarations. Record it before submitting:
@@ -82,6 +86,12 @@ three screen names (`Weekly goals`, `Add weekly goal`, `Edit weekly goal` in `Sc
 which are App interactions, already declared. No event carries a goal's name, and no new SDK was
 added.
 
+**Checked for 2.2 (issue #247).** No new data type, event or property. `Screens.kt` lost two
+screen names (`Habits`, `Weekly goals`) and gained one (`Your promises`), which are App
+interactions, already declared. `habit_completed`, `habit_completion_undone` and `day_completed`
+carry the same properties as in 2.1; no event carries a habit's or goal's name, and no SDK was
+added.
+
 ## 5. Store listing and content
 
 - Target audience: high school through ~30s (phone addiction / habit follow-through; not parental control). Answer the **Families / target audience** questionnaire honestly; if
@@ -104,16 +114,18 @@ added.
   `POSTHOG_PROJECT_TOKEN` and is empty by default, which silently disables analytics).
 - Confirm the privacy policy URL resolves.
 
-## 7. Upload 2.1
+## 7. Upload 2.2
 
 The owner does this; it needs the upload keystore and Play Console access, neither of which is in
-the repo. The assets are prepared in `docs/play/` (issue #185; 2.0.1 was issue #161).
+the repo. The assets are prepared in `docs/play/` (issue #247; 2.1 was issue #185, 2.0.1 issue
+#161).
 
-1. Check `app/build.gradle.kts` says `versionName = "2.1"` and `versionCode = 7`, higher than
+1. Check `app/build.gradle.kts` says `versionName = "2.2"` and `versionCode = 8`, higher than
    any code already uploaded.
 2. Put `keystore.properties` (from `keystore.properties.example`) in the repository root, beside
-   `settings.gradle.kts` (the build reads `rootProject.file("keystore.properties")`), then build
-   the signed bundle: `./gradlew :app:bundleRelease`. The bundle is
+   `settings.gradle.kts` (the build reads `rootProject.file("keystore.properties")`), and the
+   machine's `.env` beside it (without it the bundle ships with analytics silently off, §6), then
+   build the signed bundle: `./gradlew :app:bundleRelease`. The bundle is
    `app/build/outputs/bundle/release/app-release.aab`.
    - **Check the bundle is signed before uploading:**
      `jarsigner -verify app/build/outputs/bundle/release/app-release.aab` must print
@@ -123,20 +135,23 @@ the repo. The assets are prepared in `docs/play/` (issue #185; 2.0.1 was issue #
    - A missing or misplaced `keystore.properties` builds an unsigned bundle **silently**. Gradle's
      "release signing is only partly configured" warning appears only when some keys are set,
      so no warning does not mean the bundle is signed; `jarsigner -verify` is the check.
-3. Walk the minified build on a device first (§6). For 2.1 that includes setting up a weekly
-   goal, the Home weekly card, the weekly lock screen, night lockdown, and the recap after a
-   Sprig evolution closing on Done and on Back (#188).
+3. Walk the minified build on a device first (§6). For 2.2 that includes onboarding with a habit
+   set to some days a week, the promise screen (onboarding, and Settings → add and edit), Home
+   with a weekly goal, Settings → Your promises with a habit switched to weekly and back, the
+   shutdown sliders, the lock screen, the weekly lock screen, night lockdown and the recap. Also
+   install 2.2 over a 2.1 install and check the habits, goals and streak survive (database 8 to
+   10).
 4. Play Console → Test and release → pick a track (internal testing first, then production) →
    Create new release → upload the `.aab`. Paste the release notes from
-   `docs/play/release-notes-2.1.md` into `<en-US>`.
+   `docs/play/release-notes-2.2.md` into `<en-US>`.
 5. Play Console → Grow users → Store presence → Main store listing:
    - Phone screenshots: delete the old ones and upload the eight in `docs/play/screenshots/`, in
-     file-name order. Two are new for 2.1 (`03-weekly-lock.png`, `04-night-lockdown.png`),
-     `01-home.png` now shows a weekly goal card, and the Welcome and Your habits screenshots are
-     gone.
+     file-name order. For 2.2, `01-home.png` (the roomier Home) and `03-weekly-lock.png` (the
+     session's amount) are re-rendered, and `07-every-day-or-weekly.png` (onboarding's first
+     step) replaces `07-recap.png`. The other five are unchanged since 2.1.
    - Short and full description: paste from `docs/growth/PLAY-LISTING.md` once you approve it.
    - App icon (`docs/play/icon-512.png`) and feature graphic (`docs/play/feature-graphic.png`)
      are unchanged since 2.0.1; leave them unless the listing shows older ones.
 6. The permission declarations (§2), the demo video (§3) and the data safety form (§4) need no
-   change for 2.1: no new permission and no new data type.
+   change for 2.2: no new permission and no new data type.
 7. Save, send the changes for review, and roll the release out.
