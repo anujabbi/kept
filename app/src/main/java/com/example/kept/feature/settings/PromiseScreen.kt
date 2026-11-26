@@ -241,7 +241,8 @@ fun PromisePage(
             val bottomInset = with(density) { WindowInsets.navigationBars.getBottom(this).toDp() }
             OptionsList(
                 list, draft, limits,
-                onPick = { d -> if (d.custom && list == PromiseBlank.ACTIVITY) typing = true; draft = d; open = null },
+                // An activity pick decides the blank: "Something else…" is the text field, a preset the dropdown.
+                onPick = { d -> if (list == PromiseBlank.ACTIVITY) typing = d.custom; draft = d; open = null },
                 modifier = Modifier.padding(horizontal = 24.dp).offset(y = top.coerceAtMost(pageHeight - 160.dp))
                     .heightIn(max = (pageHeight - top - bottomInset - 16.dp).coerceAtLeast(144.dp)),
             )
