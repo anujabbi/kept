@@ -15,6 +15,7 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.text.TextLayoutResult
 import com.example.kept.core.domain.HillEdge
 import com.example.kept.core.domain.LockWindowRules
+import com.example.kept.core.domain.NightSetting
 import com.example.kept.core.domain.ProofType
 import com.example.kept.core.lock.InstalledApp
 import com.example.kept.core.lock.PermissionKind
@@ -57,9 +58,6 @@ object OnboardingFixtures {
         weeklyDays = mapOf("Exercise" to 4, "Read" to 3, "Practice" to 2),
     ).let { OnboardingFlow.openCadence(it, "Tidy room") }
 
-    /** The shutdown step with 10 PM picked: the first row, so it shows at font 2.0 on a small screen too. */
-    const val SHUTDOWN_PICKED = 22 * 60
-
     /** The design's permissions state: usage access and notifications on, overlay missing. */
     val oneRequiredMissing: (PermissionKind) -> Boolean = { it == PermissionKind.USAGE_ACCESS || it == PermissionKind.NOTIFICATIONS }
     val allGranted: (PermissionKind) -> Boolean = { true }
@@ -74,8 +72,7 @@ val onboardingScreens: List<Pair<String, @Composable () -> Unit>> = listOf(
     "cadence_sheet" to { CadenceSheetBody(OnboardingFixtures.sheetSomeDays, CadenceActions.None) },
     "cadence_sheet_limit" to { CadenceSheetBody(OnboardingFixtures.sheetAtLimit, CadenceActions.None) },
     "add_habit" to { AddHabitPage(onBack = {}, onSave = {}) },
-    "shutdown" to { ShutdownStep(null, {}, {}, {}, {}) },
-    "shutdown_picked" to { ShutdownStep(OnboardingFixtures.SHUTDOWN_PICKED, {}, {}, {}, {}) },
+    "shutdown" to { ShutdownStep(NightSetting(enabled = true), {}, {}, {}, {}, {}) },
     "lock_window" to { LockWindowStep(OnboardingFixtures.window, {}, {}, {}) },
     "exceptions" to { ExceptionsContent(BodyMode.ONBOARDING, emptyList(), OnboardingFixtures.apps, "", {}, { _, _ -> }, {}, {}) },
     "permissions_missing" to { permissions(BodyMode.ONBOARDING, OnboardingFixtures.oneRequiredMissing) },
@@ -178,6 +175,13 @@ class OnboardingShots(private val rule: ComposeContentTestRule, private val pref
                     assertNoWordSplit(rule, "page_title", at)
                     if (name != "add_habit" && !name.endsWith("_settings")) assertOnScreen(at, "onboarding_next")
                     if (name.startsWith("shutdown")) assertOnScreen(at, "onboarding_skip")
+                }
+            }
+            if (name == "shutdown") {
+                for (t in listOf("shutdown_from_time", "shutdown_until_time")) {
+                    rule.onNodeWithTag("page_body").performScrollToNode(hasTestTag(t))
+                    rule.waitForIdle()
+                    assertTrue("$at: $t wraps", layout(t).lineCount == 1)
                 }
             }
             if (name == "lock_window") {

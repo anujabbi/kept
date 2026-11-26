@@ -71,6 +71,9 @@ import androidx.compose.ui.unit.sp
 import com.example.kept.core.domain.HabitDraft
 import com.example.kept.core.domain.HabitLimits
 import com.example.kept.core.domain.LockWindowRules
+import com.example.kept.core.domain.NightCopy
+import com.example.kept.core.domain.NightSetting
+import com.example.kept.core.domain.NightSliders
 import com.example.kept.core.domain.OnboardingCopy
 import com.example.kept.core.domain.ProofType
 import com.example.kept.core.domain.WeeklyGoalCopy
@@ -93,6 +96,9 @@ import com.example.kept.core.ui.Sky
 import com.example.kept.core.ui.SkyScaffold
 import com.example.kept.core.ui.StepFooter
 import com.example.kept.core.ui.StepPage
+import com.example.kept.core.ui.TimeSlider
+import com.example.kept.core.ui.BigTimeStyle
+import com.example.kept.core.ui.boldParts
 import com.example.kept.core.ui.dashedBorder
 import com.example.kept.core.ui.fitLongestWord
 import com.example.kept.core.ui.sprig.SprigView
@@ -492,63 +498,7 @@ internal fun AddHabitPage(onBack: () -> Unit, onSave: (HabitTemplate) -> Unit) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Step 2: shutdown time (#164)
-
-/**
- * "Pick a shutdown time" (#164; no mockup, built like `A10`): 10 PM, 11 PM and Midnight, one at
- * most picked and none to begin with. Continue is disabled until one is picked; "Skip" goes on
- * without a shutdown time, which leaves night lockdown off.
- */
-@Composable
-internal fun ShutdownStep(selected: Int?, onPick: (Int) -> Unit, onBack: () -> Unit, onContinue: () -> Unit, onSkip: () -> Unit) {
-    StepPage(
-        header = PageHeader.Progress(OnboardingStep.SHUTDOWN, OnboardingCopy.STEPS, onBack),
-        title = OnboardingCopy.SHUTDOWN_TITLE,
-        line = OnboardingCopy.SHUTDOWN_LINE,
-        modifier = Modifier.testTag("onboarding_shutdown"),
-        footer = {
-            PrimaryButton(OnboardingCopy.CONTINUE, onClick = onContinue, enabled = selected != null, modifier = Modifier.testTag("onboarding_next"))
-            QuietButton(OnboardingCopy.SKIP, onClick = onSkip, modifier = Modifier.fillMaxWidth().testTag("onboarding_skip"))
-        },
-    ) {
-        OnboardingCopy.SHUTDOWN_TIMES.forEach { minute ->
-            item(key = "shutdown_$minute") { ShutdownRow(minute, picked = selected == minute, onPick = { onPick(minute) }) }
-        }
-    }
-}
-
-/** A shutdown row: the preset row's shape (`A10`) as a radio button, with a clock tile. */
-@Composable
-private fun ShutdownRow(minute: Int, picked: Boolean, onPick: () -> Unit) {
-    val shape = RoundedCornerShape(20.dp)
-    Row(
-        Modifier.fillMaxWidth().heightIn(min = 64.dp).clip(shape)
-            .background(if (picked) D.purplePale else D.white)
-            .border(2.dp, if (picked) D.purple else D.lineSoft, shape)
-            .selectable(selected = picked, role = Role.RadioButton, onClick = onPick)
-            .padding(horizontal = 14.dp, vertical = 8.dp)
-            .testTag("onboarding_shutdown_$minute"),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        Box(Modifier.size(40.dp).clip(RoundedCornerShape(14.dp)).background(D.purpleTint), contentAlignment = Alignment.Center) {
-            Icon(DaybreakIcons.Clock, null, Modifier.size(20.dp), tint = D.purple)
-        }
-        Column(Modifier.weight(1f)) {
-            Text(OnboardingCopy.shutdownLabel(minute), style = DaybreakType.rowTitle, color = D.ink)
-            Text(OnboardingCopy.SHUTDOWN_DETAIL, style = DaybreakType.caption, color = D.muted)
-        }
-        Box(
-            Modifier.size(28.dp).clip(CircleShape)
-                .background(if (picked) D.purple else Color.Transparent)
-                .border(2.dp, if (picked) D.purple else D.ring, CircleShape),
-            contentAlignment = Alignment.Center,
-        ) { if (picked) Icon(DaybreakIcons.Check, null, Modifier.size(15.dp), tint = D.white) }
-    }
-}
-
-// ---------------------------------------------------------------------------------------------
-// Step 3: lock window (A11)
+// Step 2: lock window (A11)
 
 /**
  * "When does the lock run?" (`A11-Onb-Rule`): the 6 am to midnight bar with the locked band, the
@@ -715,6 +665,90 @@ private fun StepButton(sign: String, description: String, enabled: Boolean, styl
             .testTag(tag),
         contentAlignment = Alignment.Center,
     ) { Text(sign, style = style, color = if (enabled) D.purple else D.disabled) }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Step 3: shutdown time (#164, #218)
+
+/**
+ * "Pick a shutdown time" (#218, after the lock window): Sprig's note, then a card with two
+ * sliders in 15 minute steps, "Shutdown at" (8 pm to 2 am) and "Phone back at" (5 am to 10 am),
+ * each time shown large, and the sentence under them that follows both. Continue turns night
+ * lockdown on at those times; "Skip" goes on without it.
+ */
+@Composable
+internal fun ShutdownStep(
+    night: NightSetting,
+    onFrom: (Int) -> Unit,
+    onUntil: (Int) -> Unit,
+    onBack: () -> Unit,
+    onContinue: () -> Unit,
+    onSkip: () -> Unit,
+) {
+    StepPage(
+        header = PageHeader.Progress(OnboardingStep.SHUTDOWN, OnboardingCopy.STEPS, onBack),
+        title = OnboardingCopy.SHUTDOWN_TITLE,
+        line = null,
+        modifier = Modifier.testTag("onboarding_shutdown"),
+        bodySpacing = 14.dp,
+        footer = {
+            PrimaryButton(OnboardingCopy.CONTINUE, onClick = onContinue, modifier = Modifier.testTag("onboarding_next"))
+            QuietButton(OnboardingCopy.SKIP, onClick = onSkip, modifier = Modifier.fillMaxWidth().testTag("onboarding_skip"))
+        },
+    ) {
+        item(key = "note") { SprigNote(OnboardingCopy.SHUTDOWN_LINE) }
+        item(key = "times") {
+            val shape = RoundedCornerShape(22.dp)
+            Column(
+                Modifier.fillMaxWidth().clip(shape).background(D.white).border(1.5.dp, D.lineSoft, shape)
+                    .padding(start = 18.dp, end = 18.dp, top = 18.dp, bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                SliderTime(NightCopy.SHUTDOWN_AT, night.fromMinute, "shutdown_from")
+                TimeSlider(
+                    NightSliders.fromIndex(night.fromMinute), NightSliders.FROM_STEPS, NightCopy.SHUTDOWN_AT, NightCopy.big(night.fromMinute),
+                    NightSliders.FROM_LABELS, onChange = { onFrom(NightSliders.fromAt(it)) }, tag = "shutdown_from_slider",
+                )
+                Box(Modifier.padding(vertical = 12.dp).fillMaxWidth().height(1.5.dp).background(D.line))
+                SliderTime(NightCopy.PHONE_BACK_AT, night.untilMinute, "shutdown_until")
+                TimeSlider(
+                    NightSliders.untilIndex(night.untilMinute), NightSliders.UNTIL_STEPS, NightCopy.PHONE_BACK_AT, NightCopy.big(night.untilMinute),
+                    NightSliders.UNTIL_LABELS, onChange = { onUntil(NightSliders.untilAt(it)) }, tag = "shutdown_until_slider",
+                )
+                Text(
+                    boldParts(NightCopy.shutdownSentence(night.fromMinute, night.untilMinute)),
+                    Modifier.padding(top = 10.dp).testTag("shutdown_sentence"),
+                    style = DaybreakType.bodySmall.copy(lineHeight = (14 * 1.45).sp),
+                    color = D.inkSoft,
+                )
+            }
+        }
+    }
+}
+
+/** Sprig's note at the top of a step: a small Sprig beside the line, on purple tint. */
+@Composable
+private fun SprigNote(text: String) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(D.purpleTint)
+            .padding(horizontal = 14.dp, vertical = 12.dp).testTag("shutdown_note"),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Box(Modifier.size(52.dp).clip(CircleShape).background(D.purplePale), contentAlignment = Alignment.Center) {
+            SprigView(SprigForm.SPRIG, SprigPose.IDLE, Modifier.size(44.dp))
+        }
+        Text(text, Modifier.weight(1f).testTag("shutdown_line"), style = DaybreakType.body, color = D.inkSoft)
+    }
+}
+
+/** A slider's label (13/600 muted) over its time, large (44/800, tabular). */
+@Composable
+private fun SliderTime(label: String, minute: Int, tag: String) {
+    Column {
+        Text(label, style = DaybreakType.caption, fontWeight = FontWeight.SemiBold, color = D.muted)
+        Text(NightCopy.big(minute), Modifier.testTag("${tag}_time"), style = BigTimeStyle, color = D.ink)
+    }
 }
 
 // ---------------------------------------------------------------------------------------------

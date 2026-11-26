@@ -23,6 +23,8 @@ import com.example.kept.core.data.prefs.KeptPreferences
 import com.example.kept.core.data.prefs.Settings
 import com.example.kept.core.domain.HabitLimits
 import com.example.kept.core.domain.LockWindowRules
+import com.example.kept.core.domain.NightSetting
+import com.example.kept.core.domain.NightSliders
 import com.example.kept.core.domain.ProofType
 import com.example.kept.core.domain.WeeklyGoalRules
 import com.example.kept.core.lock.ForegroundWatcherService
@@ -47,8 +49,8 @@ import javax.inject.Inject
 object OnboardingStep {
     const val WELCOME = 0
     const val HABITS = 1
-    const val SHUTDOWN = 2
-    const val LOCK_WINDOW = 3
+    const val LOCK_WINDOW = 2
+    const val SHUTDOWN = 3
     const val EXCEPTIONS = 4
     const val PERMISSIONS = 5
     const val READY = 6
@@ -59,11 +61,12 @@ data class OnboardingState(
     val step: Int = OnboardingStep.WELCOME,
     val chosen: List<HabitTemplate> = listOf(HabitTemplates.list[0], HabitTemplates.list[1]),
     /**
-     * Step 2's shutdown time as a minute of the day, or null while none is picked and after Skip.
-     * Nothing is preselected; "Start today" writes it ([onboardingShutdown]).
+     * Step 3's night window on its two sliders, 11:00 pm to 7:00 am to begin with (#218).
+     * Continue turns it on and Skip off; Back keeps both times. "Start today" writes it
+     * ([onboardingShutdown]).
      */
-    val shutdownMinute: Int? = null,
-    /** Step 3's window: the stored one (brought inside the bar) until the person moves it. */
+    val shutdown: NightSetting = NightSetting(enabled = true),
+    /** Step 2's window: the stored one (brought inside the bar) until the person moves it. */
     val window: LockWindowRules.Window = LockWindowRules.normalize(Settings().lockFromMinute, Settings().dueMinute),
     /** True once the person moved the window; only then does "Start today" write it. */
     val windowTouched: Boolean = false,
@@ -177,10 +180,14 @@ object OnboardingFlow {
 
     fun openAddHabit(s: OnboardingState): OnboardingState = if (s.atLimit) s else s.copy(addingHabit = true)
 
-    fun pickShutdown(s: OnboardingState, minute: Int): OnboardingState = s.copy(shutdownMinute = minute)
+    fun pickShutdownFrom(s: OnboardingState, minute: Int): OnboardingState = s.copy(shutdown = NightSliders.pickFrom(s.shutdown, minute))
+    fun pickShutdownUntil(s: OnboardingState, minute: Int): OnboardingState = s.copy(shutdown = NightSliders.pickUntil(s.shutdown, minute))
 
-    /** "Skip" on the shutdown step: no shutdown time, and on to the lock window. */
-    fun skipShutdown(s: OnboardingState): OnboardingState = next(s.copy(shutdownMinute = null))
+    /** "Continue" on the shutdown step: night lockdown on at the slider times. */
+    fun continueShutdown(s: OnboardingState): OnboardingState = next(s.copy(shutdown = s.shutdown.copy(enabled = true)))
+
+    /** "Skip" on the shutdown step: no night lockdown; the times stay for Back. */
+    fun skipShutdown(s: OnboardingState): OnboardingState = next(s.copy(shutdown = s.shutdown.copy(enabled = false)))
 
     fun setWindow(s: OnboardingState, w: LockWindowRules.Window): OnboardingState = s.copy(window = w, windowTouched = true)
 
@@ -215,7 +222,7 @@ class OnboardingViewModel @Inject constructor(
     val state: StateFlow<OnboardingState> = _state
 
     init {
-        // Step 3 starts from the stored window, which a re-run of onboarding may have changed.
+        // Step 2 starts from the stored window, which a re-run of onboarding may have changed.
         viewModelScope.launch {
             val s = prefs.currentSettings()
             _state.update { if (it.windowTouched) it else it.copy(window = LockWindowRules.normalize(s.lockFromMinute, s.dueMinute)) }
@@ -226,7 +233,9 @@ class OnboardingViewModel @Inject constructor(
     fun addCustom(t: HabitTemplate) = _state.update { OnboardingFlow.addCustom(it, t) }
     fun openAddHabit() = _state.update(OnboardingFlow::openAddHabit)
     fun closeAddHabit() = _state.update { it.copy(addingHabit = false) }
-    fun pickShutdown(minute: Int) = _state.update { OnboardingFlow.pickShutdown(it, minute) }
+    fun pickShutdownFrom(minute: Int) = _state.update { OnboardingFlow.pickShutdownFrom(it, minute) }
+    fun pickShutdownUntil(minute: Int) = _state.update { OnboardingFlow.pickShutdownUntil(it, minute) }
+    fun continueShutdown() = _state.update(OnboardingFlow::continueShutdown)
     fun skipShutdown() = _state.update(OnboardingFlow::skipShutdown)
     fun setWindow(w: LockWindowRules.Window) = _state.update { OnboardingFlow.setWindow(it, w) }
     fun openCadence(title: String) = _state.update { OnboardingFlow.openCadence(it, title) }
@@ -276,7 +285,7 @@ class OnboardingViewModel @Inject constructor(
         // and onboardingFinished must not add the goals twice (review on #210).
         weeklyGoals.replaceAll(s.weeklyGoalPlans)
         prefs.updateSettings {
-            it.onboardingShutdown(s.shutdownMinute).onboardingLockWindow(s.window.takeIf { s.windowTouched }).onboardingFinished(time.today())
+            it.onboardingShutdown(s.shutdown).onboardingLockWindow(s.window.takeIf { s.windowTouched }).onboardingFinished(time.today())
         }
         ForegroundWatcherService.start(ctx)
         scheduler.scheduleAll()
@@ -318,8 +327,11 @@ fun OnboardingScreen(onDone: () -> Unit, vm: OnboardingViewModel = hiltViewModel
                     )
                     CadenceSheet(s, vm.cadenceActions)
                 }
-            OnboardingStep.SHUTDOWN -> ShutdownStep(s.shutdownMinute, onPick = vm::pickShutdown, onBack = vm::back, onContinue = vm::next, onSkip = vm::skipShutdown)
             OnboardingStep.LOCK_WINDOW -> LockWindowStep(s.window, onChange = vm::setWindow, onBack = vm::back, onContinue = vm::next)
+            OnboardingStep.SHUTDOWN -> ShutdownStep(
+                s.shutdown, onFrom = vm::pickShutdownFrom, onUntil = vm::pickShutdownUntil,
+                onBack = vm::back, onContinue = vm::continueShutdown, onSkip = vm::skipShutdown,
+            )
             OnboardingStep.EXCEPTIONS -> ExceptionsBody(BodyMode.ONBOARDING, onBack = vm::back, onContinue = vm::next)
             OnboardingStep.PERMISSIONS -> {
                 val kinds = buildList {

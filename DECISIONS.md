@@ -1733,3 +1733,20 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
   - *`WeeklyGoalRepository.updateGoal` has no target defaults.* The #206 review noted a caller
     passing only title and days would quietly erase the target; `targetValue` and `unit` are now
     required (null, null still means no target), and every caller says which it means.
+- **One promise screen, roomier Home, shutdown after the lock step, time sliders (issue #218).**
+  - *Shutdown sliders keep the night 1 to 12 hours long.* 8 pm to 10 am would be 14 hours, which
+    `NightWindow` refuses. Moving one slider past 12 hours moves the other with it
+    (`NightSliders.pickFrom` / `pickUntil`): shutdown at 8 pm pulls "Phone back at" to 8 am at the
+    latest, and phone back at 10 am pushes shutdown to 10 pm at the earliest. The pair on screen
+    can always be saved.
+  - *Skip keeps the times.* Skip stores night lockdown off; Back to the step still shows the times
+    moved before Skip, and Continue then turns it on at them.
+  - *Midnight reads "Midnight" large and "midnight" in the sentence*, as the Settings row reads it.
+  - *Settings → Starts at* now has a "Set" button: a slider position is not saved until Set, where
+    a chip used to save on tap. A start that would make the night longer than 12 hours with the
+    saved end disables Set with the existing line, as the chips did. "Custom…" sits under the
+    slider and opens the clock dial as before. "Ends at" keeps the clock dial; the issue changes
+    only "Starts at".
+  - *The slider thumb is a 30dp round in a 48dp tall box* (Material's is 44dp tall), so every
+    slider is 48dp to touch. The labels under a slider shrink together at a large font on a
+    narrow screen rather than overlap.

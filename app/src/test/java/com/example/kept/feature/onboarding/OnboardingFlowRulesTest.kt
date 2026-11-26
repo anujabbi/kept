@@ -2,6 +2,7 @@ package com.example.kept.feature.onboarding
 
 import com.example.kept.core.domain.HabitLimits
 import com.example.kept.core.domain.LockWindowRules
+import com.example.kept.core.domain.NightSetting
 import com.example.kept.core.domain.ProofType
 import com.example.kept.core.domain.WeeklyGoalRules
 import com.example.kept.core.ui.HabitTemplate
@@ -30,17 +31,19 @@ class OnboardingFlowRulesTest {
         s = OnboardingFlow.toggle(s, HabitTemplates.list[0]) // Exercise off
         s = OnboardingFlow.toggle(s, HabitTemplates.list[4]) // Tidy room on
         s = OnboardingFlow.next(s)
-        s = OnboardingFlow.pickShutdown(s, 23 * 60)
-        s = OnboardingFlow.next(s)
         s = OnboardingFlow.setWindow(s, LockWindowRules.Window(8 * 60, 20 * 60))
+        s = OnboardingFlow.next(s)
+        s = OnboardingFlow.pickShutdownFrom(s, 22 * 60)
+        s = OnboardingFlow.pickShutdownUntil(s, 6 * 60 + 45)
         val chosen = s.chosen
         val window = s.window
-        repeat(3) { s = OnboardingFlow.next(s) }
+        s = OnboardingFlow.continueShutdown(s)
+        repeat(2) { s = OnboardingFlow.next(s) }
         assertEquals(OnboardingStep.READY, s.step)
         repeat(6) {
             s = OnboardingFlow.back(s)
             assertEquals(chosen, s.chosen)
-            assertEquals(23 * 60, s.shutdownMinute)
+            assertEquals(NightSetting(true, 22 * 60, 6 * 60 + 45), s.shutdown)
             assertEquals(window, s.window)
             assertTrue(s.windowTouched)
         }

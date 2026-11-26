@@ -5,7 +5,7 @@ import kotlin.math.floor
 import kotlin.math.sqrt
 
 /**
- * Onboarding step 3, "When does the lock run?" (`A11-Onb-Rule`): the lock window on a 6 am to
+ * Onboarding step 2, "When does the lock run?" (`A11-Onb-Rule`): the lock window on a 6 am to
  * midnight bar, moved with − / + in 30 minute steps. The rules are the design script's, in
  * minutes of the day: the start never goes before 6:00 am, give-up never after 11:30 pm, and
  * give-up stays at least two hours after the start.
@@ -113,20 +113,10 @@ object OnboardingCopy {
         else -> "$target $unit"
     }
 
-    // Shutdown time (#164; no mockup, built on the step page like A10 and A11)
+    // Shutdown time (#164, #218): after the lock window, with Sprig's note and two sliders.
     const val SHUTDOWN_TITLE = "Pick a shutdown time"
-    const val SHUTDOWN_LINE = "A shutdown time helps you stop doomscrolling at night."
-    const val SHUTDOWN_DETAIL = "Apps lock until 7:00 am. Phone, messages and maps still work."
+    const val SHUTDOWN_LINE = "Sprig highly recommends a shutdown time, so your phone doesn't eat into your sleep."
     const val SKIP = "Skip"
-
-    /** The starts the shutdown step offers, as minutes of the day: 10 PM, 11 PM, Midnight. */
-    val SHUTDOWN_TIMES: List<Int> = NightWindow.PRESETS
-
-    /** A shutdown row's title: "10 PM", "11 PM", "Midnight" (minute 0). */
-    fun shutdownLabel(minute: Int): String = when {
-        minute == 0 -> SettingsCopy.MIDNIGHT
-        else -> "${(minute / 60 + 11) % 12 + 1} ${if (minute < 12 * 60) "AM" else "PM"}"
-    }
 
     // Lock window (A11)
     const val RULE_TITLE = "When does the lock run?"
