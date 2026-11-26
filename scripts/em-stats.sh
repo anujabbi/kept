@@ -8,7 +8,8 @@
 #   rounds       review:changes markers on the PR (review round trips)
 #   qa_fails     [qa] comments on the issue with at least one unchecked box
 #   escalations  [reviewer] escalating comments
-#   questions    [dev]/[planner] comments that sent the card back to Backlog with a question
+#   questions    [dev]/[planner] comments asking a question: a ? outside links, `code` and "quotes"
+#                (a golden URL ending ?raw=true or quoted copy is not a question)
 set -euo pipefail
 
 REPO=anujabbi/kept
@@ -45,7 +46,7 @@ for n in $issues; do
           rounds: ([($pr.comments.nodes // [])[] | select(.body | test("<!-- review:changes"))] | length),
           qa_fails: ([$i.comments.nodes[] | select((.body | test("\\*\\*\\[qa\\]\\*\\*")) and (.body | test("- \\[ \\]")))] | length),
           escalations: ([$i.comments.nodes[] | select(.body | test("\\*\\*\\[reviewer\\]\\*\\* escalating"))] | length),
-          questions: ([$i.comments.nodes[] | select((.body | test("\\*\\*\\[(dev|planner)\\]\\*\\*")) and (.body | test("\\?")))] | length)
+          questions: ([$i.comments.nodes[] | select((.body | test("\\*\\*\\[(dev|planner)\\]\\*\\*")) and (.body | gsub("https?://[^\\s)]+"; "") | gsub("`[^`]*`"; "") | gsub("\"[^\"]*\""; "") | gsub("“[^”]*”"; "") | test("\\?")))] | length)
         }')"
   if [ "$JSON" = "--json" ]; then echo "$row"; else
     echo "$row" | jq -r '[.number, .closed, .days_open, .labels, (.pr // "-"), .rounds, .qa_fails, .escalations, .questions, .title] | @tsv'

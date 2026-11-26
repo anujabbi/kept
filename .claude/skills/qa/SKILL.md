@@ -26,6 +26,15 @@ output is a checklist comment with evidence. A box you did not personally observ
    `adb exec-out screencap -p > ../kept-qa-<N>-<item>.png`. Then spend ten minutes on the
    edges the list implies: rotate, background and return, kill the app, the lock window
    boundary, and a day rollover if the change touches rules.
+6a. **Usability notes become cards.** The planner reviewed the screens as a first-time user
+   before anything was built. You check the build against the planner's mockups. Some things
+   a user would trip over are not a failed acceptance item: a difference from the mockups,
+   awkward copy, something below the fold. Each one becomes its own Backlog card:
+   `gh issue create --label usability --title "<what a user runs into>"`, with the steps
+   and a screenshot. Then run `scripts/board.sh add <new N>`. These cards never block this
+   card. Do not leave them as a note in your comment; 6 of 10 such notes were lost in the
+   4 weeks before 26 Nov 2026. List the new card numbers at the end of your comment. Also
+   file a card for each line under **For the owner** in the PR body, unless it already has one.
 
 ## Record and hand off
 
