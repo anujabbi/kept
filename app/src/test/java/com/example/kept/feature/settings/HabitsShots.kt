@@ -43,24 +43,15 @@ object HabitsFixtures {
         item(9, "Call grandma", ProofType.MANUAL, 1, "times"),
         item(10, "Push-ups", ProofType.MANUAL, 3, "times"),
     )
-
-    val CUSTOM = HabitDraft(title = "Piano")
-    val PHOTO = HabitDraft(title = "Tidy room", photo = true)
-    val EDIT = HabitDraft.of("Read", ProofType.MANUAL, 10, "pages")
 }
 
 /** Every state the issue lists, by golden name. */
 internal val habitsScreens: List<Pair<String, @Composable () -> Unit>> = listOf(
     "list" to { HabitsContent(HabitsFixtures.SIX, {}, {}, {}) },
     "list_limit" to { HabitsContent(HabitsFixtures.TEN, {}, {}, {}) },
-    "add" to { HabitEditPage(HabitDraft(), {}, {}) },
-    "add_custom" to { HabitEditPage(HabitsFixtures.CUSTOM, {}, {}) },
-    "add_photo" to { HabitEditPage(HabitsFixtures.PHOTO, {}, {}) },
-    "edit" to { HabitEditPage(HabitsFixtures.EDIT, {}, {}, editing = true, remove = RemoveHabit(true) {}) },
-    "edit_last" to { HabitEditPage(HabitsFixtures.EDIT, {}, {}, editing = true, remove = RemoveHabit(false) {}) },
 )
 
-/** Screenshots and fit checks of Your habits and Add a habit for one screen size; [prefix] names it. */
+/** Screenshots and fit checks of Your habits for one screen size; [prefix] names it. */
 class HabitsShots(private val rule: ComposeContentTestRule, private val prefix: String) {
 
     fun shot(name: String, fontScale: Float) {
@@ -103,10 +94,9 @@ class HabitsShots(private val rule: ComposeContentTestRule, private val prefix: 
     }
 
     /**
-     * At font 1.0, 1.3 and 2.0 in every state: no title splits inside a word; on the list, every
-     * row's title and detail are whole and on screen once scrolled to, and the fixed footer (the
-     * button and its count) is on screen; on Add a habit, the amount is on one line, "How much?"
-     * never splits, every unit chip is on screen, and "Save habit" is on screen.
+     * At font 1.0, 1.3 and 2.0 in every state: no title splits inside a word, every row's title and
+     * detail are whole and on screen once scrolled to, and the fixed footer (the button and its
+     * count) is on screen. Add and edit are the promise (#218): `PromiseShots`.
      */
     fun everyStateFits() {
         val scale = mutableFloatStateOf(1f)
@@ -120,42 +110,18 @@ class HabitsShots(private val rule: ComposeContentTestRule, private val prefix: 
             val at = "$name$prefix at font $f"
             assertNoWordSplit(rule, "page_title", at)
             assertOnScreen(at, "page_back")
-            if (name.startsWith("list")) {
-                assertOnScreen(at, "habits_add")
-                assertOnScreen(at, "habits_count")
-                assertNoWordSplit(rule, "habits_count", at)
-                val items = if (name == "list") HabitsFixtures.SIX else HabitsFixtures.TEN
-                for (h in items) {
-                    rule.onNodeWithTag("page_body").performScrollToNode(hasTestTag("habit_row_${h.id}"))
-                    rule.waitForIdle()
-                    assertNoWordSplit(rule, "habit_title_${h.id}", at, unmerged = true)
-                    assertNoWordSplit(rule, "habit_detail_${h.id}", at, unmerged = true)
-                    val row = bounds("habit_row_${h.id}")
-                    assertTrue("$at: row ${h.title} $row runs under the footer", row.bottom <= bounds("habits_add").top)
-                    assertTrue("$at: row ${h.title} is off the screen", row.left >= 0f && row.right <= rootDp().width + 0.5f)
-                }
-            } else {
-                assertOnScreen(at, "habit_save")
-                if (name == "edit") assertOnScreen(at, "habit_remove")
-                if (name == "edit_last") assertOnScreen(at, "habit_keep_one")
-                rule.onNodeWithTag("habit_photo").performScrollTo()
+            assertOnScreen(at, "habits_add")
+            assertOnScreen(at, "habits_count")
+            assertNoWordSplit(rule, "habits_count", at)
+            val items = if (name == "list") HabitsFixtures.SIX else HabitsFixtures.TEN
+            for (h in items) {
+                rule.onNodeWithTag("page_body").performScrollToNode(hasTestTag("habit_row_${h.id}"))
                 rule.waitForIdle()
-                assertTrue("$at: the photo row runs under the footer", bounds("habit_photo").top < bounds("habit_save").top)
-                if (name != "add_photo") {
-                    rule.onNodeWithTag("habit_amount_row").performScrollTo()
-                    rule.waitForIdle()
-                    assertOneLine(at, "habit_amount")
-                    assertNoWordSplit(rule, "habit_how_much", at)
-                    assertOnScreen(at, "habit_more")
-                }
-                if (name == "add_custom") {
-                    for (u in HabitDraft.UNITS) {
-                        rule.onNodeWithTag("habit_unit_$u").performScrollTo()
-                        rule.waitForIdle()
-                        val b = bounds("habit_unit_$u")
-                        assertTrue("$at: unit $u $b is off the screen", b.left >= 0f && b.right <= rootDp().width + 0.5f)
-                    }
-                }
+                assertNoWordSplit(rule, "habit_title_${h.id}", at, unmerged = true)
+                assertNoWordSplit(rule, "habit_detail_${h.id}", at, unmerged = true)
+                val row = bounds("habit_row_${h.id}")
+                assertTrue("$at: row ${h.title} $row runs under the footer", row.bottom <= bounds("habits_add").top)
+                assertTrue("$at: row ${h.title} is off the screen", row.left >= 0f && row.right <= rootDp().width + 0.5f)
             }
         }
     }

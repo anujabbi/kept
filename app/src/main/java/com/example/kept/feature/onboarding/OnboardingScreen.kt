@@ -26,6 +26,9 @@ import com.example.kept.core.domain.LockWindowRules
 import com.example.kept.core.domain.NightSetting
 import com.example.kept.core.domain.NightSliders
 import com.example.kept.core.domain.ProofType
+import com.example.kept.core.domain.PromiseDraft
+import com.example.kept.core.domain.PromiseLimits
+import com.example.kept.core.domain.PromiseRules
 import com.example.kept.core.domain.WeeklyGoalRules
 import com.example.kept.core.lock.ForegroundWatcherService
 import com.example.kept.core.lock.PermissionKind
@@ -70,16 +73,14 @@ data class OnboardingState(
     val window: LockWindowRules.Window = LockWindowRules.normalize(Settings().lockFromMinute, Settings().dueMinute),
     /** True once the person moved the window; only then does "Start today" write it. */
     val windowTouched: Boolean = false,
-    /** Step 1's "Add your own" page is open. */
-    val addingHabit: Boolean = false,
     val saving: Boolean = false,
     /**
      * How often each ticked habit happens (#205): days a week by title for a some-days habit; a
      * title not here is every day. Only titles in [chosen] count ([daysOf]).
      */
     val weeklyDays: Map<String, Int> = mapOf(OnboardingCadence.EXERCISE to OnboardingCadence.EXERCISE_DAYS),
-    /** The how-often sheet, while it is open. */
-    val sheet: CadenceSheetState? = null,
+    /** The promise (#218), while it is open: for a ticked habit's chip, or for "Add your own". */
+    val promise: OnboardingPromise? = null,
 ) {
     /** Every ticked habit: the camera permission step asks for any photo habit, weekly or not. */
     val hasPhotoHabit: Boolean get() = chosen.any { it.proofType == ProofType.PHOTO }
@@ -96,27 +97,33 @@ data class OnboardingState(
     /** Continue needs one every-day habit: a day with none never counts toward the streak. */
     val canContinue: Boolean get() = daily.isNotEmpty()
 
-    /** The habit the sheet is open for. */
-    val sheetHabit: HabitTemplate? get() = sheet?.let { sh -> chosen.firstOrNull { it.title == sh.title } }
+    /** The ticked habit [title] as its promise reads it. */
+    fun promiseOf(title: String): PromiseDraft? = chosen.firstOrNull { it.title == title }?.let { t ->
+        PromiseRules.ofHabit(t.title, t.proofType, t.targetValue, t.unit).withDays(daysOf(t.title))
+    }
 
-    /** "Some days a week" is off on an every-day habit's sheet once three weekly goals are chosen. */
-    val sheetCanSomeDays: Boolean get() = sheet != null && (daysOf(sheet.title) != null || WeeklyGoalRules.canAdd(weekly.size))
+    /**
+     * What the open promise's days list allows: the counts leave out the habit it is open for, so
+     * at three weekly goals the weekly choices are off unless this habit is one of them.
+     */
+    val promiseLimits: PromiseLimits
+        get() {
+            val others = chosen.filter { it.title != promise?.title }
+            return PromiseLimits.new(daily = others.count { daysOf(it.title) == null }, weekly = others.count { daysOf(it.title) != null })
+        }
 
-    /** "Every day" is off on a weekly habit's sheet once ten every-day habits are chosen. */
-    val sheetCanEveryDay: Boolean get() = sheet != null && (daysOf(sheet.title) == null || HabitLimits.canAdd(daily.size))
+    /** Names Done refuses: every other ticked habit, since onboarding tells habits apart by name. */
+    val promiseTaken: Set<String> get() = chosen.map { it.title }.filter { it != promise?.title }.toSet()
 }
 
-/** The how-often sheet's unsaved choice for [title]: [days] a week, or null for every day. */
-data class CadenceSheetState(val title: String, val days: Int?)
+/** The open promise: for ticked habit [title], or a new habit ("Add your own") when null. */
+data class OnboardingPromise(val title: String?, val draft: PromiseDraft)
 
 /** Step 1's how-often rules (#205). */
 object OnboardingCadence {
     /** The one preset that starts weekly, matched by title. */
     const val EXERCISE = "Exercise"
     const val EXERCISE_DAYS = 4
-
-    /** The day picker: 1 to 6. Seven days a week is every day, so it is not offered. */
-    val DAY_CHOICES: List<Int> = (WeeklyGoalRules.MIN_DAYS until WeeklyGoalRules.MAX_DAYS).toList()
 
     /**
      * The cadence a habit gets when ticked: the Exercise preset 4 days a week while there is room
@@ -142,43 +149,34 @@ object OnboardingFlow {
         return s.copy(chosen = s.chosen + t, weeklyDays = weekly)
     }
 
-    /** A habit from "Add your own" is every day, like any habit but Exercise. */
-    fun addCustom(s: OnboardingState, t: HabitTemplate): OnboardingState {
-        val add = !s.atLimit && s.chosen.none { it.title == t.title }
-        return if (add) s.copy(chosen = s.chosen + t, weeklyDays = s.weeklyDays - t.title, addingHabit = false) else s.copy(addingHabit = false)
+    /** A ticked habit's chip opens its promise, filled in. */
+    fun openPromise(s: OnboardingState, title: String): OnboardingState {
+        val draft = s.promiseOf(title) ?: return s
+        return s.copy(promise = OnboardingPromise(title, draft))
     }
 
-    /** A chip opens its habit's sheet on the habit's current cadence. */
-    fun openCadence(s: OnboardingState, title: String): OnboardingState =
-        if (s.chosen.none { it.title == title }) s else s.copy(sheet = CadenceSheetState(title, s.daysOf(title)))
+    /** "Add your own" opens an empty promise on "Something else…", every day. */
+    fun openAddHabit(s: OnboardingState): OnboardingState =
+        if (s.atLimit) s else s.copy(promise = OnboardingPromise(null, PromiseDraft("", days = null).somethingElse()))
 
-    fun sheetEveryDay(s: OnboardingState): OnboardingState =
-        if (s.sheet == null || !s.sheetCanEveryDay) s else s.copy(sheet = s.sheet.copy(days = null))
-
-    /** "Some days a week" starts from the habit's own days, or [WeeklyGoalRules.DEFAULT_DAYS]. */
-    fun sheetSomeDays(s: OnboardingState): OnboardingState {
-        val sheet = s.sheet ?: return s
-        if (sheet.days != null || !s.sheetCanSomeDays) return s
-        return s.copy(sheet = sheet.copy(days = s.daysOf(sheet.title) ?: WeeklyGoalRules.DEFAULT_DAYS))
+    /**
+     * Done on the promise: the habit it was open for becomes [d] (renamed, a new amount, every day
+     * or some days a week), or [d] is added, ticked. Taken names and choices the limits turn off
+     * are refused, as the screen refuses them. The promise stays open (as it opened) while
+     * Sprig cheers; [closePromise] closes it.
+     */
+    fun promiseDone(s: OnboardingState, d: PromiseDraft): OnboardingState {
+        val p = s.promise ?: return s
+        if (!d.canSave || s.promiseTaken.any { it.equals(d.name, ignoreCase = true) } || !s.promiseLimits.allows(d.days)) return s
+        val old = s.chosen.firstOrNull { it.title == p.title }
+        val t = d.template(old)
+        val chosen = if (old == null) s.chosen + t else s.chosen.map { if (it === old) t else it }
+        val weekly = (s.weeklyDays - (p.title ?: "")).let { w -> if (d.days == null) w - t.title else w + (t.title to d.days) }
+        return s.copy(chosen = chosen, weeklyDays = weekly)
     }
 
-    fun sheetDays(s: OnboardingState, days: Int): OnboardingState {
-        val sheet = s.sheet ?: return s
-        if (sheet.days == null || days !in OnboardingCadence.DAY_CHOICES) return s
-        return s.copy(sheet = sheet.copy(days = days))
-    }
-
-    /** "Done" keeps the sheet's choice. */
-    fun sheetDone(s: OnboardingState): OnboardingState {
-        val sheet = s.sheet ?: return s
-        val weekly = if (sheet.days == null) s.weeklyDays - sheet.title else s.weeklyDays + (sheet.title to sheet.days)
-        return s.copy(weeklyDays = weekly, sheet = null)
-    }
-
-    /** Dismissing the sheet (swipe, scrim, back) keeps the cadence it opened with. */
-    fun closeCadence(s: OnboardingState): OnboardingState = s.copy(sheet = null)
-
-    fun openAddHabit(s: OnboardingState): OnboardingState = if (s.atLimit) s else s.copy(addingHabit = true)
+    /** Cancel, Back, or the end of Sprig's cheer. */
+    fun closePromise(s: OnboardingState): OnboardingState = s.copy(promise = null)
 
     fun pickShutdownFrom(s: OnboardingState, minute: Int): OnboardingState = s.copy(shutdown = NightSliders.pickFrom(s.shutdown, minute))
     fun pickShutdownUntil(s: OnboardingState, minute: Int): OnboardingState = s.copy(shutdown = NightSliders.pickUntil(s.shutdown, minute))
@@ -194,17 +192,26 @@ object OnboardingFlow {
     /** Step 1 holds until one habit is every day. */
     fun next(s: OnboardingState): OnboardingState =
         if (s.step == OnboardingStep.HABITS && !s.canContinue) s
-        else s.copy(step = (s.step + 1).coerceAtMost(ONBOARDING_STEPS), addingHabit = false, sheet = null)
+        else s.copy(step = (s.step + 1).coerceAtMost(ONBOARDING_STEPS), promise = null)
 
-    /**
-     * Back from any step keeps every choice, cadences included: only the step moves (or the
-     * sheet or the Add a habit page closes).
-     */
+    /** Back from any step keeps every choice, promises included: only the step moves (or the promise closes). */
     fun back(s: OnboardingState): OnboardingState = when {
-        s.sheet != null -> s.copy(sheet = null)
-        s.addingHabit -> s.copy(addingHabit = false)
+        s.promise != null -> s.copy(promise = null)
         else -> s.copy(step = (s.step - 1).coerceAtLeast(OnboardingStep.WELCOME))
     }
+}
+
+/**
+ * The habit a promise makes in onboarding. A preset keeps its icon while its name stays;
+ * anything else gets the icon for its name. A photo promise is the photo habit it was.
+ */
+fun PromiseDraft.template(old: HabitTemplate?): HabitTemplate {
+    val h = habit()
+    val icon = when {
+        old != null && old.title == name -> old.iconKey
+        else -> HabitTemplates.list.firstOrNull { it.title == name }?.iconKey ?: iconKey
+    }
+    return HabitTemplate(name, icon, h.proof, h.savedTarget, h.savedUnit)
 }
 
 @HiltViewModel
@@ -230,22 +237,15 @@ class OnboardingViewModel @Inject constructor(
     }
 
     fun toggle(t: HabitTemplate) = _state.update { OnboardingFlow.toggle(it, t) }
-    fun addCustom(t: HabitTemplate) = _state.update { OnboardingFlow.addCustom(it, t) }
     fun openAddHabit() = _state.update(OnboardingFlow::openAddHabit)
-    fun closeAddHabit() = _state.update { it.copy(addingHabit = false) }
+    fun openPromise(title: String) = _state.update { OnboardingFlow.openPromise(it, title) }
+    fun promiseDone(d: PromiseDraft) = _state.update { OnboardingFlow.promiseDone(it, d) }
+    fun closePromise() = _state.update(OnboardingFlow::closePromise)
     fun pickShutdownFrom(minute: Int) = _state.update { OnboardingFlow.pickShutdownFrom(it, minute) }
     fun pickShutdownUntil(minute: Int) = _state.update { OnboardingFlow.pickShutdownUntil(it, minute) }
     fun continueShutdown() = _state.update(OnboardingFlow::continueShutdown)
     fun skipShutdown() = _state.update(OnboardingFlow::skipShutdown)
     fun setWindow(w: LockWindowRules.Window) = _state.update { OnboardingFlow.setWindow(it, w) }
-    fun openCadence(title: String) = _state.update { OnboardingFlow.openCadence(it, title) }
-    val cadenceActions = CadenceActions(
-        onEveryDay = { _state.update(OnboardingFlow::sheetEveryDay) },
-        onSomeDays = { _state.update(OnboardingFlow::sheetSomeDays) },
-        onDays = { n -> _state.update { OnboardingFlow.sheetDays(it, n) } },
-        onDone = { _state.update(OnboardingFlow::sheetDone) },
-        onDismiss = { _state.update(OnboardingFlow::closeCadence) },
-    )
     fun next() = _state.update(OnboardingFlow::next)
     fun back() = _state.update(OnboardingFlow::back)
 
@@ -306,7 +306,7 @@ fun OnboardingScreen(onDone: () -> Unit, vm: OnboardingViewModel = hiltViewModel
     val ctx = LocalContext.current
 
     LaunchedEffect(s.step) { if (s.step >= OnboardingStep.HABITS) vm.reportStepViewed(s.step) }
-    BackHandler(enabled = s.step > OnboardingStep.WELCOME || s.addingHabit || s.sheet != null) { vm.back() }
+    BackHandler(enabled = s.step > OnboardingStep.WELCOME) { vm.back() }
 
     AnimatedContent(
         targetState = s.step,
@@ -318,15 +318,20 @@ fun OnboardingScreen(onDone: () -> Unit, vm: OnboardingViewModel = hiltViewModel
     ) { step ->
         when (step) {
             OnboardingStep.WELCOME -> WelcomeStep(onStart = vm::next)
-            OnboardingStep.HABITS ->
-                if (s.addingHabit) AddHabitPage(onBack = vm::closeAddHabit, onSave = vm::addCustom)
-                else {
+            OnboardingStep.HABITS -> {
+                val promise = s.promise
+                if (promise != null) {
+                    // Keyed by the habit it opened for, so another habit's promise starts fresh.
+                    androidx.compose.runtime.key(promise.title ?: "new") {
+                        OnboardingPromisePage(s, onDone = vm::promiseDone, onClose = vm::closePromise)
+                    }
+                } else {
                     HabitsStep(
-                        s, onToggle = vm::toggle, onCadence = vm::openCadence, onAddOwn = vm::openAddHabit, onBack = vm::back,
+                        s, onToggle = vm::toggle, onCadence = vm::openPromise, onAddOwn = vm::openAddHabit, onBack = vm::back,
                         onContinue = { if (s.canContinue) { vm.persistDraft(); vm.next() } },
                     )
-                    CadenceSheet(s, vm.cadenceActions)
                 }
+            }
             OnboardingStep.LOCK_WINDOW -> LockWindowStep(s.window, onChange = vm::setWindow, onBack = vm::back, onContinue = vm::next)
             OnboardingStep.SHUTDOWN -> ShutdownStep(
                 s.shutdown, onFrom = vm::pickShutdownFrom, onUntil = vm::pickShutdownUntil,

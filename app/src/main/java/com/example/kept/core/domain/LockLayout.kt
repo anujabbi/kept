@@ -107,7 +107,7 @@ object LockSprig {
      * line). From this font scale up Sprig steps aside and the words take the screen's width, as
      * on the weekly goal setup screen; beside Sprig they would push the hill off a small screen.
      */
-    const val WEEKLY_SPRIG_MAX_FONT_SCALE = WeeklyGoalSetupLayout.SPRIG_MAX_FONT_SCALE
+    const val WEEKLY_SPRIG_MAX_FONT_SCALE = 1.5f
     fun weeklyShowsSprig(fontScale: Float): Boolean = fontScale < WEEKLY_SPRIG_MAX_FONT_SCALE
     const val SIZE_DP = 180
 

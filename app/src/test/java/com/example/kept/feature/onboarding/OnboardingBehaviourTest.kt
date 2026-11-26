@@ -28,6 +28,9 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
+import com.example.kept.feature.settings.PROMISE_CHEER_MS
+import com.example.kept.feature.settings.promiseSentence
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
@@ -39,7 +42,6 @@ import androidx.compose.ui.unit.toSize
 import com.example.kept.core.domain.HabitLimits
 import com.example.kept.core.domain.ProofType
 import com.example.kept.core.domain.WeeklyGoalCopy
-import com.example.kept.core.ui.HabitTemplate
 import androidx.compose.ui.semantics.Role
 import com.example.kept.core.domain.LockWindowRules
 import com.example.kept.core.domain.NightSetting
@@ -81,27 +83,17 @@ class OnboardingBehaviourTest {
         latest = s
         when {
             s.step == OnboardingStep.WELCOME -> WelcomeStep(onStart = { s = OnboardingFlow.next(s) })
-            s.step == OnboardingStep.HABITS && s.addingHabit -> AddHabitPage(onBack = { s = OnboardingFlow.back(s) }, onSave = { s = OnboardingFlow.addCustom(s, it) })
-            s.step == OnboardingStep.HABITS -> {
-                HabitsStep(
-                    s,
-                    onToggle = { s = OnboardingFlow.toggle(s, it) },
-                    onCadence = { s = OnboardingFlow.openCadence(s, it) },
-                    onAddOwn = { s = OnboardingFlow.openAddHabit(s) },
-                    onBack = { s = OnboardingFlow.back(s) },
-                    onContinue = { s = OnboardingFlow.next(s) },
-                )
-                CadenceSheet(
-                    s,
-                    CadenceActions(
-                        onEveryDay = { s = OnboardingFlow.sheetEveryDay(s) },
-                        onSomeDays = { s = OnboardingFlow.sheetSomeDays(s) },
-                        onDays = { s = OnboardingFlow.sheetDays(s, it) },
-                        onDone = { s = OnboardingFlow.sheetDone(s) },
-                        onDismiss = { s = OnboardingFlow.closeCadence(s) },
-                    ),
-                )
+            s.step == OnboardingStep.HABITS && s.promise != null -> androidx.compose.runtime.key(s.promise?.title ?: "new") {
+                OnboardingPromisePage(s, onDone = { s = OnboardingFlow.promiseDone(s, it) }, onClose = { s = OnboardingFlow.closePromise(s) })
             }
+            s.step == OnboardingStep.HABITS -> HabitsStep(
+                s,
+                onToggle = { s = OnboardingFlow.toggle(s, it) },
+                onCadence = { s = OnboardingFlow.openPromise(s, it) },
+                onAddOwn = { s = OnboardingFlow.openAddHabit(s) },
+                onBack = { s = OnboardingFlow.back(s) },
+                onContinue = { s = OnboardingFlow.next(s) },
+            )
             s.step == OnboardingStep.LOCK_WINDOW -> LockWindowStep(s.window, { s = OnboardingFlow.setWindow(s, it) }, { s = OnboardingFlow.back(s) }, { s = OnboardingFlow.next(s) })
             s.step == OnboardingStep.SHUTDOWN -> ShutdownStep(
                 s.shutdown,
@@ -150,15 +142,29 @@ class OnboardingBehaviourTest {
         rule.onNodeWithTag("onboarding_next").assertIsEnabled()
     }
 
-    @Test fun add_your_own_opens_add_a_habit_and_back_returns_with_picks_kept() {
+    @Test fun add_your_own_opens_the_promise_on_something_else_and_cancel_keeps_the_picks() {
         show(OnboardingFixtures.habits)
         rule.onNodeWithTag("onboarding_habit_Study").tapRow()
         rule.onNodeWithTag("onboarding_add_own").performScrollTo().performClick()
-        rule.onNodeWithTag("onboarding_add_habit").assertIsDisplayed()
-        rule.onNodeWithText("Save habit").assertExists()
-        rule.onNodeWithTag("page_back").performClick()
+        rule.onNodeWithTag("onboarding_promise").assertIsDisplayed()
+        rule.onNodeWithTag("promise_activity_field").assertExists()
+        rule.onNodeWithTag("promise_done").assertIsNotEnabled()
+        rule.onNodeWithTag("promise_cancel").performClick()
+        rule.waitForIdle()
         rule.onNodeWithTag("onboarding_habits").assertIsDisplayed()
         assertEquals(listOf("Exercise", "Read", "Study"), latest.chosen.map { it.title })
+    }
+
+    @Test fun something_else_typed_in_add_your_own_is_added_ticked_with_that_name() {
+        show(OnboardingFixtures.habits)
+        rule.onNodeWithTag("onboarding_add_own").performScrollTo().performClick()
+        rule.onNodeWithTag("promise_activity_field").performTextInput("walk the dog")
+        assertEquals("I will walk the dog for 20 minutes, every day.", promiseText())
+        done()
+        chip("Walk the dog").performScrollTo().assert(cadence("Walk the dog", "Every day"))
+        val walk = latest.chosen.single { it.title == "Walk the dog" }
+        assertEquals(20 to "min", walk.targetValue to walk.unit)
+        assertEquals("run", walk.iconKey)
     }
 
     @Test fun at_ten_habits_the_limit_line_replaces_add_your_own() {
@@ -169,34 +175,39 @@ class OnboardingBehaviourTest {
         rule.onNodeWithTag("onboarding_habit_count").assertTextEquals("10 daily habits · 1 weekly goal")
     }
 
-    // How often (#205, #207) -------------------------------------------------------------------
+    // How often (#205, #207), on the promise (#218) ---------------------------------------------
 
     private fun chip(title: String) = rule.onNodeWithTag("onboarding_cadence_$title")
 
     /** The chip reads "Read, 3 days a week. Change how often": its cadence with the habit name. */
     private fun cadence(title: String, shown: String) = SemanticsMatcher.expectValue(
         SemanticsProperties.ContentDescription,
-        listOf("$title, ${if (shown == "Every day") "every day" else shown}. Change how often"),
+        listOf("$title, ${if (shown == "Every day") "every day" else shown.replace(' ', '\u00A0')}. Change how often"),
     )
 
-    /** Opens [title]'s sheet, picks [days] (null for every day) and taps Done. */
+    /** The promise's sentence as it reads on screen. */
+    private fun promiseText(): String = promiseSentence(rule)
+
+    /** Done, then Sprig's cheer, after which the promise closes by itself. */
+    private fun done() {
+        rule.onNodeWithTag("promise_done").performClick()
+        rule.mainClock.advanceTimeBy(PROMISE_CHEER_MS + 100)
+        rule.waitForIdle()
+    }
+
+    /** Opens [title]'s promise, picks [days] (null for every day) and taps Done. */
     private fun setCadence(title: String, days: Int?) {
         chip(title).performScrollTo().performClick()
-        if (days == null) {
-            rule.onNodeWithTag("cadence_every_day").performClick()
-        } else {
-            rule.onNodeWithTag("cadence_some_days").performClick()
-            rule.onNodeWithTag("cadence_day_$days").performClick()
-        }
-        rule.onNodeWithTag("cadence_done").performClick()
-        rule.waitForIdle()
+        rule.onNodeWithTag("promise_blank_days").performClick()
+        rule.onNodeWithTag("promise_option_days_${days ?: 0}").performClick()
+        done()
     }
 
     @Test fun step_1_asks_what_habits_and_only_ticked_rows_have_a_chip() {
         show(OnboardingFixtures.habits)
         rule.onNodeWithTag("page_title").assertTextEquals("What habits will you keep?")
         chip("Read").assert(cadence("Read", "Every day"))
-        chip("Exercise").assert(cadence("Exercise", "4 days a week"))
+        chip("Exercise").assert(cadence("Exercise", "4 days a week"))
         listOf("Practice", "Study", "Tidy room").forEach { chip(it).assertDoesNotExist() }
         rule.onNodeWithTag("onboarding_habit_Practice").tapRow()
         chip("Practice").assert(cadence("Practice", "Every day"))
@@ -204,35 +215,35 @@ class OnboardingBehaviourTest {
         chip("Practice").assertDoesNotExist()
     }
 
-    @Test fun the_chip_opens_the_sheet_and_done_sets_the_days() {
+    @Test fun the_chip_opens_the_promise_filled_in_and_done_sets_the_days() {
         show(OnboardingFixtures.habits)
-        chip("Read").performClick()
-        rule.onNodeWithTag("cadence_title").assertTextEquals("How often will you read?")
-        rule.onNodeWithTag("cadence_every_day").assertIsSelected()
-        rule.onNodeWithTag("cadence_summary").assertTextEquals("Read, 10 pages, every day")
-        rule.onNodeWithTag("cadence_some_days").performClick().assertIsSelected()
-        // The day picker offers 1 to 6; 7 is every day.
-        (1..6).forEach { rule.onNodeWithTag("cadence_day_$it").assertExists() }
-        rule.onNodeWithTag("cadence_day_7").assertDoesNotExist()
-        rule.onNodeWithText(WeeklyGoalCopy.SUMMARY_BODY).assertExists()
-        rule.onNodeWithTag("cadence_day_3").performClick().assertIsSelected()
-        rule.onNodeWithTag("cadence_summary").assertTextEquals("Read, 10 pages, 3 days a week")
-        rule.onNodeWithTag("cadence_done").assertTextEquals("Done").performClick()
+        chip("Exercise").performClick()
+        assertEquals("I will exercise for 30 minutes, 4 days a week.", promiseText())
+        rule.onNodeWithTag("promise_cancel").performClick()
         rule.waitForIdle()
-        rule.onNodeWithTag("cadence_sheet").assertDoesNotExist()
-        chip("Read").assert(cadence("Read", "3 days a week"))
+        chip("Read").performClick()
+        assertEquals("I will read 10 pages, every day.", promiseText())
+        rule.onNodeWithTag("promise_blank_days").performClick()
+        rule.onNodeWithTag("promise_option_days_3").performClick()
+        assertEquals("I will read 10 pages, 3 days a week.", promiseText())
+        done()
+        rule.onNodeWithTag("onboarding_promise").assertDoesNotExist()
+        chip("Read").assert(cadence("Read", "3 days a week"))
         rule.onNodeWithTag("onboarding_habit_count").assertTextEquals("Set one habit to every day to continue.")
         setCadence("Read", null)
         chip("Read").assert(cadence("Read", "Every day"))
         assertEquals(null, latest.daysOf("Read"))
     }
 
-    @Test fun the_exercise_sheet_summary_carries_the_target() {
+    @Test fun a_new_amount_shows_on_the_row_and_is_what_is_saved() {
         show(OnboardingFixtures.habits)
-        chip("Exercise").performClick()
-        rule.onNodeWithTag("cadence_title").assertTextEquals("How often will you exercise?")
-        rule.onNodeWithTag("cadence_summary").assertTextEquals("Exercise, 30 min, 4 days a week")
-        rule.onNodeWithTag("cadence_day_4").assertIsSelected()
+        chip("Read").performClick()
+        rule.onNodeWithTag("promise_blank_amount").performClick()
+        rule.onNodeWithTag("promise_option_20").performClick()
+        done()
+        assertEquals(20, latest.chosen.single { it.title == "Read" }.targetValue)
+        rule.onNodeWithTag("onboarding_habit_Read").assert(hasText("20 pages", substring = true))
+        assertEquals(20, latest.dailyHabitRows(0).single { it.title == "Read" }.targetValue)
     }
 
     @Test fun with_only_weekly_habits_continue_does_not_advance_and_the_footer_says_why() {
@@ -244,7 +255,7 @@ class OnboardingBehaviourTest {
         assertEquals(OnboardingStep.HABITS, latest.step)
     }
 
-    @Test fun a_fourth_habit_cannot_be_weekly_and_exercise_ticked_fourth_is_every_day() {
+    @Test fun at_three_weekly_goals_the_weekly_choices_are_off_with_the_limit_line() {
         show(OnboardingFixtures.habits)
         rule.onNodeWithTag("onboarding_habit_Exercise").tapRow()
         listOf("Practice", "Study", "Tidy room").forEach { rule.onNodeWithTag("onboarding_habit_$it").performScrollTo().tapRow() }
@@ -254,32 +265,59 @@ class OnboardingBehaviourTest {
         rule.onNodeWithTag("onboarding_habit_Exercise").performScrollTo().tapRow()
         chip("Exercise").assert(cadence("Exercise", "Every day"))
         chip("Tidy room").performScrollTo().performClick()
-        rule.onNodeWithTag("cadence_some_days").assertIsNotEnabled()
-        rule.onNodeWithTag("cadence_limit").assertTextEquals(WeeklyGoalCopy.LIMIT_REACHED)
-        rule.onNodeWithTag("cadence_done").performClick()
-        rule.waitForIdle()
+        rule.onNodeWithTag("promise_blank_days").performClick()
+        rule.onNodeWithTag("promise_option_days_0").assertIsEnabled().assertIsSelected()
+        (1..6).forEach { rule.onNodeWithTag("promise_option_days_$it").assertIsNotEnabled() }
+        rule.onNodeWithTag("promise_limit").assertTextEquals(WeeklyGoalCopy.LIMIT_REACHED)
+        rule.onNodeWithTag("promise_option_days_2").performClick()
+        assertEquals("I will tidy room, every day.", promiseText())
+        done()
         rule.onNodeWithTag("onboarding_habit_count").assertTextEquals("2 daily habits · 3 weekly goals")
     }
 
-    @Test fun a_habit_added_with_add_your_own_gets_the_chip_and_sheet_every_day() {
-        show(OnboardingFlow.addCustom(OnboardingFixtures.habits, HabitTemplate("Walk", "walk", ProofType.MANUAL, 20, "min")))
-        chip("Walk").performScrollTo().assert(cadence("Walk", "Every day"))
-        setCadence("Walk", 5)
-        chip("Walk").assert(cadence("Walk", "5 days a week"))
-        assertEquals(5, latest.daysOf("Walk"))
+    @Test fun a_weekly_habits_own_promise_keeps_its_weekly_choices_at_three() {
+        show(OnboardingFixtures.habits)
+        listOf("Practice", "Study").forEach { rule.onNodeWithTag("onboarding_habit_$it").performScrollTo().tapRow() }
+        setCadence("Practice", 2)
+        setCadence("Study", 2)
+        chip("Exercise").performScrollTo().performClick()
+        rule.onNodeWithTag("promise_blank_days").performClick()
+        rule.onNodeWithTag("promise_option_days_6").assertIsEnabled()
+        rule.onNodeWithTag("promise_limit").assertDoesNotExist()
     }
 
-    @Test fun back_from_a_later_step_keeps_the_chosen_cadences() {
+    @Test fun renaming_a_habit_on_its_promise_replaces_it_and_a_taken_name_cannot_be_saved() {
+        show(OnboardingFixtures.habits)
+        chip("Read").performClick()
+        rule.onNodeWithTag("promise_blank_activity").performClick()
+        rule.onNodeWithTag("promise_option_Exercise").performClick()
+        rule.onNodeWithTag("promise_done").assertIsNotEnabled()
+        rule.onNodeWithTag("promise_blank_activity").performClick()
+        rule.onNodeWithTag("promise_option_Study").performClick()
+        assertEquals("I will study for 45 minutes, every day.", promiseText())
+        done()
+        assertEquals(listOf("Exercise", "Study"), latest.chosen.map { it.title })
+        rule.onNodeWithTag("onboarding_habit_Study").assert(checked(true))
+        rule.onNodeWithTag("onboarding_habit_Read").assert(checked(false))
+    }
+
+    @Test fun back_from_a_later_step_keeps_every_promise() {
         show(OnboardingFixtures.habits)
         setCadence("Read", 3)
         setCadence("Exercise", null)
+        chip("Read").performClick()
+        rule.onNodeWithTag("promise_blank_amount").performClick()
+        rule.onNodeWithTag("promise_option_30").performClick()
+        done()
         rule.onNodeWithTag("onboarding_next").performClick()
         rule.onNodeWithTag("onboarding_lock_window").assertIsDisplayed()
         rule.onNodeWithTag("onboarding_next").performClick()
         rule.onNodeWithTag("onboarding_shutdown").assertIsDisplayed()
         repeat(2) { rule.onNodeWithTag("page_back").performClick() }
-        chip("Read").assert(cadence("Read", "3 days a week"))
+        chip("Read").assert(cadence("Read", "3 days a week"))
         chip("Exercise").assert(cadence("Exercise", "Every day"))
+        chip("Read").performClick()
+        assertEquals("I will read 30 pages, 3 days a week.", promiseText())
     }
 
     /** TalkBack reads the chip's cadence with the habit name, and it is a 48dp button, at font 1 and 2. */

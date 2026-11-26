@@ -26,15 +26,6 @@ class HabitsScreenshotTest {
     @Test fun list() = shots.shot("list", 1f)
     @Test fun listLimit() = shots.shot("list_limit", 1f)
     @Test fun listLimit_font2() = shots.shot("list_limit", 2f)
-    @Test fun add() = shots.shot("add", 1f)
-    @Test fun addCustom() = shots.shot("add_custom", 1f)
-    @Test fun addCustom_font2() = shots.shot("add_custom", 2f)
-    @Test fun addPhoto() = shots.shot("add_photo", 1f)
-    @Test fun addPhoto_font2() = shots.shot("add_photo", 2f)
-    @Test fun edit() = shots.shot("edit", 1f)
-    @Test fun edit_font2() = shots.shot("edit", 2f)
-    @Test fun editLast() = shots.shot("edit_last", 1f)
-    @Test fun editLast_font2() = shots.shot("edit_last", 2f)
 
     @Test fun everyStateFits() = shots.everyStateFits()
 }

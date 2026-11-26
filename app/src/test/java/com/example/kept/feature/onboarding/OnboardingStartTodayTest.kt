@@ -81,12 +81,18 @@ class OnboardingStartTodayTest {
         }
     }
 
-    /** Opens [title]'s sheet, picks [days] a week and taps Done, as the screen does. */
-    private fun OnboardingViewModel.someDays(title: String, days: Int) {
-        openCadence(title)
-        cadenceActions.onSomeDays()
-        cadenceActions.onDays(days)
-        cadenceActions.onDone()
+    /** Opens [title]'s promise, picks [days] a week (null for every day) and taps Done, as the screen does. */
+    private fun OnboardingViewModel.someDays(title: String, days: Int?) {
+        openPromise(title)
+        promiseDone(state.value.promise!!.draft.withDays(days))
+        closePromise()
+    }
+
+    /** "Add your own" with [name] typed, 20 minutes, every day. */
+    private fun OnboardingViewModel.addOwn(name: String) {
+        openAddHabit()
+        promiseDone(state.value.promise!!.draft.withActivity(name))
+        closePromise()
     }
 
     private fun listRows() = runBlocking {
@@ -145,7 +151,7 @@ class OnboardingStartTodayTest {
             toggle(HabitTemplates.list[0]) // Exercise off
             toggle(HabitTemplates.list[2]) // Practice on, every day
             toggle(HabitTemplates.list[4]) // Tidy room on
-            addCustom(HabitTemplate("Walk", "walk", ProofType.MANUAL, 20, "min"))
+            addOwn("Walk")
             someDays("Read", 3)
             someDays("Tidy room", 2)
             someDays("Walk", 5)
@@ -163,9 +169,7 @@ class OnboardingStartTodayTest {
 
     @Test fun `with every habit every day no weekly goal is written`() {
         startToday {
-            openCadence("Exercise")
-            cadenceActions.onEveryDay()
-            cadenceActions.onDone()
+            someDays("Exercise", null)
         }
         assertEquals(emptyList<String>(), listRows())
         assertEquals(listOf("Exercise", "Read"), habitTitles())

@@ -1763,3 +1763,40 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     asks for fewer days than the goal: "First week: 3 days left, so 3 this week", "1 day left, so
     1 this week", and for a goal set on a Saturday "First week: no days left, so it starts Sunday"
     (not in the issue). It shows all that week, not only on the day the goal was set.
+  - *The promise replaces three screens.* Onboarding's how-often sheet, its "Add your own" page
+    (Add a habit), Settings → Add/Edit habit and the weekly goal setup screen are gone; all of
+    them open `PromisePage`. The rules are `PromiseDraft`, `PromiseRules` and `PromiseLimits` in
+    `core/domain/Promise.kt`. The setup screen's day chips, quick picks, stepper and unit chips,
+    `WeeklyGoalDraft` and the sheet's copy went with them.
+  - *No photo switch.* The promise has no "Prove it with a photo" row: Tidy room is the photo
+    habit (no amount or unit blank, as decided on #205), and a saved photo habit opens and stays
+    a photo habit. A habit of one's own can no longer be made a photo habit.
+  - *Edit keeps its way out.* The mockups have no Remove: under Done an edit still offers "Remove
+    habit" (or the existing "Keep at least one habit…" line for the last one) and "Delete goal"
+    with its "Delete this weekly goal?" confirm. The lock-change confirms are unchanged; a save
+    held for one does not cheer or close until it is confirmed.
+  - *A saved habit stays daily and a saved goal weekly (out of scope in the issue).* The days list
+    still shows every choice, but the other kind is off with a line in the list: "A saved habit
+    stays every day." / "A saved weekly goal stays weekly." A goal saved at 7 days a week keeps
+    "7 days a week" on its list.
+  - *Where a new promise starts.* On the first activity (Exercise, Read, Practice, Study, Tidy
+    room) not already a habit or goal, with its amount; on an empty "Something else…" if all are.
+    From Habits it starts every day, from Weekly goals at 3 days a week (`DEFAULT_DAYS`). If that
+    choice is off (10 daily habits, or 3 goals) it opens on the other kind. "Add your own" in
+    onboarding opens on an empty "Something else…", every day.
+  - *Amounts and units.* A unit change starts at that unit's value (minutes 20, pages 10, times 1,
+    glasses 8), all on the lists. A saved amount not on its list (25 minutes, 12 pages) is added to
+    the list in order. A one-tap habit (unit "check-in") opens as "1 time" and saves as such.
+    One of a unit reads singular: "1 page", "1 time", "1 glass".
+  - *Typed activities.* The field takes up to 28 characters, as before. The saved name starts with
+    a capital ("walk the dog" is saved "Walk the dog"); the sentence lowers it as the weekly lock
+    copy does. Until something is typed the field shows "something" and Done is off. A saved
+    activity of one's own shows as a blank like the presets; picking "Something else…" turns it
+    into the field with its text. In onboarding Done is also off for the name of another ticked
+    habit, since onboarding keeps habits apart by name; picking a preset there renames the habit.
+  - *Done.* The habit or goal is saved on the tap; the page then keeps its text and its footer's
+    place (Done is hidden, not removed, so the sentence does not move), Sprig rises from the
+    bottom in the cheer pose and the page closes 1.5 s later. With reduce motion Sprig is simply
+    there for the same 1.5 s. Cancel and Back close without saving; Back first closes an open list.
+  - *"Your promise"* is in sentence case, not the mockup's capitals, as Daybreak never uses all
+    caps. The mockups' drag handle is left out: the page is not a sheet and cannot be dragged.

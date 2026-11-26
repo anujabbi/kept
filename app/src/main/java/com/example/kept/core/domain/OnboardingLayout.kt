@@ -66,10 +66,8 @@ object OnboardingCopy {
     const val HABITS_LINE = "Pick two or three. You can change them later."
     const val ADD_YOUR_OWN = "Add your own"
 
-    // How often (#205): the chip on a ticked row and its sheet.
+    // How often (#205): the chip on a ticked row, which opens the habit's promise (#218).
     const val EVERY_DAY = "Every day"
-    const val SOME_DAYS = "Some days a week"
-    const val DONE = "Done"
     const val CHANGE_HOW_OFTEN = "Change how often"
     const val NEEDS_DAILY = "Set one habit to every day to continue."
 
@@ -79,19 +77,6 @@ object OnboardingCopy {
     /** What TalkBack reads on a chip: "Exercise, 4 days a week. Change how often". */
     fun cadenceDescription(title: String, days: Int?): String =
         "$title, ${if (days == null) "every day" else WeeklyGoalCopy.days(days)}. $CHANGE_HOW_OFTEN"
-
-    /** The sheet's title: "How often will you exercise?" ([WeeklyLockCopy.inSentence]). */
-    fun sheetTitle(title: String): String = "How often will you ${WeeklyLockCopy.inSentence(title)}?"
-
-    /**
-     * The sheet's summary: "Exercise, 30 min, 4 days a week", "Exercise, 30 min, every day"; a
-     * photo habit has no [target] there ("Tidy room, 2 days a week").
-     */
-    fun sheetSummary(title: String, target: String?, days: Int?): String = when {
-        days != null -> WeeklyGoalCopy.summary(title, target, days)
-        target == null -> "$title, every day"
-        else -> "$title, $target, every day"
-    }
 
     /**
      * Under Continue: "2 daily habits", "1 daily habit · 1 weekly goal"; "Pick at least one" with

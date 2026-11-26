@@ -28,13 +28,6 @@ class WeeklyGoalsScreenshotTest {
     @Test fun listEmpty_font2() = shots.shot("list_empty", 2f)
     @Test fun listLimit() = shots.shot("list_limit", 1f)
     @Test fun listLimit_font2() = shots.shot("list_limit", 2f)
-    @Test fun setup() = shots.shot("setup", 1f)
-    @Test fun setupFilled() = shots.shot("setup_filled", 1f)
-    @Test fun setupFilled_font2() = shots.shot("setup_filled", 2f)
-    @Test fun setupSeven() = shots.shot("setup_seven", 1f)
-    @Test fun setupSeven_font2() = shots.shot("setup_seven", 2f)
-    @Test fun setupEdit() = shots.shot("setup_edit", 1f)
-    @Test fun setupEdit_font2() = shots.shot("setup_edit", 2f)
 
     @Test fun everyStateFits() = shots.everyStateFits()
 }
