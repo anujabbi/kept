@@ -229,8 +229,6 @@ class HomeWeeklyBehaviourTest {
 
     @Test fun a_goal_does_not_make_home_compact_or_count_as_a_habit() {
         show(HomeFixtures.state(3, 0, weekly = HomeFixtures.threeGoals()))
-        // Roomy rows say "Done. Hold to undo"; compact ones scroll in "home_habit_list".
-        rule.onNodeWithTag("home_habit_list").assertDoesNotExist()
         rule.onNodeWithText("0 of 3").assertExists()
     }
 
@@ -247,13 +245,12 @@ class HomeWeeklyBehaviourTest {
         assertTrue(top("home_weekly") >= bottom("home_shield"))
     }
 
-    @Test fun in_the_compact_layout_the_section_ends_the_habit_list() {
+    @Test fun with_compact_rows_the_section_follows_the_last_habit_and_the_week_follows_it() {
         show(HomeFixtures.state(6, 0, weekly = listOf(HomeFixtures.onTrack())))
-        rule.onNode(hasTestTag("home_weekly") and hasAnyAncestor(hasTestTag("home_habit_list"))).assertExists()
         rule.onNodeWithTag("home_weekly_today_1").performScrollTo().assertIsDisplayed()
         assertTrue(top("home_weekly") >= bottom("home_habit_6"))
-        // The week and the shield keep their place under the list.
-        rule.onNodeWithTag("home_shield").assertIsDisplayed()
+        // Since #218 the week and the shield scroll with the page, under the section.
+        assertTrue(top("home_shield") >= bottom("home_weekly"))
     }
 
     @Test fun the_empty_home_keeps_add_a_habit_first() {

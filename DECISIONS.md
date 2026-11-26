@@ -1750,3 +1750,16 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
   - *The slider thumb is a 30dp round in a 48dp tall box* (Material's is 44dp tall), so every
     slider is 48dp to touch. The labels under a slider shrink together at a large font on a
     narrow screen rather than overlap.
+  - *Home's sky.* One compact sky for every habit count: Sprig 150dp on the right, the headline
+    column taking the rest of the row (220dp at 412), and the crest at 156dp under the status bar,
+    lower only when the headline block needs it. Sprig's top sits 100dp above the crest with
+    nothing done, so its face shows over the hill as in the mockup, and it rises 34dp (not the
+    design's 44) as habits are done, so its lower corners stay behind the hill when all are done.
+  - *One scroll.* Everything under the hill scrolls together; the 4+ habit layout no longer pins
+    "Today", "Last 7 days" or the shield. Rows stay roomy for 1 to 3 habits and compact from 4.
+    With no weekly goal the "Add a weekly goal" row still comes after the shield, as on the roomy
+    Home before.
+  - *The first-week line* sits under the card's title in the goal's first week whenever that week
+    asks for fewer days than the goal: "First week: 3 days left, so 3 this week", "1 day left, so
+    1 this week", and for a goal set on a Saturday "First week: no days left, so it starts Sunday"
+    (not in the issue). It shows all that week, not only on the day the goal was set.

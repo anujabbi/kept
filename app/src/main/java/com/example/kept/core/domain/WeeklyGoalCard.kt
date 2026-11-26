@@ -36,6 +36,17 @@ object WeeklyCardCopy {
     const val ADD = WeeklyGoalCopy.ADD
     const val ADD_LINE = WeeklyGoalCopy.SUBTITLE
 
+    /**
+     * Under the title in a goal's first week, when that week asks for fewer than its days (#218):
+     * "First week: 3 days left, so 3 this week", "First week: 1 day left, so 1 this week"; a goal
+     * set on a Saturday has no day left: "First week: no days left, so it starts Sunday".
+     */
+    fun firstWeek(daysLeft: Int): String = when (daysLeft) {
+        0 -> "First week: no days left, so it starts Sunday"
+        1 -> "First week: 1${NBSP}day left, so 1 this week"
+        else -> "First week: $daysLeft${NBSP}days left, so $daysLeft this week"
+    }
+
     /** "Exercise · 1 of 4 this week". The count stays on one line. */
     fun title(activity: String, done: Int, target: Int): String = "$activity · $done${NBSP}of${NBSP}$target this week"
 
@@ -100,6 +111,8 @@ data class WeeklyCard(
     val doneToday: Boolean,
     /** The today row's detail: "Today · 30 min", or "Today" for a goal with no target. */
     val todayDetail: String = WeeklyCardCopy.TODAY_ROW,
+    /** [WeeklyCardCopy.firstWeek] in a shortened first week, else null. */
+    val firstWeekLine: String? = null,
 ) {
     val statusLine: String get() = status.line
 
@@ -108,8 +121,17 @@ data class WeeklyCard(
          * [lockEndedToday] is true once today's give-up time has passed: a must-do day's status
          * then stops promising a lock, so it agrees with Home's headline (story #175).
          * [goalTarget] is the goal's target as [WeeklyGoalCopy.target] reads it, or null.
+         * [daysPerWeek] is the goal's days a week: a week whose target is lower is the goal's
+         * shortened first week ([WeeklyGoalRules.targetFor]), whose target is the days left after
+         * the day it was set.
          */
-        fun of(activity: String, week: WeeklyGoalRules.Week, lockEndedToday: Boolean = false, goalTarget: String? = null): WeeklyCard = WeeklyCard(
+        fun of(
+            activity: String,
+            week: WeeklyGoalRules.Week,
+            lockEndedToday: Boolean = false,
+            goalTarget: String? = null,
+            daysPerWeek: Int? = null,
+        ): WeeklyCard = WeeklyCard(
             title = WeeklyCardCopy.title(activity, week.done, week.target),
             segments = week.target,
             filled = week.done.coerceAtMost(week.target),
@@ -122,6 +144,7 @@ data class WeeklyCard(
             },
             doneToday = week.doneToday,
             todayDetail = WeeklyCardCopy.todayRow(goalTarget),
+            firstWeekLine = if (daysPerWeek != null && week.target < daysPerWeek) WeeklyCardCopy.firstWeek(week.target) else null,
         )
     }
 }

@@ -41,16 +41,6 @@ class HomeNarrowScreenTest {
         assertSprigSitsBehindHill(rule, current, scale)
     }
 
-    @Test fun compactListKeepsRoomForRowsAtLargeFonts() {
-        rule.setContent { Shot(2f) { HomeFrame(HomeFixtures.state(6, 6)) } }
-        rule.waitForIdle()
-        val list = rule.onNodeWithTag("home_habit_list").fetchSemanticsNode()
-        val h = list.size.height / rule.density.density
-        org.junit.Assert.assertTrue("habit list is ${h}dp", h >= 127.9f)
-        // The week is still there, below the fold.
-        rule.onNodeWithTag("home_shield").performScrollTo().assertIsDisplayed()
-    }
-
     private fun shot(name: String, fontScale: Float, s: HomeUiState) {
         rule.setContent { Shot(fontScale) { HomeFrame(s) } }
         rule.waitForIdle()
