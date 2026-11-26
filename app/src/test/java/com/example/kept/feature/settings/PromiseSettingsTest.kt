@@ -4,7 +4,10 @@ import android.os.Looper
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -224,5 +227,52 @@ class PromiseSettingsTest {
         done()
         await("the save") { goalRows().single() == "Exercise · 60 min · 4 days a week" }
         assertEquals(id, runBlocking { weekly.observeGoals().first() }.single().id)
+    }
+
+    // Delete goal and its confirm (issue #165), on the promise. The goal's session is logged
+    // first, so it holds no lock and only the usual question is asked.
+
+    private fun showExercise(): Long {
+        val id = runBlocking { weekly.observeGoals().first() }.single().id
+        runBlocking { weekly.logToday(id) }
+        showGoal(id)
+        return id
+    }
+
+    private fun active(id: Long) = runBlocking { weekly.observeGoals().first() }.any { it.id == id }
+
+    private fun confirmText() = rule.onNodeWithTag("goal_delete_message").fetchSemanticsNode().config[SemanticsProperties.Text].joinToString { it.text }.replace(WeeklyGoalCopy.NBSP, ' ')
+
+    @Test fun delete_asks_first_and_cancel_keeps_the_goal() {
+        val id = showExercise()
+        rule.onNodeWithTag("goal_delete_confirm").assertDoesNotExist()
+        rule.onNodeWithTag("promise_remove").assertTextEquals("Delete goal").performClick()
+        rule.onNodeWithText("Delete this weekly goal?").assertExists()
+        assertEquals("Exercise, 4 days a week will be removed from your weekly goals.", confirmText())
+        assertTrue("nothing is deleted before the answer", active(id))
+        rule.onNodeWithTag("goal_delete_cancel").performClick()
+        rule.onNodeWithTag("goal_delete_confirm").assertDoesNotExist()
+        assertTrue(active(id))
+        assertEquals(0, closed)
+        // Still on the page, and it still works.
+        rule.onNodeWithTag("promise_done").assertIsEnabled()
+    }
+
+    @Test fun confirming_delete_deletes_once() {
+        val id = showExercise()
+        rule.onNodeWithTag("promise_remove").performClick()
+        rule.onNodeWithTag("goal_delete_confirm").performClick()
+        await("the delete") { !active(id) && closed == 1 }
+        rule.onNodeWithTag("goal_delete_confirm").assertDoesNotExist()
+        assertEquals(emptyList<String>(), goalRows())
+        assertEquals("the page closed once", 1, closed)
+    }
+
+    @Test fun the_confirm_names_the_saved_goal_not_the_unsaved_edit() {
+        showExercise()
+        pick("activity", "Study")
+        pick("days", "days_6")
+        rule.onNodeWithTag("promise_remove").performClick()
+        assertEquals("Exercise, 4 days a week will be removed from your weekly goals.", confirmText())
     }
 }

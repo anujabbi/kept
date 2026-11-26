@@ -242,4 +242,45 @@ class PromiseBehaviourTest {
             }
         }
     }
+
+    @Test fun picking_a_preset_after_something_else_turns_the_field_back_into_a_blank() {
+        show(PromiseFixtures.EXERCISE)
+        openList("activity")
+        rule.onNodeWithTag("promise_option_something_else").performClick()
+        rule.onNodeWithTag("promise_activity_field").assertExists()
+        openList("activity")
+        rule.onNodeWithTag("promise_option_Exercise").performClick()
+        rule.onNodeWithTag("promise_activity_field").assertDoesNotExist()
+        assertEquals("exercise", rule.onNodeWithTag("promise_blank_activity").fetchSemanticsNode().config[SemanticsProperties.Text].joinToString { it.text })
+        assertEquals("I will exercise for 30 minutes, 4 days a week.", sentence())
+    }
+
+    @Test fun a_double_tap_on_done_saves_once_and_closes_once() {
+        show(PromiseFixtures.EXERCISE)
+        rule.mainClock.autoAdvance = false
+        rule.onNodeWithTag("promise_done").performClick()
+        rule.mainClock.advanceTimeByFrame()
+        // Done is hidden while Sprig cheers; Cancel no longer closes a saved promise twice.
+        rule.onNodeWithTag("promise_done").assertDoesNotExist()
+        rule.onNodeWithTag("promise_cancel").performClick()
+        rule.mainClock.advanceTimeBy(PROMISE_CHEER_MS + 200)
+        assertEquals(1, saved.size)
+        assertEquals(1, closed)
+    }
+
+    @Test fun remove_can_be_asked_again_but_not_after_done() {
+        var removes = 0
+        rule.setContent {
+            Shot { PromisePage(PromiseFixtures.READ, PromiseLimits.SAVED_HABIT, { _, done -> done() }, {}, remove = PromiseRemove(HabitsCopy.REMOVE, true) { removes++ }) }
+        }
+        // A cancelled lock-window confirm leaves the page open, so Remove still answers.
+        rule.onNodeWithTag("promise_remove").performClick()
+        rule.onNodeWithTag("promise_remove").performClick()
+        assertEquals(2, removes)
+        rule.mainClock.autoAdvance = false
+        rule.onNodeWithTag("promise_done").performClick()
+        rule.mainClock.advanceTimeByFrame()
+        rule.onNodeWithTag("promise_remove").assertDoesNotExist()
+        assertEquals("nothing after the promise is saved", 2, removes)
+    }
 }
