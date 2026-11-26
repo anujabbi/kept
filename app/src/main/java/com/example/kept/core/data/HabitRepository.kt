@@ -114,8 +114,9 @@ class HabitRepository @Inject constructor(
         return TodaySummary(habits.map { HabitToday(it, entries[it.id], due) })
     }
 
+    /** Adds a habit at the end of Your promises, after every daily habit and weekly goal (#236). */
     suspend fun addHabit(title: String, iconKey: String, proofType: ProofType, targetValue: Int, unit: String): Long {
-        val order = habitDao.active().size
+        val order = habitDao.nextOrder()
         return habitDao.insert(
             HabitEntity(
                 title = title.trim(), iconKey = iconKey, proofType = proofType,

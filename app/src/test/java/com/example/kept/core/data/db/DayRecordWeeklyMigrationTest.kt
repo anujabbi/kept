@@ -137,7 +137,7 @@ class DayRecordWeeklyMigrationTest {
         val db = upgrade()
         val after = db.rowsAfter()
 
-        assertEquals(9, db.version)
+        assertEquals(10, db.version)
         assertEquals(
             listOf(
                 "date", "habitsDone", "habitsTotal", "lockedMillis", "breaksUsed", "unprotected", "broken", "writtenOff",
@@ -150,7 +150,9 @@ class DayRecordWeeklyMigrationTest {
         }
         // Every other column of every row, in every table, is as it was.
         // weekly_goals gains targetValue and unit at schema 9 (story #205); both are null for an existing goal.
-        assertEquals(before, after.mapValues { (table, rows) -> rows.map { if (table == "weekly_goals") it - setOf("targetValue", "unit") else it - newColumns.toSet() } })
+        // 9 -> 10 moves the goals after the habits in Your promises (#236): PromiseOrderMigrationTest.
+        fun ordered(m: Map<String, List<Map<String, String>>>) = m.mapValues { (t, r) -> if (t == "weekly_goals") r.map { it - "sortOrder" } else r }
+        assertEquals(ordered(before), ordered(after.mapValues { (table, rows) -> rows.map { if (table == "weekly_goals") it - setOf("targetValue", "unit") else it - newColumns.toSet() } }))
     }
 
     @Test
@@ -195,7 +197,7 @@ class DayRecordWeeklyMigrationTest {
     fun anEmptyReleaseDatabaseUpgrades() {
         createReleaseDatabase {}
         val db = upgrade()
-        assertEquals(9, db.version)
+        assertEquals(10, db.version)
         db.query("SELECT COUNT(*) FROM day_records").use { it.moveToFirst(); assertEquals(0, it.getInt(0)) }
     }
 }

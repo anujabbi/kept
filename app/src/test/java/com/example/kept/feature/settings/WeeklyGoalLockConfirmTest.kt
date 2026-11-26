@@ -16,6 +16,7 @@ import com.example.kept.core.analytics.Analytics
 import com.example.kept.core.data.DayRepository
 import com.example.kept.core.data.HabitRepository
 import com.example.kept.core.data.LockRepository
+import com.example.kept.core.data.PromiseRepository
 import com.example.kept.core.data.SprigRepository
 import com.example.kept.core.data.TimeSource
 import com.example.kept.core.data.WeeklyGoalRepository
@@ -105,7 +106,8 @@ class WeeklyGoalLockConfirmTest {
         viewModels.create {
             SettingsViewModel(
                 ctx, prefs, habits, lock, sprig, DayRepository(db.dayRecordDao(), time), InstalledAppsSource(ctx), AllowlistResolver(ctx),
-                WorkScheduler(ctx, prefs, time), ReminderPoster(habits, prefs, KeptNotifications(ctx), time), time, Permissions(ctx), analytics, scope,
+                WorkScheduler(ctx, prefs, time), ReminderPoster(habits, prefs, KeptNotifications(ctx), time), time, Permissions(ctx), analytics,
+                PromiseRepository(db.promiseDao(), habits, time), scope,
             )
         }
     }
@@ -295,7 +297,7 @@ class WeeklyGoalLockConfirmTest {
         val asked = mutableListOf<PromiseDraft>()
         var closedPage = 0
         rule.setContent {
-            Shot { PromisePage(PromiseRules.ofGoal("Exercise", 4, 30, "min"), PromiseLimits.SAVED_GOAL, onDone = { d, _ -> asked += d }, onClose = { closedPage++ }) }
+            Shot { PromisePage(PromiseRules.ofGoal("Exercise", 4, 30, "min"), PromiseLimits.savedGoal(daily = 1), onDone = { d, _ -> asked += d }, onClose = { closedPage++ }) }
         }
         pickDays(2)
         done()

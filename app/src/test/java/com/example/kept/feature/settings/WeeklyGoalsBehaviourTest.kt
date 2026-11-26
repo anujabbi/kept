@@ -50,8 +50,9 @@ import java.time.Instant
 import java.time.ZoneId
 
 /**
- * What Weekly goals does when touched, what a weekly promise stores, and what TalkBack hears
- * (issue #165, story #173). The goal itself is set on the promise (#218): `PromiseBehaviourTest`.
+ * What a weekly promise stores (issue #165, story #173), and what TalkBack hears on the delete
+ * confirm. The goal is set on the promise (#218): `PromiseBehaviourTest`; it is listed in Your
+ * promises (#236): `PromisesBehaviourTest`.
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -64,49 +65,6 @@ class WeeklyGoalsBehaviourTest {
         val c = rule.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode().config
         val t = c.getOrNull(SemanticsProperties.EditableText)?.text ?: c[SemanticsProperties.Text].joinToString { it.text }
         return t.replace(WeeklyGoalCopy.NBSP, ' ')
-    }
-
-    // --- the list ------------------------------------------------------------------------------
-
-    @Test fun with_no_goals_the_list_is_empty_and_offers_add() {
-        var added = 0
-        var back = 0
-        rule.setContent { Shot { WeeklyGoalsContent(emptyList(), onBack = { back++ }, onAdd = { added++ }, onEdit = {}) } }
-        rule.onNodeWithTag("page_title").assertTextEquals("Weekly goals")
-        rule.onNodeWithText(WeeklyGoalCopy.LIST_LINE).assertExists()
-        rule.onNodeWithTag("goals_add").assertTextEquals("Add a weekly goal").assertIsEnabled().performClick()
-        assertEquals(1, added)
-        assertEquals("0 of 3 weekly goals", text("goals_count"))
-        rule.onNodeWithTag("page_back").performClick()
-        assertEquals(1, back)
-    }
-
-    @Test fun the_list_shows_each_goal_and_a_row_opens_it() {
-        val opened = mutableListOf<Long>()
-        rule.setContent { Shot { WeeklyGoalsContent(WeeklyGoalsFixtures.TWO, {}, {}, onEdit = { opened += it }) } }
-        assertEquals("Exercise · 30 min · 4 days a week", text("goal_text_1"))
-        assertEquals("Read · 1 day a week", text("goal_text_2"))
-        rule.onNodeWithTag("goal_row_2").performClick()
-        rule.onNodeWithTag("goal_row_1").performClick()
-        assertEquals(listOf(2L, 1L), opened)
-        assertEquals("2 of 3 weekly goals", text("goals_count"))
-        rule.onNodeWithTag("goals_add").assertIsEnabled()
-    }
-
-    @Test fun with_three_goals_a_fourth_cannot_be_added_and_the_screen_says_why() {
-        var added = 0
-        rule.setContent { Shot { WeeklyGoalsContent(WeeklyGoalsFixtures.THREE, {}, onAdd = { added++ }, onEdit = {}) } }
-        rule.onNodeWithTag("goals_add").assertIsNotEnabled().performClick()
-        assertEquals(0, added)
-        assertEquals("That's the limit: 3 weekly goals. Remove one to add another.", text("goals_count"))
-    }
-
-    @Test fun a_row_is_made_from_the_stored_goal() {
-        val g = WeeklyGoalEntity(id = 7, title = "Exercise", iconKey = "run", daysPerWeek = 4, createdAt = 1, effectiveFrom = "2026-11-21")
-        val item = WeeklyGoalItem.of(g)
-        assertEquals(7L, item.id)
-        assertEquals("Exercise · 4 days a week", item.text.replace(WeeklyGoalCopy.NBSP, ' '))
-        assertEquals("run", item.iconKey)
     }
 
     // --- setup ---------------------------------------------------------------------------------
@@ -137,6 +95,9 @@ class WeeklyGoalsBehaviourTest {
 
     private suspend fun active() = repo.observeGoals().first()
 
+    /** The goal as its card in Your promises (#236) reads: name, amount, how often. */
+    private fun card(g: WeeklyGoalEntity) = g.promise().let { "${it.title} · ${it.amount} · ${it.chip}" }.replace(WeeklyGoalCopy.NBSP, ' ')
+
     @Test fun saving_exercise_4_stores_one_active_goal_from_today() = runBlocking {
         vm.add(PromiseRules.fresh(emptyList(), days = 4)).join()
         val goal = active().single()
@@ -146,18 +107,18 @@ class WeeklyGoalsBehaviourTest {
         assertEquals("2026-11-21", goal.effectiveFrom)
         assertEquals(HabitIconRules.forName("Exercise"), goal.iconKey)
         assertEquals("run", goal.iconKey)
-        assertEquals("Exercise · 30 min · 4 days a week", WeeklyGoalItem.of(goal).text.replace(WeeklyGoalCopy.NBSP, ' '))
+        assertEquals("Exercise · 30 min · 4 days a week", card(goal))
     }
 
     @Test fun adding_then_editing_the_target_updates_the_list_row() = runBlocking {
         vm.add(PromiseRules.fresh(emptyList(), days = 4)).join()
         val goal = active().single()
         assertEquals(30 to "min", goal.targetValue to goal.unit)
-        assertEquals("Exercise · 30 min · 4 days a week", WeeklyGoalItem.of(goal).text.replace(WeeklyGoalCopy.NBSP, ' '))
+        assertEquals("Exercise · 30 min · 4 days a week", card(goal))
         val opened = PromiseRules.ofGoal(goal.title, goal.daysPerWeek, goal.targetValue, goal.unit)
         assertEquals("I will exercise for 30 minutes, 4 days a week.", opened.sentence.replace(WeeklyGoalCopy.NBSP, ' '))
         vm.save(goal.id, opened.withTarget(45)).join()
-        assertEquals("Exercise · 45 min · 4 days a week", WeeklyGoalItem.of(active().single()).text.replace(WeeklyGoalCopy.NBSP, ' '))
+        assertEquals("Exercise · 45 min · 4 days a week", card(active().single()))
     }
 
     @Test fun a_custom_name_is_saved_trimmed_with_its_icon() = runBlocking {
@@ -194,7 +155,7 @@ class WeeklyGoalsBehaviourTest {
         assertEquals("Swim", goal.title)
         assertEquals(2, goal.daysPerWeek)
         assertEquals("the start date does not move", "2026-11-09", goal.effectiveFrom)
-        assertEquals("Swim · 20 min · 2 days a week", WeeklyGoalItem.of(goal).text.replace(WeeklyGoalCopy.NBSP, ' '))
+        assertEquals("Swim · 20 min · 2 days a week", card(goal))
         val week = repo.thisWeek().single().week
         assertEquals("both sessions are still counted", 2, week.done)
         assertEquals(2, week.target)
@@ -229,9 +190,6 @@ class WeeklyGoalsBehaviourTest {
             assertTrue("'$label' is ${node.size.height / density}dp tall", node.size.height / density >= 47.9f)
         }
     }
-
-    @Test fun the_list_is_accessible() = assertAccessible { WeeklyGoalsContent(WeeklyGoalsFixtures.TWO, {}, {}, {}) }
-    @Test fun the_empty_list_is_accessible() = assertAccessible { WeeklyGoalsContent(emptyList(), {}, {}, {}) }
 
     @Test fun the_delete_confirm_is_accessible() = assertAccessible { DeleteGoalConfirm("Exercise, 4 days a week will be removed from your weekly goals.", {}, {}) }
 

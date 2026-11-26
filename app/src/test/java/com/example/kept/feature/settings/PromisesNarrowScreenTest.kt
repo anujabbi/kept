@@ -9,23 +9,20 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * Your habits and Add a habit in Daybreak (`A8-Habits`, `A9-Habit-edit`) at 360 × 640 dp, font
- * scale 1.0 and 2.0: the list with 6 habits and at 10, Add a habit empty, with a custom name and
- * its unit chips, with the photo on, and Edit habit (and the last habit, which cannot be
- * removed). Goldens: `app/src/test/screenshots/habits_360_*`. Also checks every state fits
- * (see [HabitsShots.everyStateFits]).
+ * Your promises (#236) at 360 × 640 dp, font scale 1.0 and 2.0. Goldens:
+ * `app/src/test/screenshots/promises_360_*`. Also checks every state fits
+ * ([PromisesShots.everyStateFits]).
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [34], application = android.app.Application::class, qualifiers = "w360dp-h640dp-420dpi")
-class HabitsNarrowScreenTest {
+class PromisesNarrowScreenTest {
 
     @get:Rule val rule = createComposeRule()
-    private val shots by lazy { HabitsShots(rule, "_360") }
+    private val shots by lazy { PromisesShots(rule, "_360") }
 
     @Test fun list() = shots.shot("list", 1f)
-    @Test fun listLimit() = shots.shot("list_limit", 1f)
-    @Test fun listLimit_font2() = shots.shot("list_limit", 2f)
+    @Test fun list_font2() = shots.shot("list", 2f)
 
     @Test fun everyStateFits() = shots.everyStateFits()
 }

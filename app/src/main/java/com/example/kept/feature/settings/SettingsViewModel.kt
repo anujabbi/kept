@@ -7,6 +7,7 @@ import com.example.kept.core.analytics.Analytics
 import com.example.kept.core.data.DayRepository
 import com.example.kept.core.data.HabitRepository
 import com.example.kept.core.data.LockRepository
+import com.example.kept.core.data.PromiseRepository
 import com.example.kept.core.data.SprigRepository
 import com.example.kept.core.data.TimeSource
 import com.example.kept.core.data.db.AllowedAppEntity
@@ -21,6 +22,8 @@ import com.example.kept.core.domain.LockWindowEdit
 import com.example.kept.core.domain.LockWindowField
 import com.example.kept.core.domain.NightEdit
 import com.example.kept.core.domain.NightSetting
+import com.example.kept.core.domain.PromiseDraft
+import com.example.kept.core.domain.PromiseSwitch
 import com.example.kept.core.domain.ProofType
 import com.example.kept.core.domain.SprigState
 import com.example.kept.core.domain.WeeklyGoalLockEdit
@@ -94,6 +97,7 @@ enum class LockAffectingSetting(val eventValue: String) {
     EXCEPTION_ON("exception_on"),
     NIGHT_LOCK("night_lock"),
     WEEKLY_GOAL("weekly_goal"),
+    PROMISE_SWITCH("promise_switch"),
 }
 
 /**
@@ -129,6 +133,7 @@ class SettingsViewModel @Inject constructor(
     private val time: TimeSource,
     val permissions: Permissions,
     private val analytics: Analytics,
+    private val promises: PromiseRepository,
     /** Habit writes outlive the page: Add and Edit habit close as soon as they save (issue #134). */
     @ApplicationScope private val appScope: CoroutineScope,
 ) : ViewModel() {
@@ -266,6 +271,26 @@ class SettingsViewModel @Inject constructor(
         LockAffectingSetting.HABIT_REMOVED,
         HabitsCopy.REMOVE_WHILE_LOCKED,
     ) { removeHabit(id); onRemoved() }
+
+    /**
+     * Every day → some days a week (#236): habit [habitId] becomes the weekly goal [d]. While the
+     * daily lock holds and the switch would open apps today ([PromiseSwitch.opensLock]) it asks
+     * first; Cancel changes nothing and never runs [onSaved]. Otherwise, or once confirmed, the
+     * switch is written and [onSaved] runs.
+     */
+    fun requestToWeekly(habitId: Long, d: PromiseDraft, onSaved: () -> Unit) {
+        val days = d.days ?: return
+        viewModelScope.launch {
+            val opens = promises.toWeeklyOpens(habitId, days)
+            guard(LockAffectingSetting.PROMISE_SWITCH, PromiseSwitch.TO_WEEKLY_WHILE_LOCKED, held = { it.daily && opens }) {
+                appScope.launch { promises.toWeekly(habitId, d) }
+                onSaved()
+            }
+        }
+    }
+
+    /** Some days a week → every day (#236): goal [goalId] becomes the daily habit [d]. It never opens the lock, so it never asks. */
+    fun toDaily(goalId: Long, d: PromiseDraft) = appScope.launch { promises.toDaily(goalId, d) }
 
     /**
      * What saving weekly goal [goalId] with [newDays] a week (it has [savedDays] now), or

@@ -9,23 +9,23 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * Your habits and Add a habit in Daybreak (`A8-Habits`, `A9-Habit-edit`) at 412 × 915 dp, font
- * scale 1.0 and 2.0: the list with 6 habits and at 10, Add a habit empty, with a custom name and
- * its unit chips, with the photo on, and Edit habit (and the last habit, which cannot be
- * removed). Goldens: `app/src/test/screenshots/habits_*`. Also checks every state fits
- * (see [HabitsShots.everyStateFits]).
+ * Your promises (#236) at 412 × 915 dp, font scale 1.0 and 2.0: the mockup's six, top and end,
+ * and both sides full. Goldens: `app/src/test/screenshots/promises_*`. Also checks every state
+ * fits ([PromisesShots.everyStateFits]).
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [34], application = android.app.Application::class, qualifiers = "w412dp-h915dp-420dpi")
-class HabitsScreenshotTest {
+class PromisesScreenshotTest {
 
     @get:Rule val rule = createComposeRule()
-    private val shots by lazy { HabitsShots(rule, "") }
+    private val shots by lazy { PromisesShots(rule, "") }
 
     @Test fun list() = shots.shot("list", 1f)
-    @Test fun listLimit() = shots.shot("list_limit", 1f)
-    @Test fun listLimit_font2() = shots.shot("list_limit", 2f)
+    @Test fun list_font2() = shots.shot("list", 2f)
+    @Test fun listEnd() = shots.shotEnd("list", 1f)
+    @Test fun listEnd_font2() = shots.shotEnd("list", 2f)
+    @Test fun fullEnd() = shots.shotEnd("full", 1f)
 
     @Test fun everyStateFits() = shots.everyStateFits()
 }

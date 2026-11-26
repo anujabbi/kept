@@ -9,9 +9,7 @@ class WeeklyGoalSetupTest {
 
     private fun plain(s: String) = s.replace(WeeklyGoalCopy.NBSP, ' ')
 
-    @Test fun the_list_row_carries_the_target_and_reads_as_before_without_one() {
-        assertEquals("Exercise · 30 min · 4 days a week", plain(WeeklyGoalCopy.listRow("Exercise", "30 min", 4)))
-        assertEquals("Exercise · 4 days a week", plain(WeeklyGoalCopy.listRow("Exercise", null, 4)))
+    @Test fun the_target_reads_as_a_habit_amount_except_one_time() {
         assertEquals("10 pages", plain(WeeklyGoalCopy.target(10, "pages")!!))
         assertEquals("1 page", plain(WeeklyGoalCopy.target(1, "pages")!!))
         assertEquals("8 glasses", plain(WeeklyGoalCopy.target(8, "glasses")!!))

@@ -73,9 +73,14 @@ class PromiseRulesTest {
         assertEquals(PromiseLimits(false, true, HabitLimits.LIMIT_REACHED), PromiseLimits.new(daily = 10, weekly = 0))
         assertEquals(3, PromiseLimits.new(10, 0).fit(PromiseDraft("Read", days = null)).days)
         assertNull(PromiseLimits.new(2, 3).fit(PromiseDraft("Read", days = 4)).days)
-        assertEquals(PromiseCopy.STAYS_DAILY, PromiseLimits.SAVED_HABIT.line)
-        assertFalse(PromiseLimits.SAVED_HABIT.allows(4))
-        assertFalse(PromiseLimits.SAVED_GOAL.allows(null))
+    }
+
+    @Test fun `a saved promise may switch kind within the limits, and the last every-day habit may not (#236)`() {
+        assertEquals(PromiseLimits(true, true, null), PromiseLimits.savedHabit(daily = 4, weekly = 2))
+        assertEquals(PromiseLimits(true, false, WeeklyGoalCopy.LIMIT_REACHED), PromiseLimits.savedHabit(daily = 4, weekly = 3))
+        assertEquals(PromiseLimits(true, false, PromiseCopy.KEEP_ONE_DAILY), PromiseLimits.savedHabit(daily = 1, weekly = 0))
+        assertEquals(PromiseLimits(true, true, null), PromiseLimits.savedGoal(daily = 9))
+        assertEquals(PromiseLimits(false, true, HabitLimits.LIMIT_REACHED), PromiseLimits.savedGoal(daily = 10))
     }
 
     @Test fun `the activity is trimmed and stops at 28 characters`() {

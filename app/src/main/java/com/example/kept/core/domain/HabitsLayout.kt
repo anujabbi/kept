@@ -1,24 +1,8 @@
 package com.example.kept.core.domain
 
-/** Your habits copy (spec, Habits; `A8-Habits`). Final; do not reword here. */
+/** Edit habit copy (spec, Habits), on the promise (#218). Final; do not reword here. */
 object HabitsCopy {
     const val NBSP = ' '
-
-    // Your habits (A8)
-    const val TITLE = "Your habits"
-    const val LINE = "Apps stay locked until every one is done. Two or three is plenty."
-    const val ADD = "Add a habit"
-
-    /** Under the button: "6 of 10 habits", or [HabitLimits.LIMIT_REACHED] at the limit. */
-    fun count(n: Int): String =
-        if (HabitLimits.canAdd(n)) "$n${NBSP}of${NBSP}${HabitLimits.MAX_HABITS}${NBSP}habits" else HabitLimits.LIMIT_REACHED
-
-    /** A row's second line: "30 min, tap when done", "Once a day, tap when done", "Photo check-in", "Tap when done". */
-    fun detail(proof: ProofType, target: Int, unit: String): String = when {
-        proof == ProofType.PHOTO -> "Photo check-in"
-        unit.isBlank() || unit == HabitDraft.CHECK_IN -> "Tap when done"
-        else -> "${HabitDraft.amount(target, unit)}, tap when done"
-    }
 
     // Edit habit, on the promise (#218)
     const val REMOVE = "Remove habit"

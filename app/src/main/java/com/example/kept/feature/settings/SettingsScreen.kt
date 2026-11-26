@@ -57,7 +57,7 @@ import com.example.kept.core.domain.SettingsCopy
 import com.example.kept.core.domain.SettingsSky
 import com.example.kept.core.domain.SprigForm
 import com.example.kept.core.domain.SprigPose
-import com.example.kept.core.domain.WeeklyGoalCopy
+import com.example.kept.core.domain.PromiseListCopy
 import com.example.kept.core.lock.PermissionKind
 import com.example.kept.core.ui.BigTimeStyle
 import com.example.kept.core.ui.DaybreakType
@@ -117,8 +117,8 @@ data class SettingsPage(
 
 /** What a row on the Settings tab does when tapped or switched. */
 data class SettingsActions(
-    val onOpenHabits: () -> Unit = {},
-    val onOpenWeeklyGoals: () -> Unit = {},
+    /** Your promises (#236): every daily habit and weekly goal. */
+    val onOpenPromises: () -> Unit = {},
     val onEditLockFrom: () -> Unit = {},
     val onEditGiveUp: () -> Unit = {},
     val onOpenExceptions: () -> Unit = {},
@@ -137,8 +137,7 @@ private enum class Editor { LOCK_FROM, GIVE_UP, BREAK, NIGHT_START, NIGHT_START_
 @Composable
 fun SettingsScreen(
     onOpenExceptions: () -> Unit,
-    onOpenHabits: () -> Unit,
-    onOpenWeeklyGoals: () -> Unit,
+    onOpenPromises: () -> Unit,
     onOpenPermissions: () -> Unit,
     onOpenHistory: () -> Unit,
     vm: SettingsViewModel = hiltViewModel(),
@@ -153,8 +152,7 @@ fun SettingsScreen(
     SettingsContent(
         page,
         SettingsActions(
-            onOpenHabits = onOpenHabits,
-            onOpenWeeklyGoals = onOpenWeeklyGoals,
+            onOpenPromises = onOpenPromises,
             onEditLockFrom = { editor = Editor.LOCK_FROM },
             onEditGiveUp = { editor = Editor.GIVE_UP },
             onOpenExceptions = onOpenExceptions,
@@ -259,8 +257,10 @@ private fun Groups(page: SettingsPage, a: SettingsActions) {
         verticalArrangement = Arrangement.spacedBy(22.dp),
     ) {
         RowGroup(SettingsCopy.GROUP_PROMISE) {
-            ValueRow(SettingsCopy.HABITS, RowValue(SettingsCopy.habits(page.habits)), a.onOpenHabits, first = true, tag = "settings_habits")
-            ValueRow(WeeklyGoalCopy.ROW, RowValue(WeeklyGoalCopy.rowValue(page.weeklyGoals)), a.onOpenWeeklyGoals, tag = "settings_weekly_goals")
+            ValueRow(
+                PromiseListCopy.TITLE, RowValue(PromiseListCopy.rowValue(page.habits, page.weeklyGoals)), a.onOpenPromises,
+                hint = PromiseListCopy.rowHint(page.habits, page.weeklyGoals), first = true, tag = "settings_promises",
+            )
             ValueRow(SettingsCopy.LOCK_FROM, RowValue(SettingsCopy.time(page.lockFromMinute)), a.onEditLockFrom, tag = "settings_lock_from")
             ValueRow(SettingsCopy.GIVE_UP, RowValue(SettingsCopy.time(page.dueMinute)), a.onEditGiveUp, hint = SettingsCopy.GIVE_UP_HINT, tag = "settings_give_up")
         }
