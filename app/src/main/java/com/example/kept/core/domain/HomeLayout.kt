@@ -3,8 +3,9 @@ package com.example.kept.core.domain
 import kotlin.math.roundToInt
 
 /**
- * Home's two layouts (spec, Home): roomy for 1 to 3 habits (`Main.dc.html`), compact from 4
- * (`A2-Home-6.dc.html`), where only the habit list scrolls. No habits counts as roomy.
+ * Home's rows (spec, Home): roomy rows for 1 to 3 habits, compact rows from 4. Since #218 the sky
+ * is the same compact sky for every count, and everything under the hill scrolls together; only
+ * the rows' height follows the count. No habits counts as roomy.
  */
 enum class HomeLayout {
     ROOMY, COMPACT;
@@ -17,19 +18,21 @@ enum class HomeLayout {
 }
 
 /**
- * Where Sprig stands on Home, in dp from the top of the sky, ported from the design scripts.
- * The hill's crest is the reference: Sprig keeps the design's distance to it, so a sky that has
- * to grow for large text moves Sprig with the hill instead of letting it sink behind it.
+ * Where Sprig stands in a compact sky (`A2-Home-6.dc.html`), in dp from the top of the sky. The
+ * hill's crest is the reference: Sprig keeps its distance to it, so a sky that has to grow for
+ * large text moves Sprig with the hill instead of letting it sink behind it. Home (#218) draws a
+ * 150dp Sprig and a lower sky than the design; the lock screen and the Sprig tab share the
+ * column widths ([compactWidths]).
  */
 object HomeSprig {
-    /** Sprig's size per layout in the design: 240 centred (`Main`), 180 on the right (`A2-Home-6`). */
-    fun sizeDp(layout: HomeLayout): Int = if (layout == HomeLayout.ROOMY) 240 else 180
+    /** Sprig's size in `A2-Home-6`: 180 on the right. */
+    const val DESIGN_SPRIG_DP = 180
 
-    /** Side padding of the headline column, and Sprig's gap to the right edge in compact. */
+    /** Side padding of the headline column, and Sprig's gap to the right edge. */
     const val TEXT_SIDE_DP = 24
     const val COMPACT_SPRIG_END_DP = 14
 
-    /** Space kept between the compact headline column and Sprig's box. */
+    /** Space kept between the headline column and Sprig's box. */
     const val COMPACT_GAP_DP = 4
 
     /** The smallest compact Sprig, for narrow screens. */
@@ -42,68 +45,48 @@ object HomeSprig {
     data class CompactWidths(val textDp: Int, val sprigDp: Int)
 
     /**
-     * Compact: the headline column and Sprig share the row without touching. Sprig's drawing can
-     * reach the edge of its box (arms, Celestial's cape), so the column ends [COMPACT_GAP_DP]
-     * before the box rather than tucking under it. The column keeps its 180dp while there is room;
-     * on narrower screens Sprig gives way first (down to [COMPACT_SPRIG_MIN_DP]), then the column.
+     * The lock screen's and the Sprig tab's columns: the headline column and Sprig share the row
+     * without touching. Sprig's drawing can reach the edge of its box (arms, Celestial's cape), so
+     * the column ends [COMPACT_GAP_DP] before the box rather than tucking under it. The column
+     * keeps its 180dp while there is room; on narrower screens Sprig gives way first (down to
+     * [COMPACT_SPRIG_MIN_DP]), then the column.
      */
     fun compactWidths(screenDp: Int): CompactWidths {
         val room = screenDp - TEXT_SIDE_DP - COMPACT_SPRIG_END_DP - COMPACT_GAP_DP
-        val sprig = (room - COMPACT_TEXT_DP).coerceIn(COMPACT_SPRIG_MIN_DP, sizeDp(HomeLayout.COMPACT))
+        val sprig = (room - COMPACT_TEXT_DP).coerceIn(COMPACT_SPRIG_MIN_DP, DESIGN_SPRIG_DP)
         val text = (room - sprig).coerceAtMost(COMPACT_TEXT_DP)
         return CompactWidths(text, sprig)
     }
 
-    /** Roomy: the headline column spans the screen inside its side padding. */
-    fun roomyTextDp(screenDp: Int): Int = screenDp - 2 * TEXT_SIDE_DP
-
-    /** The hill's crest in the design: `Main` puts the hill at 396; `A2-Home-6` at 260 − 48. */
-    fun designCrestDp(layout: HomeLayout): Int = if (layout == HomeLayout.ROOMY) 396 else 212
-
-    /**
-     * Sprig's top in the design for [done] of [total]. `Main` (2 habits): 224, 200, 176, i.e.
-     * 224 − 48 × done/total. `A2-Home-6`: `round(100 − 44 × done/total)`.
-     */
-    fun designTopDp(layout: HomeLayout, done: Int, total: Int): Int {
-        val frac = if (total <= 0) 0f else done.coerceIn(0, total).toFloat() / total
-        return when (layout) {
-            HomeLayout.ROOMY -> (224 - 48 * frac).roundToInt()
-            HomeLayout.COMPACT -> (100 - 44 * frac).roundToInt()
-        }
-    }
-
-    /** How far Sprig's top sits above the crest at [done] of [total]. */
-    fun aboveCrestDp(layout: HomeLayout, done: Int, total: Int): Int =
-        designCrestDp(layout) - designTopDp(layout, done, total)
-
-    /** The most Sprig ever rises above the crest (everything done). */
-    fun maxAboveCrestDp(layout: HomeLayout): Int = aboveCrestDp(layout, 1, 1)
-
-    /** Space kept between the bottom of the headline block and Sprig's box in the roomy layout. */
-    const val CLEARANCE_DP = 8
-
-    /** Space kept between the compact headline block and the crest. */
+    /** Space kept between the headline block and the crest. */
     const val COMPACT_TEXT_TO_CREST_DP = 12
 
-    /**
-     * The crest for a headline block ending at [textBottomDp] (from the sky's top). Roomy: Sprig
-     * is centred under the text, so the crest moves down until even the highest Sprig clears
-     * the text by [CLEARANCE_DP]. Compact: the text sits beside Sprig, so it only has to end
-     * above the crest. Never above the design's crest.
-     */
-    fun crestDp(layout: HomeLayout, textBottomDp: Int): Int = when (layout) {
-        HomeLayout.ROOMY -> maxOf(designCrestDp(layout), textBottomDp + CLEARANCE_DP + maxAboveCrestDp(layout))
-        HomeLayout.COMPACT -> maxOf(designCrestDp(layout), textBottomDp + COMPACT_TEXT_TO_CREST_DP)
+    // Home (#218): the compact sky for every habit count, with a 150dp Sprig and the crest at about 156.
+
+    /** Home's Sprig: about 150dp, to the right of the headline. */
+    const val HOME_SPRIG_DP = 150
+
+    /** Home's crest when the headline block is short: 156dp under the status bar. */
+    const val HOME_CREST_DP = 156
+
+    /** Home's columns: Sprig keeps its 150dp and the headline takes the rest of the row. */
+    fun homeWidths(screenDp: Int): CompactWidths =
+        CompactWidths(screenDp - TEXT_SIDE_DP - COMPACT_SPRIG_END_DP - COMPACT_GAP_DP - HOME_SPRIG_DP, HOME_SPRIG_DP)
+
+    /** Home's Sprig top sits this far above the crest with nothing done, so its face shows over the hill. */
+    const val HOME_ABOVE_CREST_DP = 100
+
+    /** How far Home's Sprig rises as the habits get done; its bottom stays under the hill at both corners. */
+    const val HOME_RISE_DP = 34
+
+    /** Home's Sprig top for a crest at [crestDp], [done] of [total]. */
+    fun homeTopDp(crestDp: Int, done: Int, total: Int): Int {
+        val frac = if (total <= 0) 0f else done.coerceIn(0, total).toFloat() / total
+        return crestDp - HOME_ABOVE_CREST_DP - (HOME_RISE_DP * frac).roundToInt()
     }
 
-    /** Sprig's top for a crest at [crestDp]. */
-    /**
-     * Sprig's top for a crest at [crestDp]. A Sprig drawn smaller than the design's [sizeDp] (a
-     * narrow screen) keeps its bottom where the design's would be, so its lower body stays behind
-     * the hill instead of floating above it.
-     */
-    fun topDp(layout: HomeLayout, crestDp: Int, done: Int, total: Int, sprigDp: Int = sizeDp(layout)): Int =
-        crestDp - aboveCrestDp(layout, done, total) + (sizeDp(layout) - sprigDp)
+    /** Home's crest for a headline block ending at [textBottomDp]: the block always ends above it. */
+    fun homeCrestDp(textBottomDp: Int): Int = maxOf(HOME_CREST_DP, textBottomDp + COMPACT_TEXT_TO_CREST_DP)
 }
 
 /** Home's copy (spec, Home). Final; do not reword here. */

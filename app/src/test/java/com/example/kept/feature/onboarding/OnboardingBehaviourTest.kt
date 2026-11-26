@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.state.ToggleableState
@@ -22,8 +23,14 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
+import com.example.kept.feature.settings.PROMISE_CHEER_MS
+import com.example.kept.feature.settings.promiseSentence
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
@@ -31,12 +38,15 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.click
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.toSize
 import com.example.kept.core.domain.HabitLimits
 import com.example.kept.core.domain.ProofType
 import com.example.kept.core.domain.WeeklyGoalCopy
-import com.example.kept.core.ui.HabitTemplate
 import androidx.compose.ui.semantics.Role
 import com.example.kept.core.domain.LockWindowRules
+import com.example.kept.core.domain.NightSetting
+import com.example.kept.core.domain.NightSliders
+import com.example.kept.core.data.prefs.Settings
 import com.example.kept.core.domain.OnboardingCopy
 import com.example.kept.core.lock.PermissionKind
 import com.example.kept.core.ui.shots.Shot
@@ -73,35 +83,26 @@ class OnboardingBehaviourTest {
         latest = s
         when {
             s.step == OnboardingStep.WELCOME -> WelcomeStep(onStart = { s = OnboardingFlow.next(s) })
-            s.step == OnboardingStep.HABITS && s.addingHabit -> AddHabitPage(onBack = { s = OnboardingFlow.back(s) }, onSave = { s = OnboardingFlow.addCustom(s, it) })
-            s.step == OnboardingStep.HABITS -> {
-                HabitsStep(
-                    s,
-                    onToggle = { s = OnboardingFlow.toggle(s, it) },
-                    onCadence = { s = OnboardingFlow.openCadence(s, it) },
-                    onAddOwn = { s = OnboardingFlow.openAddHabit(s) },
-                    onBack = { s = OnboardingFlow.back(s) },
-                    onContinue = { s = OnboardingFlow.next(s) },
-                )
-                CadenceSheet(
-                    s,
-                    CadenceActions(
-                        onEveryDay = { s = OnboardingFlow.sheetEveryDay(s) },
-                        onSomeDays = { s = OnboardingFlow.sheetSomeDays(s) },
-                        onDays = { s = OnboardingFlow.sheetDays(s, it) },
-                        onDone = { s = OnboardingFlow.sheetDone(s) },
-                        onDismiss = { s = OnboardingFlow.closeCadence(s) },
-                    ),
-                )
+            s.step == OnboardingStep.HABITS && s.promise != null -> androidx.compose.runtime.key(s.promise?.title ?: "new") {
+                OnboardingPromisePage(s, onDone = { s = OnboardingFlow.promiseDone(s, it) }, onClose = { s = OnboardingFlow.closePromise(s) })
             }
-            s.step == OnboardingStep.SHUTDOWN -> ShutdownStep(
-                s.shutdownMinute,
-                onPick = { s = OnboardingFlow.pickShutdown(s, it) },
+            s.step == OnboardingStep.HABITS -> HabitsStep(
+                s,
+                onToggle = { s = OnboardingFlow.toggle(s, it) },
+                onCadence = { s = OnboardingFlow.openPromise(s, it) },
+                onAddOwn = { s = OnboardingFlow.openAddHabit(s) },
                 onBack = { s = OnboardingFlow.back(s) },
                 onContinue = { s = OnboardingFlow.next(s) },
-                onSkip = { s = OnboardingFlow.skipShutdown(s) },
             )
             s.step == OnboardingStep.LOCK_WINDOW -> LockWindowStep(s.window, { s = OnboardingFlow.setWindow(s, it) }, { s = OnboardingFlow.back(s) }, { s = OnboardingFlow.next(s) })
+            s.step == OnboardingStep.SHUTDOWN -> ShutdownStep(
+                s.shutdown,
+                onFrom = { s = OnboardingFlow.pickShutdownFrom(s, it) },
+                onUntil = { s = OnboardingFlow.pickShutdownUntil(s, it) },
+                onBack = { s = OnboardingFlow.back(s) },
+                onContinue = { s = OnboardingFlow.continueShutdown(s) },
+                onSkip = { s = OnboardingFlow.skipShutdown(s) },
+            )
             else -> Text("step ${s.step}")
         }
     }
@@ -141,15 +142,29 @@ class OnboardingBehaviourTest {
         rule.onNodeWithTag("onboarding_next").assertIsEnabled()
     }
 
-    @Test fun add_your_own_opens_add_a_habit_and_back_returns_with_picks_kept() {
+    @Test fun add_your_own_opens_the_promise_on_something_else_and_cancel_keeps_the_picks() {
         show(OnboardingFixtures.habits)
         rule.onNodeWithTag("onboarding_habit_Study").tapRow()
         rule.onNodeWithTag("onboarding_add_own").performScrollTo().performClick()
-        rule.onNodeWithTag("onboarding_add_habit").assertIsDisplayed()
-        rule.onNodeWithText("Save habit").assertExists()
-        rule.onNodeWithTag("page_back").performClick()
+        rule.onNodeWithTag("onboarding_promise").assertIsDisplayed()
+        rule.onNodeWithTag("promise_activity_field").assertExists()
+        rule.onNodeWithTag("promise_done").assertIsNotEnabled()
+        rule.onNodeWithTag("promise_cancel").performClick()
+        rule.waitForIdle()
         rule.onNodeWithTag("onboarding_habits").assertIsDisplayed()
         assertEquals(listOf("Exercise", "Read", "Study"), latest.chosen.map { it.title })
+    }
+
+    @Test fun something_else_typed_in_add_your_own_is_added_ticked_with_that_name() {
+        show(OnboardingFixtures.habits)
+        rule.onNodeWithTag("onboarding_add_own").performScrollTo().performClick()
+        rule.onNodeWithTag("promise_activity_field").performTextInput("walk the dog")
+        assertEquals("I will walk the dog for 20 minutes, every day.", promiseText())
+        done()
+        chip("Walk the dog").performScrollTo().assert(cadence("Walk the dog", "Every day"))
+        val walk = latest.chosen.single { it.title == "Walk the dog" }
+        assertEquals(20 to "min", walk.targetValue to walk.unit)
+        assertEquals("run", walk.iconKey)
     }
 
     @Test fun at_ten_habits_the_limit_line_replaces_add_your_own() {
@@ -160,34 +175,39 @@ class OnboardingBehaviourTest {
         rule.onNodeWithTag("onboarding_habit_count").assertTextEquals("10 daily habits · 1 weekly goal")
     }
 
-    // How often (#205, #207) -------------------------------------------------------------------
+    // How often (#205, #207), on the promise (#218) ---------------------------------------------
 
     private fun chip(title: String) = rule.onNodeWithTag("onboarding_cadence_$title")
 
     /** The chip reads "Read, 3 days a week. Change how often": its cadence with the habit name. */
     private fun cadence(title: String, shown: String) = SemanticsMatcher.expectValue(
         SemanticsProperties.ContentDescription,
-        listOf("$title, ${if (shown == "Every day") "every day" else shown}. Change how often"),
+        listOf("$title, ${if (shown == "Every day") "every day" else shown.replace(' ', '\u00A0')}. Change how often"),
     )
 
-    /** Opens [title]'s sheet, picks [days] (null for every day) and taps Done. */
+    /** The promise's sentence as it reads on screen. */
+    private fun promiseText(): String = promiseSentence(rule)
+
+    /** Done, then Sprig's cheer, after which the promise closes by itself. */
+    private fun done() {
+        rule.onNodeWithTag("promise_done").performClick()
+        rule.mainClock.advanceTimeBy(PROMISE_CHEER_MS + 100)
+        rule.waitForIdle()
+    }
+
+    /** Opens [title]'s promise, picks [days] (null for every day) and taps Done. */
     private fun setCadence(title: String, days: Int?) {
         chip(title).performScrollTo().performClick()
-        if (days == null) {
-            rule.onNodeWithTag("cadence_every_day").performClick()
-        } else {
-            rule.onNodeWithTag("cadence_some_days").performClick()
-            rule.onNodeWithTag("cadence_day_$days").performClick()
-        }
-        rule.onNodeWithTag("cadence_done").performClick()
-        rule.waitForIdle()
+        rule.onNodeWithTag("promise_blank_days").performClick()
+        rule.onNodeWithTag("promise_option_days_${days ?: 0}").performClick()
+        done()
     }
 
     @Test fun step_1_asks_what_habits_and_only_ticked_rows_have_a_chip() {
         show(OnboardingFixtures.habits)
         rule.onNodeWithTag("page_title").assertTextEquals("What habits will you keep?")
         chip("Read").assert(cadence("Read", "Every day"))
-        chip("Exercise").assert(cadence("Exercise", "4 days a week"))
+        chip("Exercise").assert(cadence("Exercise", "4 days a week"))
         listOf("Practice", "Study", "Tidy room").forEach { chip(it).assertDoesNotExist() }
         rule.onNodeWithTag("onboarding_habit_Practice").tapRow()
         chip("Practice").assert(cadence("Practice", "Every day"))
@@ -195,35 +215,35 @@ class OnboardingBehaviourTest {
         chip("Practice").assertDoesNotExist()
     }
 
-    @Test fun the_chip_opens_the_sheet_and_done_sets_the_days() {
+    @Test fun the_chip_opens_the_promise_filled_in_and_done_sets_the_days() {
         show(OnboardingFixtures.habits)
-        chip("Read").performClick()
-        rule.onNodeWithTag("cadence_title").assertTextEquals("How often will you read?")
-        rule.onNodeWithTag("cadence_every_day").assertIsSelected()
-        rule.onNodeWithTag("cadence_summary").assertTextEquals("Read, 10 pages, every day")
-        rule.onNodeWithTag("cadence_some_days").performClick().assertIsSelected()
-        // The day picker offers 1 to 6; 7 is every day.
-        (1..6).forEach { rule.onNodeWithTag("cadence_day_$it").assertExists() }
-        rule.onNodeWithTag("cadence_day_7").assertDoesNotExist()
-        rule.onNodeWithText(WeeklyGoalCopy.SUMMARY_BODY).assertExists()
-        rule.onNodeWithTag("cadence_day_3").performClick().assertIsSelected()
-        rule.onNodeWithTag("cadence_summary").assertTextEquals("Read, 10 pages, 3 days a week")
-        rule.onNodeWithTag("cadence_done").assertTextEquals("Done").performClick()
+        chip("Exercise").performClick()
+        assertEquals("I will exercise for 30 minutes, 4 days a week.", promiseText())
+        rule.onNodeWithTag("promise_cancel").performClick()
         rule.waitForIdle()
-        rule.onNodeWithTag("cadence_sheet").assertDoesNotExist()
-        chip("Read").assert(cadence("Read", "3 days a week"))
+        chip("Read").performClick()
+        assertEquals("I will read 10 pages, every day.", promiseText())
+        rule.onNodeWithTag("promise_blank_days").performClick()
+        rule.onNodeWithTag("promise_option_days_3").performClick()
+        assertEquals("I will read 10 pages, 3 days a week.", promiseText())
+        done()
+        rule.onNodeWithTag("onboarding_promise").assertDoesNotExist()
+        chip("Read").assert(cadence("Read", "3 days a week"))
         rule.onNodeWithTag("onboarding_habit_count").assertTextEquals("Set one habit to every day to continue.")
         setCadence("Read", null)
         chip("Read").assert(cadence("Read", "Every day"))
         assertEquals(null, latest.daysOf("Read"))
     }
 
-    @Test fun the_exercise_sheet_summary_carries_the_target() {
+    @Test fun a_new_amount_shows_on_the_row_and_is_what_is_saved() {
         show(OnboardingFixtures.habits)
-        chip("Exercise").performClick()
-        rule.onNodeWithTag("cadence_title").assertTextEquals("How often will you exercise?")
-        rule.onNodeWithTag("cadence_summary").assertTextEquals("Exercise, 30 min, 4 days a week")
-        rule.onNodeWithTag("cadence_day_4").assertIsSelected()
+        chip("Read").performClick()
+        rule.onNodeWithTag("promise_blank_amount").performClick()
+        rule.onNodeWithTag("promise_option_20").performClick()
+        done()
+        assertEquals(20, latest.chosen.single { it.title == "Read" }.targetValue)
+        rule.onNodeWithTag("onboarding_habit_Read").assert(hasText("20 pages", substring = true))
+        assertEquals(20, latest.dailyHabitRows(0).single { it.title == "Read" }.targetValue)
     }
 
     @Test fun with_only_weekly_habits_continue_does_not_advance_and_the_footer_says_why() {
@@ -235,7 +255,7 @@ class OnboardingBehaviourTest {
         assertEquals(OnboardingStep.HABITS, latest.step)
     }
 
-    @Test fun a_fourth_habit_cannot_be_weekly_and_exercise_ticked_fourth_is_every_day() {
+    @Test fun at_three_weekly_goals_the_weekly_choices_are_off_with_the_limit_line() {
         show(OnboardingFixtures.habits)
         rule.onNodeWithTag("onboarding_habit_Exercise").tapRow()
         listOf("Practice", "Study", "Tidy room").forEach { rule.onNodeWithTag("onboarding_habit_$it").performScrollTo().tapRow() }
@@ -245,32 +265,61 @@ class OnboardingBehaviourTest {
         rule.onNodeWithTag("onboarding_habit_Exercise").performScrollTo().tapRow()
         chip("Exercise").assert(cadence("Exercise", "Every day"))
         chip("Tidy room").performScrollTo().performClick()
-        rule.onNodeWithTag("cadence_some_days").assertIsNotEnabled()
-        rule.onNodeWithTag("cadence_limit").assertTextEquals(WeeklyGoalCopy.LIMIT_REACHED)
-        rule.onNodeWithTag("cadence_done").performClick()
-        rule.waitForIdle()
+        rule.onNodeWithTag("promise_blank_days").performClick()
+        rule.onNodeWithTag("promise_option_days_0").assertIsEnabled().assertIsSelected()
+        (1..6).forEach { rule.onNodeWithTag("promise_option_days_$it").assertIsNotEnabled() }
+        rule.onNodeWithTag("promise_limit").assertTextEquals(WeeklyGoalCopy.LIMIT_REACHED)
+        rule.onNodeWithTag("promise_option_days_2").performClick()
+        assertEquals("I will tidy room, every day.", promiseText())
+        // The list covers Done, as in the mockup; a tap on its blank closes it.
+        rule.onNodeWithTag("promise_blank_days").performClick()
+        done()
         rule.onNodeWithTag("onboarding_habit_count").assertTextEquals("2 daily habits · 3 weekly goals")
     }
 
-    @Test fun a_habit_added_with_add_your_own_gets_the_chip_and_sheet_every_day() {
-        show(OnboardingFlow.addCustom(OnboardingFixtures.habits, HabitTemplate("Walk", "walk", ProofType.MANUAL, 20, "min")))
-        chip("Walk").performScrollTo().assert(cadence("Walk", "Every day"))
-        setCadence("Walk", 5)
-        chip("Walk").assert(cadence("Walk", "5 days a week"))
-        assertEquals(5, latest.daysOf("Walk"))
+    @Test fun a_weekly_habits_own_promise_keeps_its_weekly_choices_at_three() {
+        show(OnboardingFixtures.habits)
+        listOf("Practice", "Study").forEach { rule.onNodeWithTag("onboarding_habit_$it").performScrollTo().tapRow() }
+        setCadence("Practice", 2)
+        setCadence("Study", 2)
+        chip("Exercise").performScrollTo().performClick()
+        rule.onNodeWithTag("promise_blank_days").performClick()
+        rule.onNodeWithTag("promise_option_days_6").assertIsEnabled()
+        rule.onNodeWithTag("promise_limit").assertDoesNotExist()
     }
 
-    @Test fun back_from_a_later_step_keeps_the_chosen_cadences() {
+    @Test fun renaming_a_habit_on_its_promise_replaces_it_and_a_taken_name_cannot_be_saved() {
+        show(OnboardingFixtures.habits)
+        chip("Read").performClick()
+        rule.onNodeWithTag("promise_blank_activity").performClick()
+        rule.onNodeWithTag("promise_option_Exercise").performClick()
+        rule.onNodeWithTag("promise_done").assertIsNotEnabled()
+        rule.onNodeWithTag("promise_blank_activity").performClick()
+        rule.onNodeWithTag("promise_option_Study").performClick()
+        assertEquals("I will study for 45 minutes, every day.", promiseText())
+        done()
+        assertEquals(listOf("Exercise", "Study"), latest.chosen.map { it.title })
+        rule.onNodeWithTag("onboarding_habit_Study").assert(checked(true))
+        rule.onNodeWithTag("onboarding_habit_Read").assert(checked(false))
+    }
+
+    @Test fun back_from_a_later_step_keeps_every_promise() {
         show(OnboardingFixtures.habits)
         setCadence("Read", 3)
         setCadence("Exercise", null)
+        chip("Read").performClick()
+        rule.onNodeWithTag("promise_blank_amount").performClick()
+        rule.onNodeWithTag("promise_option_30").performClick()
+        done()
         rule.onNodeWithTag("onboarding_next").performClick()
-        rule.onNodeWithTag("onboarding_skip").performClick()
         rule.onNodeWithTag("onboarding_lock_window").assertIsDisplayed()
-        rule.onNodeWithTag("page_back").performClick()
-        rule.onNodeWithTag("page_back").performClick()
-        chip("Read").assert(cadence("Read", "3 days a week"))
+        rule.onNodeWithTag("onboarding_next").performClick()
+        rule.onNodeWithTag("onboarding_shutdown").assertIsDisplayed()
+        repeat(2) { rule.onNodeWithTag("page_back").performClick() }
+        chip("Read").assert(cadence("Read", "3 days a week"))
         chip("Exercise").assert(cadence("Exercise", "Every day"))
+        chip("Read").performClick()
+        assertEquals("I will read 30 pages, 3 days a week.", promiseText())
     }
 
     /** TalkBack reads the chip's cadence with the habit name, and it is a 48dp button, at font 1 and 2. */
@@ -343,22 +392,24 @@ class OnboardingBehaviourTest {
         rule.onNodeWithTag("give_up_later").assertIsNotEnabled()
     }
 
-    @Test fun back_from_the_lock_window_and_forward_again_keeps_every_choice() {
+    @Test fun back_from_the_shutdown_step_and_forward_again_keeps_every_choice_and_both_times() {
         show(OnboardingFixtures.habits)
         rule.onNodeWithTag("onboarding_habit_Tidy room").performScrollTo().tapRow()
         rule.onNodeWithTag("onboarding_next").performClick()
-        rule.onNodeWithTag("onboarding_shutdown_1320").performClick()
-        rule.onNodeWithTag("onboarding_next").performClick()
         rule.onNodeWithTag("give_up_earlier").performClick()
+        rule.onNodeWithTag("onboarding_next").performClick()
+        slide("shutdown_from_slider", 16)
+        slide("shutdown_until_slider", 12)
         rule.onNodeWithTag("page_back").performClick()
-        rule.onNodeWithTag("onboarding_shutdown_1320").assertIsSelected()
+        assertEquals("8:30 pm", time("give_up_value"))
         rule.onNodeWithTag("page_back").performClick()
         rule.onNodeWithTag("onboarding_habit_Tidy room").performScrollTo().assert(checked(true))
         rule.onNodeWithTag("onboarding_habit_count").assertTextEquals("2 daily habits · 1 weekly goal")
         rule.onNodeWithTag("onboarding_next").performClick()
-        rule.onNodeWithTag("onboarding_shutdown_1320").assertIsSelected()
+        assertEquals("8:30 pm", time("give_up_value"))
         rule.onNodeWithTag("onboarding_next").performClick()
-        rule.onNodeWithTag("give_up_value").assertTextEquals("8:30 pm")
+        assertEquals("Midnight", time("shutdown_from_time"))
+        assertEquals("8:00 am", time("shutdown_until_time"))
         rule.onNodeWithTag("page_back").performClick()
         rule.onNodeWithTag("page_back").performClick()
         rule.onNodeWithTag("page_back").performClick()
@@ -366,90 +417,100 @@ class OnboardingBehaviourTest {
         assertEquals(3, latest.chosen.size)
     }
 
-    // Shutdown time (#164) ---------------------------------------------------------------------
+    // Shutdown time (#164, #218) ---------------------------------------------------------------
 
-    private val shutdownRows = OnboardingCopy.SHUTDOWN_TIMES.map { "onboarding_shutdown_$it" }
+    /** Moves a slider to step [index], as dragging it or TalkBack's adjust would. */
+    private fun slide(tag: String, index: Int) {
+        rule.onNodeWithTag("page_body").performScrollToNode(hasTestTag(tag))
+        rule.onNodeWithTag(tag).performSemanticsAction(SemanticsActions.SetProgress) { it(index.toFloat()) }
+        rule.waitForIdle()
+    }
 
-    @Test fun the_step_after_habits_is_the_shutdown_page_with_nothing_picked() {
+    private fun plain(s: String) = s.replace(' ', ' ')
+
+    private fun sentence() = plain(rule.onNodeWithTag("shutdown_sentence").fetchSemanticsNode().config[SemanticsProperties.Text].joinToString(""))
+
+    private fun time(tag: String) = plain(rule.onNodeWithTag(tag).fetchSemanticsNode().config[SemanticsProperties.Text].joinToString(""))
+
+    @Test fun the_order_is_habits_then_the_lock_then_shutdown_with_sprigs_line() {
         show(OnboardingFixtures.habits)
         rule.onNodeWithTag("onboarding_next").performClick()
-        rule.onNodeWithTag("onboarding_shutdown").assertIsDisplayed()
+        rule.onNodeWithTag("onboarding_lock_window").assertIsDisplayed()
         rule.onNodeWithTag("step_progress").assert(SemanticsMatcher.expectValue(SemanticsProperties.ContentDescription, listOf("Step 2 of 6")))
-        rule.onNodeWithTag("page_title").assertTextEquals("Pick a shutdown time")
-        rule.onNodeWithText("A shutdown time helps you stop doomscrolling at night.").assertIsDisplayed()
-        listOf("10 PM", "11 PM", "Midnight").forEachIndexed { i, label ->
-            rule.onNodeWithTag(shutdownRows[i]).assertIsDisplayed().assertIsNotSelected()
-                .assertTextEquals(label, "Apps lock until 7:00 am. Phone, messages and maps still work.")
-        }
-        assertEquals(listOf("onboarding_shutdown_1320", "onboarding_shutdown_1380", "onboarding_shutdown_0"), shutdownRows)
-        rule.onNodeWithTag("onboarding_next").assertTextEquals("Continue").assertIsNotEnabled()
-        rule.onNodeWithTag("onboarding_skip").assertTextEquals("Skip").assertIsEnabled()
-        assertEquals(null, latest.shutdownMinute)
-    }
-
-    @Test fun picking_a_row_enables_continue_and_only_one_row_is_picked() {
-        show(OnboardingState(step = OnboardingStep.SHUTDOWN))
-        rule.onNodeWithTag("onboarding_shutdown_1380").performClick().assertIsSelected()
-        rule.onNodeWithTag("onboarding_next").assertIsEnabled()
-        assertEquals(1380, latest.shutdownMinute)
-        rule.onNodeWithTag("onboarding_shutdown_0").performClick().assertIsSelected()
-        rule.onNodeWithTag("onboarding_shutdown_1380").assertIsNotSelected()
-        rule.onNodeWithTag("onboarding_shutdown_1320").assertIsNotSelected()
-        assertEquals(0, latest.shutdownMinute)
-        // Tapping the picked row again keeps it: a radio button, not a checkbox.
-        rule.onNodeWithTag("onboarding_shutdown_0").performClick().assertIsSelected()
         rule.onNodeWithTag("onboarding_next").performClick()
-        rule.onNodeWithTag("onboarding_lock_window").assertIsDisplayed()
-        assertEquals(0, latest.shutdownMinute)
-    }
-
-    @Test fun skip_goes_to_the_lock_window_with_no_shutdown_time() {
-        show(OnboardingState(step = OnboardingStep.SHUTDOWN))
-        rule.onNodeWithTag("onboarding_shutdown_1320").performClick()
-        rule.onNodeWithTag("onboarding_skip").performClick()
-        rule.onNodeWithTag("onboarding_lock_window").assertIsDisplayed()
-        rule.onNodeWithTag("step_progress").assert(SemanticsMatcher.expectValue(SemanticsProperties.ContentDescription, listOf("Step 3 of 6")))
-        assertEquals(null, latest.shutdownMinute)
-    }
-
-    @Test fun back_from_the_lock_window_returns_to_the_shutdown_page_with_the_choice_kept() {
-        show(OnboardingState(step = OnboardingStep.SHUTDOWN))
-        rule.onNodeWithTag("onboarding_shutdown_1380").performClick()
-        rule.onNodeWithTag("onboarding_next").performClick()
-        rule.onNodeWithTag("onboarding_lock_window").assertIsDisplayed()
-        rule.onNodeWithTag("page_back").performClick()
         rule.onNodeWithTag("onboarding_shutdown").assertIsDisplayed()
-        rule.onNodeWithTag("onboarding_shutdown_1380").assertIsSelected()
-        rule.onNodeWithTag("onboarding_next").assertIsEnabled()
+        rule.onNodeWithTag("step_progress").assert(SemanticsMatcher.expectValue(SemanticsProperties.ContentDescription, listOf("Step 3 of 6")))
+        rule.onNodeWithTag("page_title").assertTextEquals("Pick a shutdown time")
+        rule.onNodeWithTag("shutdown_line").assertTextEquals("Sprig highly recommends a shutdown time, so your phone doesn't eat into your sleep.")
+        rule.onAllNodesWithText("A shutdown time helps you stop doomscrolling at night.").assertCountEquals(0)
+    }
+
+    @Test fun the_sliders_start_at_11_pm_and_7_am_and_the_sentence_follows_them() {
+        show(OnboardingState(step = OnboardingStep.SHUTDOWN))
+        assertEquals("11:00 pm", time("shutdown_from_time"))
+        assertEquals("7:00 am", time("shutdown_until_time"))
+        assertEquals("From 11:00 pm to 7:00 am, apps stay locked. Phone, messages and maps still work.", sentence())
+        slide("shutdown_from_slider", 13)
+        assertEquals("11:15 pm", time("shutdown_from_time"))
+        slide("shutdown_until_slider", 9)
+        assertEquals("7:15 am", time("shutdown_until_time"))
+        assertEquals("From 11:15 pm to 7:15 am, apps stay locked. Phone, messages and maps still work.", sentence())
+        slide("shutdown_from_slider", 0)
+        assertEquals("8:00 pm", time("shutdown_from_time"))
+        slide("shutdown_from_slider", NightSliders.FROM_STEPS)
+        assertEquals("2:00 am", time("shutdown_from_time"))
+        slide("shutdown_until_slider", 0)
+        assertEquals("5:00 am", time("shutdown_until_time"))
+        slide("shutdown_until_slider", NightSliders.UNTIL_STEPS)
+        assertEquals("10:00 am", time("shutdown_until_time"))
+    }
+
+    @Test fun continue_saves_the_slider_times_and_skip_saves_no_night_lockdown() {
+        show(OnboardingState(step = OnboardingStep.SHUTDOWN))
+        slide("shutdown_from_slider", 8)
+        rule.onNodeWithTag("onboarding_next").assertTextEquals("Continue").assertIsEnabled().performClick()
+        rule.waitForIdle()
+        assertEquals(OnboardingStep.SHUTDOWN + 1, latest.step)
+        assertEquals(NightSetting(enabled = true, fromMinute = 22 * 60, untilMinute = 7 * 60), latest.shutdown)
+        val on = Settings().onboardingShutdown(latest.shutdown)
+        assertEquals(Triple(true, 22 * 60, 7 * 60), Triple(on.nightLockEnabled, on.nightFromMinute, on.nightUntilMinute))
+    }
+
+    @Test fun skip_saves_no_night_lockdown_and_keeps_the_times_for_back() {
+        show(OnboardingState(step = OnboardingStep.SHUTDOWN))
+        slide("shutdown_from_slider", 8)
+        rule.onNodeWithTag("onboarding_skip").assertTextEquals("Skip").performClick()
+        rule.waitForIdle()
+        assertEquals(false, latest.shutdown.enabled)
+        assertEquals(22 * 60, latest.shutdown.fromMinute)
+        assertEquals(false, Settings().onboardingShutdown(latest.shutdown).nightLockEnabled)
     }
 
     /** The existing accessibility check (`PartsBehaviourTest`): 48 x 48dp and something TalkBack reads. */
-    @Test fun the_rows_continue_and_skip_are_accessible_at_font_1_and_2() {
+    @Test fun the_sliders_continue_and_skip_are_accessible_at_font_1_and_2() {
         var scale by mutableStateOf(1f)
-        var picked by mutableStateOf<Int?>(null)
-        rule.setContent { Shot(scale) { ShutdownStep(picked, { picked = it }, {}, {}, {}) } }
-        for (f in listOf(1f, 2f)) for (p in listOf<Int?>(null, 1380)) {
+        rule.setContent { Shot(scale) { ShutdownStep(NightSetting(enabled = true), {}, {}, {}, {}, {}) } }
+        for (f in listOf(1f, 2f)) {
             scale = f
-            picked = p
             rule.waitForIdle()
             val d = rule.density.density
-            for (tag in shutdownRows + "onboarding_next" + "onboarding_skip" + "page_back") {
-                if (tag in shutdownRows) rule.onNodeWithTag("page_body").performScrollToNode(hasTestTag(tag))
+            for (tag in listOf("shutdown_from_slider", "shutdown_until_slider", "onboarding_next", "onboarding_skip", "page_back")) {
+                if (tag.endsWith("slider")) rule.onNodeWithTag("page_body").performScrollToNode(hasTestTag(tag))
                 val node = rule.onNodeWithTag(tag).fetchSemanticsNode()
-                val at = "$tag at font $f, picked $p"
-                assertTrue("$at is tappable", hasClickAction().matches(node))
                 val label = listOfNotNull(
                     node.config.getOrNull(SemanticsProperties.Text)?.joinToString(" "),
                     node.config.getOrNull(SemanticsProperties.ContentDescription)?.joinToString(" "),
                 ).joinToString(" ").trim()
-                assertTrue("$at has a TalkBack label", label.isNotEmpty())
-                assertTrue("$at '$label' is ${node.size.width / d}dp wide", node.size.width / d >= 47.9f)
-                assertTrue("$at '$label' is ${node.size.height / d}dp tall", node.size.height / d >= 47.9f)
+                assertTrue("$tag at font $f has a TalkBack label", label.isNotEmpty())
+                val size = node.size.toSize()
+                assertTrue("$tag '$label' is ${size.width / d}dp wide", size.width / d >= 47.9f)
+                assertTrue("$tag '$label' is ${size.height / d}dp tall", size.height / d >= 47.9f)
             }
-            shutdownRows.forEach { tag ->
-                val node = rule.onNodeWithTag(tag).fetchSemanticsNode()
-                assertEquals("$tag is a radio button", androidx.compose.ui.semantics.Role.RadioButton, node.config[SemanticsProperties.Role])
-            }
+            val from = rule.onNodeWithTag("shutdown_from_slider").fetchSemanticsNode().config
+            assertEquals(listOf("Shutdown at"), from[SemanticsProperties.ContentDescription])
+            assertEquals("11:00 pm", plain(from[SemanticsProperties.StateDescription]))
+            val until = rule.onNodeWithTag("shutdown_until_slider").fetchSemanticsNode().config
+            assertEquals("7:00 am", plain(until[SemanticsProperties.StateDescription]))
         }
     }
 

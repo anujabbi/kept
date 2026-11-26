@@ -174,7 +174,6 @@ class WeeklyGoalTargetMigrationTest {
         assertNull(target)
         val nb = { s: String -> s.replace(WeeklyGoalCopy.NBSP, ' ') }
         assertEquals("Exercise · 4 days a week", nb(WeeklyGoalCopy.listRow(g.goal.title, target, g.goal.daysPerWeek)))
-        assertEquals("Exercise, 4 days a week", nb(WeeklyGoalCopy.summary(g.goal.title, target, g.goal.daysPerWeek)))
         val card = WeeklyCard.of(g.goal.title, g.week, goalTarget = target)
         assertEquals("Exercise · 2 of 4 this week", nb(card.title))
         assertEquals(WeeklyCardCopy.TODAY_ROW, card.todayDetail)

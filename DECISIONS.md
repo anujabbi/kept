@@ -1733,3 +1733,84 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
   - *`WeeklyGoalRepository.updateGoal` has no target defaults.* The #206 review noted a caller
     passing only title and days would quietly erase the target; `targetValue` and `unit` are now
     required (null, null still means no target), and every caller says which it means.
+- **One promise screen, roomier Home, shutdown after the lock step, time sliders (issue #218).**
+  - *Shutdown sliders keep the night 1 to 12 hours long.* 8 pm to 10 am would be 14 hours, which
+    `NightWindow` refuses. Moving one slider past 12 hours moves the other with it
+    (`NightSliders.pickFrom` / `pickUntil`): shutdown at 8 pm pulls "Phone back at" to 8 am at the
+    latest, and phone back at 10 am pushes shutdown to 10 pm at the earliest. The pair on screen
+    can always be saved.
+  - *Skip keeps the times.* Skip stores night lockdown off; Back to the step still shows the times
+    moved before Skip, and Continue then turns it on at them.
+  - *Midnight reads "Midnight" large and "midnight" in the sentence*, as the Settings row reads it.
+  - *Settings → Starts at* now has a "Set" button: a slider position is not saved until Set, where
+    a chip used to save on tap. A start that would make the night longer than 12 hours with the
+    saved end disables Set with the existing line, as the chips did. "Custom…" sits under the
+    slider and opens the clock dial as before. "Ends at" keeps the clock dial; the issue changes
+    only "Starts at".
+  - *The slider thumb is a 30dp round in a 48dp tall box* (Material's is 44dp tall), so every
+    slider is 48dp to touch. The labels under a slider shrink together at a large font on a
+    narrow screen rather than overlap.
+  - *Home's sky.* One compact sky for every habit count: Sprig 150dp on the right, the headline
+    column taking the rest of the row (220dp at 412), and the crest at 156dp under the status bar,
+    lower only when the headline block needs it. Sprig's top sits 100dp above the crest with
+    nothing done, so its face shows over the hill as in the mockup, and it rises 34dp (not the
+    design's 44) as habits are done, so its lower corners stay behind the hill when all are done.
+  - *One scroll.* Everything under the hill scrolls together; the 4+ habit layout no longer pins
+    "Today", "Last 7 days" or the shield. Rows stay roomy for 1 to 3 habits and compact from 4.
+    With no weekly goal the "Add a weekly goal" row still comes after the shield, as on the roomy
+    Home before.
+  - *The first-week line* sits under the card's title in the goal's first week whenever that week
+    asks for fewer days than the goal: "First week: 3 days left, so 3 this week", "1 day left, so
+    1 this week", and for a goal set on a Saturday "First week: no days left, so it starts Sunday"
+    (not in the issue). It shows all that week, not only on the day the goal was set.
+  - *The promise replaces three screens.* Onboarding's how-often sheet, its "Add your own" page
+    (Add a habit), Settings → Add/Edit habit and the weekly goal setup screen are gone; all of
+    them open `PromisePage`. The rules are `PromiseDraft`, `PromiseRules` and `PromiseLimits` in
+    `core/domain/Promise.kt`. The setup screen's day chips, quick picks, stepper and unit chips,
+    `WeeklyGoalDraft` and the sheet's copy went with them.
+  - *No photo switch.* The promise has no "Prove it with a photo" row: Tidy room is the photo
+    habit (no amount or unit blank, as decided on #205), and a saved photo habit opens and stays
+    a photo habit. A habit of one's own can no longer be made a photo habit.
+  - *Edit keeps its way out.* The mockups have no Remove: under Done an edit still offers "Remove
+    habit" (or the existing "Keep at least one habit…" line for the last one) and "Delete goal"
+    with its "Delete this weekly goal?" confirm. The lock-change confirms are unchanged; a save
+    held for one does not cheer or close until it is confirmed.
+  - *A saved habit stays daily and a saved goal weekly (out of scope in the issue).* The days list
+    still shows every choice, but the other kind is off with a line in the list: "A saved habit
+    stays every day." / "A saved weekly goal stays weekly." A goal saved at 7 days a week keeps
+    "7 days a week" on its list.
+  - *Where a new promise starts.* On the first activity (Exercise, Read, Practice, Study, Tidy
+    room) not already a habit or goal, with its amount; on an empty "Something else…" if all are.
+    From Habits it starts every day, from Weekly goals at 3 days a week (`DEFAULT_DAYS`). If that
+    choice is off (10 daily habits, or 3 goals) it opens on the other kind. "Add your own" in
+    onboarding opens on an empty "Something else…", every day.
+  - *Amounts and units.* A unit change starts at that unit's value (minutes 20, pages 10, times 1,
+    glasses 8), all on the lists. A saved amount not on its list (25 minutes, 12 pages) is added to
+    the list in order. A one-tap habit (unit "check-in") opens as "1 time" and saves as such.
+    One of a unit reads singular: "1 page", "1 time", "1 glass".
+  - *Typed activities.* The field takes up to 28 characters, as before. The saved name starts with
+    a capital ("walk the dog" is saved "Walk the dog"); the sentence lowers it as the weekly lock
+    copy does. Until something is typed the field shows "something" and Done is off. A saved
+    activity of one's own shows as a blank like the presets; picking "Something else…" turns it
+    into the field with its text. In onboarding Done is also off for the name of another ticked
+    habit, since onboarding keeps habits apart by name; picking a preset there renames the habit.
+  - *Done.* The habit or goal is saved on the tap; the page then keeps its text and its footer's
+    place (Done is hidden, not removed, so the sentence does not move), Sprig rises from the
+    bottom in the cheer pose and the page closes 1.5 s later. With reduce motion Sprig is simply
+    there for the same 1.5 s. Cancel and Back close without saving; Back first closes an open list.
+  - *"Your promise"* is in sentence case, not the mockup's capitals, as Daybreak never uses all
+    caps. The mockups' drag handle is left out: the page is not a sheet and cannot be dragged.
+  - *Found on the emulator walk, fixed before the PR.*
+    - Home on `kept_api35` has a 49dp status bar and a 24dp navigation bar, which the Robolectric
+      test did not have, and the weekly card ended under the tab bar. The headline now starts 16dp
+      under the status bar (was 22), the pill has 6dp under it (was 10), the page is lifted 24dp
+      into the sky's bottom edge (was 14, so the first row sits about 28dp under the crest, clear
+      of the hill's curve), and "This week" has 8dp above it (was 14). `HomeRoomTest` now counts
+      the emulator's bars.
+    - A compact row's detail on the right ("Today · 30 min" on the weekly card's row) split the
+      title inside a word at font 2.0 ("Exerci / se"); this was on `main` since #206. When the
+      title's longest word does not fit beside the detail, the detail now goes under the title
+      (`DaybreakHabitRow`, compact only). Rows where it fitted are unchanged.
+    - An open list hangs under the sentence and may cover Done, as the mockup's days list does;
+      it scrolls when it is taller than the room, and the limit line stays in view under it. A tap
+      outside the list closes it; that catcher is not in the TalkBack tree.

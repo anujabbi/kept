@@ -4,14 +4,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -49,8 +48,10 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.kept.core.domain.LockWindowField
+import com.example.kept.core.domain.NightCopy
 import com.example.kept.core.domain.NightEdit
 import com.example.kept.core.domain.NightSetting
+import com.example.kept.core.domain.NightSliders
 import com.example.kept.core.domain.NightWindow
 import com.example.kept.core.domain.SettingsCopy
 import com.example.kept.core.domain.SettingsSky
@@ -58,14 +59,18 @@ import com.example.kept.core.domain.SprigForm
 import com.example.kept.core.domain.SprigPose
 import com.example.kept.core.domain.WeeklyGoalCopy
 import com.example.kept.core.lock.PermissionKind
+import com.example.kept.core.ui.BigTimeStyle
 import com.example.kept.core.ui.DaybreakType
 import com.example.kept.core.ui.Hill
 import com.example.kept.core.ui.KeptChip
+import com.example.kept.core.ui.QuietButton
 import com.example.kept.core.ui.RowGroup
 import com.example.kept.core.ui.RowValue
 import com.example.kept.core.ui.Sky
 import com.example.kept.core.ui.SkyScaffold
 import com.example.kept.core.ui.SwitchRow
+import com.example.kept.core.ui.TimeSlider
+import com.example.kept.core.ui.boldParts
 import com.example.kept.core.ui.ValueRow
 import com.example.kept.core.ui.fitLongestWord
 import com.example.kept.core.ui.sprig.SprigView
@@ -382,45 +387,49 @@ internal fun BreakLengthEditor(current: Int, onDismiss: () -> Unit, onPick: (Int
 }
 
 /**
- * "Starts at" (issue #164): 10:00 pm, 11:00 pm and Midnight as chips, and "Custom…", which opens
- * the time picker. Picking a chip saves it and closes. A preset that would make the window longer
- * than 12 hours with the saved end cannot be picked; the line under the chips says why.
+ * "Starts at" (issues #164, #218): the time large, the shutdown slider (8 pm to 2 am in 15 minute
+ * steps, from the saved start), the sentence it makes with the saved end, then "Custom…" under
+ * it, which opens the time picker for a time outside the slider. "Set" saves the slider's time;
+ * it is disabled, with the reason, where the night would be over 12 hours with the saved end.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun NightStartEditor(current: NightSetting, onDismiss: () -> Unit, onCustom: () -> Unit, onPick: (Int) -> Unit) {
-    val blocked = NightWindow.PRESETS.filterNot { NightWindow.isValid(it, current.untilMinute) }
+    var index by rememberSaveable { mutableIntStateOf(NightSliders.fromIndex(current.fromMinute)) }
+    val from = NightSliders.fromAt(index)
+    val problem = NightWindow.error(from, current.untilMinute)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(SettingsCopy.NIGHT_START, style = DaybreakType.section, color = D.ink) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    NightWindow.PRESETS.forEach { m ->
-                        KeptChip(
-                            SettingsCopy.nightTime(m),
-                            selected = m == current.fromMinute,
-                            onClick = { onPick(m); onDismiss() },
-                            modifier = Modifier.testTag("night_start_$m"),
-                            role = Role.RadioButton,
-                            enabled = m !in blocked,
-                        )
-                    }
-                    KeptChip(
-                        SettingsCopy.NIGHT_CUSTOM,
-                        selected = current.fromMinute !in NightWindow.PRESETS,
-                        onClick = onCustom,
-                        modifier = Modifier.testTag("night_start_custom"),
-                        role = Role.RadioButton,
+            Column(Modifier.testTag("night_start_editor"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(NightCopy.big(from), Modifier.testTag("night_start_time"), style = BigTimeStyle, color = D.ink)
+                TimeSlider(
+                    index, NightSliders.FROM_STEPS, SettingsCopy.NIGHT_START, NightCopy.big(from), NightSliders.FROM_LABELS,
+                    onChange = { index = it }, tag = "night_start_slider",
+                )
+                Text(
+                    boldParts(NightCopy.startSentence(from, current.untilMinute)),
+                    Modifier.padding(top = 4.dp).testTag("night_start_sentence"),
+                    style = DaybreakType.bodySmall, color = D.inkSoft,
+                )
+                if (problem != null) {
+                    Text(
+                        problem,
+                        Modifier.testTag("night_start_error").semantics { liveRegion = LiveRegionMode.Polite },
+                        style = DaybreakType.bodySmall, color = D.danger,
                     )
                 }
-                if (blocked.isNotEmpty()) {
-                    Text(SettingsCopy.NIGHT_WINDOW_ERROR, Modifier.testTag("night_start_error"), style = DaybreakType.bodySmall, color = D.muted)
-                }
+                QuietButton(SettingsCopy.NIGHT_CUSTOM, onClick = onCustom, modifier = Modifier.testTag("night_start_custom"))
             }
         },
-        confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", style = DaybreakType.button, color = D.muted) } },
+        confirmButton = {
+            TextButton(
+                onClick = { onPick(from); onDismiss() },
+                modifier = Modifier.heightIn(min = 48.dp).testTag("night_start_set"),
+                enabled = problem == null,
+            ) { Text("Set", style = DaybreakType.button, color = if (problem == null) D.purple else D.faint) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss, Modifier.heightIn(min = 48.dp)) { Text("Cancel", style = DaybreakType.button, color = D.muted) } },
         containerColor = D.cream,
     )
 }

@@ -42,30 +42,27 @@ class HomeLayoutTest {
         assertEquals("1 glass", HomeCopy.habitDetail(1, "glass"))
     }
 
-    @Test fun `sprig tops match the design scripts`() {
-        // Main.dc.html, two habits: 224, 200, 176.
-        assertEquals(listOf(224, 200, 176), (0..2).map { HomeSprig.designTopDp(HomeLayout.ROOMY, it, 2) })
-        // A2-Home-6.dc.html: round(100 − 44 × frac).
-        assertEquals(100, HomeSprig.designTopDp(HomeLayout.COMPACT, 0, 6))
-        assertEquals(78, HomeSprig.designTopDp(HomeLayout.COMPACT, 3, 6))
-        assertEquals(56, HomeSprig.designTopDp(HomeLayout.COMPACT, 6, 6))
-        assertEquals(100, HomeSprig.designTopDp(HomeLayout.COMPACT, 0, 0))
+    @Test fun `home's crest sits at 156 for a short headline and moves down for tall text`() {
+        assertEquals(156, HomeSprig.homeCrestDp(textBottomDp = 140))
+        assertEquals(312, HomeSprig.homeCrestDp(textBottomDp = 300))
     }
 
-    @Test fun `sprig rises as habits are done`() {
-        for (layout in HomeLayout.entries) for (total in 1..10) {
-            val tops = (0..total).map { HomeSprig.designTopDp(layout, it, total) }
-            assertEquals("$layout $total never sinks", tops, tops.sortedDescending())
+    @Test fun `home's Sprig shows its face with nothing done and rises 34dp, its bottom always under the crest`() {
+        assertEquals(56, HomeSprig.homeTopDp(156, 0, 2))
+        assertEquals(39, HomeSprig.homeTopDp(156, 1, 2))
+        assertEquals(22, HomeSprig.homeTopDp(156, 2, 2))
+        for (total in 1..10) for (done in 0..total) {
+            assertTrue(HomeSprig.homeTopDp(156, done, total) + HomeSprig.HOME_SPRIG_DP >= 156 + 16)
         }
     }
 
-    @Test fun `crest stays at the design for normal text and moves down for tall text`() {
-        assertEquals(396, HomeSprig.crestDp(HomeLayout.ROOMY, textBottomDp = 150))
-        assertEquals(212, HomeSprig.crestDp(HomeLayout.COMPACT, textBottomDp = 170))
-        // Roomy: even the highest Sprig (everything done, 220 above the crest) clears the text.
-        val crest = HomeSprig.crestDp(HomeLayout.ROOMY, textBottomDp = 300)
-        assertTrue(HomeSprig.topDp(HomeLayout.ROOMY, crest, 2, 2) >= 300 + HomeSprig.CLEARANCE_DP)
-        assertEquals(312, HomeSprig.crestDp(HomeLayout.COMPACT, textBottomDp = 300))
+    @Test fun `home's Sprig is 150dp and the headline column takes the rest`() {
+        assertEquals(HomeSprig.CompactWidths(220, 150), HomeSprig.homeWidths(412))
+        assertEquals(HomeSprig.CompactWidths(168, 150), HomeSprig.homeWidths(360))
+        for (w in 320..480) {
+            val (text, sprig) = HomeSprig.homeWidths(w)
+            assertTrue("$w: text ends ${HomeSprig.TEXT_SIDE_DP + text}", HomeSprig.TEXT_SIDE_DP + text + HomeSprig.COMPACT_GAP_DP <= w - HomeSprig.COMPACT_SPRIG_END_DP - sprig)
+        }
     }
 
     @Test fun `compact widths never let the headline column reach Sprig`() {
@@ -83,20 +80,5 @@ class HomeLayoutTest {
         assertEquals(HomeSprig.CompactWidths(180, 180), HomeSprig.compactWidths(412))
         assertEquals(HomeSprig.CompactWidths(180, 168), HomeSprig.compactWidths(390))
         assertEquals(HomeSprig.CompactWidths(168, 150), HomeSprig.compactWidths(360))
-        assertEquals(312, HomeSprig.roomyTextDp(360))
-        assertEquals(364, HomeSprig.roomyTextDp(412))
-    }
-
-    @Test fun `a smaller compact Sprig keeps the design's bottom`() {
-        for (w in listOf(360, 390, 412)) {
-            val sprig = HomeSprig.compactWidths(w).sprigDp
-            for (total in 4..10) for (done in 0..total) {
-                val top = HomeSprig.topDp(HomeLayout.COMPACT, 212, done, total, sprig)
-                val designBottom = HomeSprig.topDp(HomeLayout.COMPACT, 212, done, total) + 180
-                assertEquals("$w $done/$total", designBottom, top + sprig)
-                // The design's highest bottom (everything done) is 56 + 180 = 236, 24dp below the crest.
-                assertTrue("$w $done/$total bottom ${top + sprig} below crest", top + sprig >= 212 + 24)
-            }
-        }
     }
 }

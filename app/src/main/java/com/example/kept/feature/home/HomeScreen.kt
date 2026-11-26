@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -41,7 +40,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
@@ -148,17 +146,16 @@ fun HomeScreen(
 }
 
 /**
- * Home in Daybreak (spec, Home): a sky that follows the progress ramp, Sprig rising over the hill
- * as habits are done, then the habits, the week and the shield. Roomy for 1 to 3 habits
- * (`Main.dc.html`), compact from 4 (`A2-Home-6.dc.html`), where only the habit list scrolls.
+ * Home in Daybreak (spec, Home; #218): a compact sky that follows the progress ramp, the headline
+ * on the left and Sprig rising over the hill on the right, then one scrolling page: banners, the
+ * habits, the week's goals, the last seven days and the shield. Rows are roomy for 1 to 3 habits
+ * and compact from 4 ([HomeLayout]).
  */
 @Composable
 internal fun HomeContent(s: HomeUiState, actions: HomeActions, modifier: Modifier = Modifier) {
-    // The sky and Sprig follow the habits and any must-do session still holding; the layout
-    // follows the number of habits alone, as it did before weekly goals.
+    // The sky and Sprig follow the habits and any must-do session still holding.
     val total = s.day.total
     val done = s.day.done
-    val layout = HomeLayout.forHabitCount(s.today.total)
     val light = SkyRamp.homeTextIsLight(done, total)
     val ink by animateColorAsState(SkyRamp.textOn(light), keptTween(Motion.SKY_MS), label = "sky-ink")
     var shieldOpen by rememberSaveable { mutableStateOf(false) }
@@ -167,23 +164,17 @@ internal fun HomeContent(s: HomeUiState, actions: HomeActions, modifier: Modifie
     val density = LocalDensity.current
     val inset = with(density) { WindowInsets.statusBars.getTop(this).toDp() }
     // The headline block's height, measured; a taller block (large font) moves the hill down.
-    var textHeightPx by remember(layout) { mutableIntStateOf(0) }
-    val textTop = if (layout == HomeLayout.ROOMY) ROOMY_TEXT_TOP else COMPACT_TEXT_TOP
-    val textBottom = textTop + with(density) { textHeightPx.toDp() }.value.toInt()
-    val crest = HomeSprig.crestDp(layout, textBottom)
+    var textHeightPx by remember { mutableIntStateOf(0) }
+    val textBottom = TEXT_TOP + with(density) { textHeightPx.toDp() }.value.toInt()
+    val crest = HomeSprig.homeCrestDp(textBottom)
     val skyHeight = inset + crest.dp + Hill.RISE
 
     val toggleShield = { shieldOpen = !shieldOpen }
     BoxWithConstraints(modifier.fillMaxSize()) {
         // Column and Sprig widths come from the real screen width, not the 390dp design.
-        val screen = maxWidth.value.toInt()
-        val compact = HomeSprig.compactWidths(screen)
-        val widths = when (layout) {
-            HomeLayout.ROOMY -> HomeWidths(textDp = HomeSprig.roomyTextDp(screen), sprigDp = HomeSprig.sizeDp(layout))
-            HomeLayout.COMPACT -> HomeWidths(textDp = compact.textDp, sprigDp = compact.sprigDp)
-        }
+        val widths = HomeSprig.homeWidths(maxWidth.value.toInt())
         val sprigTop by animateDpAsState(
-            inset + HomeSprig.topDp(layout, crest, done, total, widths.sprigDp).dp,
+            inset + HomeSprig.homeTopDp(crest, done, total).dp,
             keptTween(Motion.RISE_MS, Motion.RiseEasing),
             label = "sprig-top",
         )
@@ -192,22 +183,19 @@ internal fun HomeContent(s: HomeUiState, actions: HomeActions, modifier: Modifie
             skyHeight = skyHeight,
             lightContent = light,
             skyContent = {
-                HomeSprigOnSky(s, layout, sprigTop, widths.sprigDp.dp)
+                HomeSprigOnSky(s, sprigTop, widths.sprigDp.dp)
                 // Where the hill's crest is, for tests; takes no space and draws nothing.
                 Box(Modifier.offset(y = inset + crest.dp).size(0.dp).testTag("home_crest"))
                 HeadlineBlock(
-                    s, layout, ink, widths.textDp.dp,
-                    Modifier.wrapContentHeight(Alignment.Top, unbounded = true).padding(top = inset + textTop.dp)
+                    s, ink, widths.textDp.dp,
+                    Modifier.wrapContentHeight(Alignment.Top, unbounded = true).padding(top = inset + TEXT_TOP.dp)
                         .onSizeChanged { textHeightPx = it.height },
                 )
             },
         ) {
-            when (layout) {
-                // Main: the hill's crest at 396 and "Today" at 434, so the page starts 14dp above
-                // the sky's bottom edge (which is 52dp below the crest).
-                HomeLayout.ROOMY -> RoomyPage(s, actions, shieldOpen, toggleShield, Modifier.liftBy(14.dp))
-                HomeLayout.COMPACT -> CompactPage(s, actions, shieldOpen, toggleShield)
-            }
+            // The page starts 24dp above the sky's bottom edge, so the first row sits about 28dp
+            // under the crest, clear of the hill's curve at the sides.
+            HomePage(s, actions, shieldOpen, toggleShield, Modifier.liftBy(24.dp))
         }
         if (shieldOpen) {
             // Tapping anywhere, the button included, closes the card. Not in the semantics tree:
@@ -228,48 +216,37 @@ private fun Modifier.liftBy(lift: Dp): Modifier = layout { m, c ->
     layout(p.width, (p.height - px).coerceAtLeast(0)) { p.place(0, -px) }
 }
 
-/** The headline column's width and Sprig's size for this screen. */
-private data class HomeWidths(val textDp: Int, val sprigDp: Int)
-
-private const val ROOMY_TEXT_TOP = 24
-private const val COMPACT_TEXT_TOP = 22
+private const val TEXT_TOP = 16
 
 @Composable
-private fun BoxScope.HomeSprigOnSky(s: HomeUiState, layout: HomeLayout, top: Dp, size: Dp) {
+private fun BoxScope.HomeSprigOnSky(s: HomeUiState, top: Dp, size: Dp) {
     // Only a day finished before the give-up time is worth cheering about (issue #7), and not
     // while a weekly goal's must-do session is still holding the lock (story #175).
     val pose = SprigLook.pose(wilted = s.sprig.wilted, allDone = s.day.keptOnTime)
-    val place = when (layout) {
-        HomeLayout.ROOMY -> Modifier.align(Alignment.TopCenter)
-        HomeLayout.COMPACT -> Modifier.align(Alignment.TopEnd).padding(end = HomeSprig.COMPACT_SPRIG_END_DP.dp)
-    }
     // Tapping hops (SprigView handles it); it opens nothing.
-    SprigView(s.form, pose, place.offset(y = top).size(size).testTag("home_sprig"), wilted = s.sprig.wilted)
+    SprigView(
+        s.form, pose,
+        Modifier.align(Alignment.TopEnd).padding(end = HomeSprig.COMPACT_SPRIG_END_DP.dp).offset(y = top).size(size).testTag("home_sprig"),
+        wilted = s.sprig.wilted,
+    )
 }
 
-/** The streak pill and the headline with its line. Roomy: pill top right; compact: top left. */
+/** The streak pill, then the headline (38/38) and its line, on the left beside Sprig. */
 @Composable
-private fun HeadlineBlock(s: HomeUiState, layout: HomeLayout, ink: Color, textWidth: Dp, modifier: Modifier = Modifier) {
+private fun HeadlineBlock(s: HomeUiState, ink: Color, textWidth: Dp, modifier: Modifier = Modifier) {
     val total = s.day.total
     val done = s.day.done
     val headline = HomeCopy.headline(total, done, s.day.keptOnTime)
     val giveUp = (s.lock?.settings ?: Settings()).dueMinute.minuteOfDayLabel()
     val line = HomeCopy.line(total, done, giveUp, s.pastDue, s.lock?.breakActiveUntil != null, s.day.weeklyMissed)
-    val roomy = layout == HomeLayout.ROOMY
-    val base = if (roomy) DaybreakType.headline else DaybreakType.headline.copy(fontSize = 38.sp, lineHeight = 38.sp)
-    val headStyle = fitLongestWord(headline, base, textWidth)
+    val headStyle = fitLongestWord(headline, DaybreakType.headline.copy(fontSize = 38.sp, lineHeight = 38.sp), textWidth)
     Column(modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
-        StreakPill(s.sprig.streakDays, ink, if (roomy) Modifier.align(Alignment.End) else Modifier)
-        Spacer(Modifier.height(if (roomy) 10.dp else 16.dp))
-        Column(if (roomy) Modifier.widthIn(max = textWidth) else Modifier.width(textWidth)) {
+        StreakPill(s.sprig.streakDays, ink)
+        Spacer(Modifier.height(6.dp))
+        Column(Modifier.width(textWidth)) {
             Text(headline, Modifier.testTag("home_headline"), style = headStyle, color = ink)
             Spacer(Modifier.height(8.dp))
-            Text(
-                line,
-                Modifier.widthIn(max = if (roomy) minOf(300.dp, textWidth) else textWidth).testTag("home_line"),
-                style = DaybreakType.body.copy(lineHeight = 20.sp),
-                color = ink,
-            )
+            Text(line, Modifier.testTag("home_line"), style = DaybreakType.body.copy(lineHeight = 20.sp), color = ink)
         }
     }
 }
@@ -305,93 +282,41 @@ private fun TodayHeader(s: HomeUiState, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun Week(s: HomeUiState, shieldOpen: Boolean, onToggleShield: () -> Unit, gapToShield: Dp) {
+private fun Week(s: HomeUiState, shieldOpen: Boolean, onToggleShield: () -> Unit) {
     WeekSection(
         // Today is gold once the whole promise is kept: the habits and, on a must-do day, the session (story #176).
         s.lastSeven.map { (d, r) -> d to dayDot(d == s.date, r, s.day.keptOnTime) },
         s.sprig.bestStreak,
     )
-    // The shield button's touch area is 48dp around a 28dp visual, so 10dp of the gap is inside it.
-    Spacer(Modifier.height(gapToShield - 10.dp))
+    // The shield button's touch area is 48dp around a 28dp visual, so 10dp of the 12dp gap is inside it.
+    Spacer(Modifier.height(2.dp))
     ShieldButton(ready = s.sprig.shieldAvailable, open = shieldOpen, onToggle = onToggleShield)
 }
 
 /**
- * `Main`: everything below the hill scrolls together. Weekly goal cards follow the habits, as in
- * weekly goals mockup 4. With no goal, the "Add a weekly goal" row comes last instead, so an
- * invitation does not push the week and the shield off the first screen.
+ * Everything below the hill scrolls together (#218): banners, "Today" and the habits, the weekly
+ * goal cards, then "Last 7 days" and the shield, which are no longer pinned. With no goal, the
+ * "Add a weekly goal" row comes last instead, so an invitation does not push the week further down.
  */
 @Composable
-private fun RoomyPage(s: HomeUiState, actions: HomeActions, shieldOpen: Boolean, onToggleShield: () -> Unit, modifier: Modifier = Modifier) {
+private fun HomePage(s: HomeUiState, actions: HomeActions, shieldOpen: Boolean, onToggleShield: () -> Unit, modifier: Modifier = Modifier) {
+    val roomy = HomeLayout.forHabitCount(s.today.total) == HomeLayout.ROOMY
     Column(
-        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp).testTag("home_page"),
+        verticalArrangement = Arrangement.spacedBy(if (roomy) 10.dp else 8.dp),
     ) {
         if (anyBanner(s)) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Banners(s, actions) }
         TodayHeader(s, Modifier.padding(horizontal = 4.dp))
         if (s.today.total == 0) AddFirstHabitRow(actions.onOpenHabits, Modifier.testTag("home_add_first"))
-        s.today.habits.forEach { HomeHabitRow(it, roomy = true, actions) }
+        s.today.habits.forEach { HomeHabitRow(it, roomy, actions) }
         val hasGoals = s.weeklyGoals.isNotEmpty()
-        if (hasGoals) WeeklySection(s.weeklyGoals, actions, Modifier.padding(top = 14.dp), lockEndedToday = s.pastDue)
-        Column(Modifier.padding(start = 4.dp, end = 4.dp, top = 14.dp)) {
-            Week(s, shieldOpen, onToggleShield, gapToShield = 12.dp)
+        if (hasGoals) WeeklySection(s.weeklyGoals, actions, Modifier.padding(top = 8.dp), lockEndedToday = s.pastDue)
+        Column(Modifier.padding(start = 4.dp, end = 4.dp, top = 14.dp, bottom = if (hasGoals) 20.dp else 0.dp).testTag("home_week")) {
+            Week(s, shieldOpen, onToggleShield)
         }
         if (!hasGoals) WeeklySection(s.weeklyGoals, actions, Modifier.padding(top = 4.dp, bottom = 20.dp))
     }
 }
-
-/**
- * `A2-Home-6`: the sky, "Today", the week and the shield stay put; only the habit list scrolls.
- * The weekly goal cards (or the "Add a weekly goal" row) are the end of that list.
- * The list always keeps at least [COMPACT_LIST_MIN] of height: on a small screen at a large font,
- * where the fixed parts would squeeze it to nothing, the whole page below the hill scrolls
- * instead, and the list keeps scrolling inside it.
- */
-@Composable
-private fun CompactPage(s: HomeUiState, actions: HomeActions, shieldOpen: Boolean, onToggleShield: () -> Unit) {
-    BoxWithConstraints(Modifier.fillMaxSize()) {
-        val viewport = constraints.maxHeight
-        Layout(
-            content = {
-                Column {
-                    if (anyBanner(s)) {
-                        Column(Modifier.padding(start = 20.dp, end = 20.dp, bottom = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { Banners(s, actions) }
-                    }
-                    TodayHeader(s, Modifier.padding(start = 24.dp, end = 24.dp, bottom = 10.dp))
-                }
-                Column(
-                    Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
-                        .padding(start = 20.dp, end = 20.dp, bottom = 12.dp).testTag("home_habit_list"),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    s.today.habits.forEach { HomeHabitRow(it, roomy = false, actions) }
-                    WeeklySection(s.weeklyGoals, actions, Modifier.padding(top = 10.dp), lockEndedToday = s.pastDue)
-                }
-                Column {
-                    Box(Modifier.fillMaxWidth().height(1.5.dp).background(DaybreakColors.line))
-                    Column(Modifier.padding(start = 24.dp, end = 24.dp, top = 14.dp, bottom = 2.dp)) {
-                        Week(s, shieldOpen, onToggleShield, gapToShield = 10.dp)
-                    }
-                }
-            },
-            modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
-        ) { measurables, c ->
-            val loose = c.copy(minHeight = 0, maxHeight = androidx.compose.ui.unit.Constraints.Infinity)
-            val top = measurables[0].measure(loose)
-            val bottom = measurables[2].measure(loose)
-            val listH = maxOf(viewport - top.height - bottom.height, COMPACT_LIST_MIN.roundToPx())
-            val list = measurables[1].measure(c.copy(minHeight = listH, maxHeight = listH))
-            layout(c.maxWidth, top.height + listH + bottom.height) {
-                top.place(0, 0)
-                list.place(0, top.height)
-                bottom.place(0, top.height + listH)
-            }
-        }
-    }
-}
-
-/** The least height the compact habit list keeps: about two rows. */
-private val COMPACT_LIST_MIN = 128.dp
 
 /**
  * A habit on Home: [DaybreakHabitRow] plus the camera for photo habits ([rememberPhotoTick]).

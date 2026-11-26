@@ -54,6 +54,8 @@ data class SettingsUi(
     val sprig: SprigState = SprigState(),
     val history: List<DayRecordEntity> = emptyList(),
     val breaksThisWeek: Int = 0,
+    /** False until the first read: the promise waits for it rather than open on an empty list. */
+    val loaded: Boolean = false,
 )
 
 data class PickableApp(val app: InstalledApp, val allowed: Boolean)
@@ -133,7 +135,7 @@ class SettingsViewModel @Inject constructor(
 
     val state: StateFlow<SettingsUi> = combine(
         prefs.settings, habitsRepo.observeHabits(), lockRepo.observeExceptions(), sprigRepo.state, dayRepo.observeHistory(45),
-    ) { s, h, e, sp, hist -> SettingsUi(s, h, e, sp, hist) }
+    ) { s, h, e, sp, hist -> SettingsUi(s, h, e, sp, hist, loaded = true) }
         .combine(lockRepo.observeBreaksThisWeek()) { s, b -> s.copy(breaksThisWeek = b.size) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUi())
 

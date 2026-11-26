@@ -5,7 +5,7 @@ import kotlin.math.floor
 import kotlin.math.sqrt
 
 /**
- * Onboarding step 3, "When does the lock run?" (`A11-Onb-Rule`): the lock window on a 6 am to
+ * Onboarding step 2, "When does the lock run?" (`A11-Onb-Rule`): the lock window on a 6 am to
  * midnight bar, moved with − / + in 30 minute steps. The rules are the design script's, in
  * minutes of the day: the start never goes before 6:00 am, give-up never after 11:30 pm, and
  * give-up stays at least two hours after the start.
@@ -66,10 +66,8 @@ object OnboardingCopy {
     const val HABITS_LINE = "Pick two or three. You can change them later."
     const val ADD_YOUR_OWN = "Add your own"
 
-    // How often (#205): the chip on a ticked row and its sheet.
+    // How often (#205): the chip on a ticked row, which opens the habit's promise (#218).
     const val EVERY_DAY = "Every day"
-    const val SOME_DAYS = "Some days a week"
-    const val DONE = "Done"
     const val CHANGE_HOW_OFTEN = "Change how often"
     const val NEEDS_DAILY = "Set one habit to every day to continue."
 
@@ -79,19 +77,6 @@ object OnboardingCopy {
     /** What TalkBack reads on a chip: "Exercise, 4 days a week. Change how often". */
     fun cadenceDescription(title: String, days: Int?): String =
         "$title, ${if (days == null) "every day" else WeeklyGoalCopy.days(days)}. $CHANGE_HOW_OFTEN"
-
-    /** The sheet's title: "How often will you exercise?" ([WeeklyLockCopy.inSentence]). */
-    fun sheetTitle(title: String): String = "How often will you ${WeeklyLockCopy.inSentence(title)}?"
-
-    /**
-     * The sheet's summary: "Exercise, 30 min, 4 days a week", "Exercise, 30 min, every day"; a
-     * photo habit has no [target] there ("Tidy room, 2 days a week").
-     */
-    fun sheetSummary(title: String, target: String?, days: Int?): String = when {
-        days != null -> WeeklyGoalCopy.summary(title, target, days)
-        target == null -> "$title, every day"
-        else -> "$title, $target, every day"
-    }
 
     /**
      * Under Continue: "2 daily habits", "1 daily habit · 1 weekly goal"; "Pick at least one" with
@@ -113,20 +98,10 @@ object OnboardingCopy {
         else -> "$target $unit"
     }
 
-    // Shutdown time (#164; no mockup, built on the step page like A10 and A11)
+    // Shutdown time (#164, #218): after the lock window, with Sprig's note and two sliders.
     const val SHUTDOWN_TITLE = "Pick a shutdown time"
-    const val SHUTDOWN_LINE = "A shutdown time helps you stop doomscrolling at night."
-    const val SHUTDOWN_DETAIL = "Apps lock until 7:00 am. Phone, messages and maps still work."
+    const val SHUTDOWN_LINE = "Sprig highly recommends a shutdown time, so your phone doesn't eat into your sleep."
     const val SKIP = "Skip"
-
-    /** The starts the shutdown step offers, as minutes of the day: 10 PM, 11 PM, Midnight. */
-    val SHUTDOWN_TIMES: List<Int> = NightWindow.PRESETS
-
-    /** A shutdown row's title: "10 PM", "11 PM", "Midnight" (minute 0). */
-    fun shutdownLabel(minute: Int): String = when {
-        minute == 0 -> SettingsCopy.MIDNIGHT
-        else -> "${(minute / 60 + 11) % 12 + 1} ${if (minute < 12 * 60) "AM" else "PM"}"
-    }
 
     // Lock window (A11)
     const val RULE_TITLE = "When does the lock run?"

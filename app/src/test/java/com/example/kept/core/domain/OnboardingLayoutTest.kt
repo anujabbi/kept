@@ -92,10 +92,6 @@ class OnboardingLayoutTest {
         assertEquals("4 days a week", OnboardingCopy.cadence(4))
         assertEquals("Exercise, 4 days a week. Change how often", OnboardingCopy.cadenceDescription("Exercise", 4))
         assertEquals("Read, every day. Change how often", OnboardingCopy.cadenceDescription("Read", null))
-        assertEquals("How often will you exercise?", OnboardingCopy.sheetTitle("Exercise"))
-        assertEquals("Exercise, 30 min, 4 days a week", OnboardingCopy.sheetSummary("Exercise", "30 min", 4))
-        assertEquals("Exercise, 30 min, every day", OnboardingCopy.sheetSummary("Exercise", "30 min", null))
-        assertEquals("Tidy room, 2 days a week", OnboardingCopy.sheetSummary("Tidy room", null, 2))
     }
 
     @Test fun `the footer counts daily habits and weekly goals apart`() {

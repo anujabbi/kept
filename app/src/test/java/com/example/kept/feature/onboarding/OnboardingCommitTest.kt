@@ -2,6 +2,7 @@ package com.example.kept.feature.onboarding
 
 import com.example.kept.core.data.prefs.Settings
 import com.example.kept.core.domain.LockWindowRules
+import com.example.kept.core.domain.NightSetting
 import com.example.kept.feature.settings.EXCEPTIONS_STEP
 import com.example.kept.feature.settings.PERMISSIONS_STEP
 import org.junit.Assert.assertEquals
@@ -28,7 +29,7 @@ class OnboardingCommitTest {
         assertEquals(6, OnboardingStep.READY)
         assertEquals(
             listOf(1, 2, 3, 4, 5, 6),
-            listOf(OnboardingStep.HABITS, OnboardingStep.SHUTDOWN, OnboardingStep.LOCK_WINDOW, EXCEPTIONS_STEP, PERMISSIONS_STEP, OnboardingStep.READY),
+            listOf(OnboardingStep.HABITS, OnboardingStep.LOCK_WINDOW, OnboardingStep.SHUTDOWN, EXCEPTIONS_STEP, PERMISSIONS_STEP, OnboardingStep.READY),
         )
         assertEquals(OnboardingStep.EXCEPTIONS, EXCEPTIONS_STEP)
         assertEquals(OnboardingStep.PERMISSIONS, PERMISSIONS_STEP)
@@ -49,28 +50,25 @@ class OnboardingCommitTest {
         assertTrue(after.onboardingDone)
     }
 
-    // Shutdown time (#164) ---------------------------------------------------------------------
+    // Shutdown time (#164, #218) --------------------------------------------------------------
 
-    @Test fun `11 PM turns night lockdown on from 1380 until 420`() {
-        val after = Settings().onboardingShutdown(23 * 60).onboardingFinished(today)
+    private fun night(from: Int, until: Int, on: Boolean = true) = NightSetting(on, from, until)
+
+    @Test fun `continue turns night lockdown on at both slider times`() {
+        val after = Settings().onboardingShutdown(night(23 * 60, 7 * 60 + 30)).onboardingFinished(today)
         assertTrue(after.nightLockEnabled)
         assertEquals(1380, after.nightFromMinute)
-        assertEquals(420, after.nightUntilMinute)
-    }
-
-    @Test fun `the end is 7 am whatever was stored before`() {
-        val after = Settings(nightUntilMinute = 9 * 60).onboardingShutdown(22 * 60)
-        assertEquals(7 * 60, after.nightUntilMinute)
+        assertEquals(450, after.nightUntilMinute)
     }
 
     @Test fun `Skip stores night lockdown off`() {
-        assertFalse(Settings().onboardingShutdown(null).onboardingFinished(today).nightLockEnabled)
-        assertFalse(Settings(nightLockEnabled = true).onboardingShutdown(null).nightLockEnabled)
+        assertFalse(Settings().onboardingShutdown(night(23 * 60, 7 * 60, on = false)).onboardingFinished(today).nightLockEnabled)
+        assertFalse(Settings(nightLockEnabled = true).onboardingShutdown(night(23 * 60, 7 * 60, on = false)).nightLockEnabled)
     }
 
     @Test fun `the shutdown answer changes nothing but night lockdown`() {
-        assertEquals(tuned.copy(nightLockEnabled = true, nightFromMinute = 0, nightUntilMinute = 420), tuned.onboardingShutdown(0))
-        assertEquals(tuned, tuned.onboardingShutdown(null))
+        assertEquals(tuned.copy(nightLockEnabled = true, nightFromMinute = 0, nightUntilMinute = 420), tuned.onboardingShutdown(night(0, 420)))
+        assertEquals(tuned, tuned.onboardingShutdown(night(0, 420, on = false)))
     }
 
     /** Leaving the habits step writes the draft; night lockdown is not part of it. */

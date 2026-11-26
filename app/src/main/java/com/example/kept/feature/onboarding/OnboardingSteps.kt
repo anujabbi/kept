@@ -24,19 +24,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -68,12 +61,12 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
-import com.example.kept.core.domain.HabitDraft
 import com.example.kept.core.domain.HabitLimits
 import com.example.kept.core.domain.LockWindowRules
+import com.example.kept.core.domain.NightCopy
+import com.example.kept.core.domain.NightSetting
+import com.example.kept.core.domain.NightSliders
 import com.example.kept.core.domain.OnboardingCopy
-import com.example.kept.core.domain.ProofType
-import com.example.kept.core.domain.WeeklyGoalCopy
 import com.example.kept.core.domain.ReadySprig
 import com.example.kept.core.domain.SprigForm
 import com.example.kept.core.domain.SprigPose
@@ -93,10 +86,14 @@ import com.example.kept.core.ui.Sky
 import com.example.kept.core.ui.SkyScaffold
 import com.example.kept.core.ui.StepFooter
 import com.example.kept.core.ui.StepPage
+import com.example.kept.core.ui.TimeSlider
+import com.example.kept.core.ui.BigTimeStyle
+import com.example.kept.core.ui.boldParts
 import com.example.kept.core.ui.dashedBorder
 import com.example.kept.core.ui.fitLongestWord
 import com.example.kept.core.ui.sprig.SprigView
-import com.example.kept.feature.settings.HabitEditPage
+import com.example.kept.feature.settings.PromisePage
+import com.example.kept.core.domain.PromiseDraft
 import kotlin.math.ceil
 
 private val D = DaybreakColors
@@ -202,7 +199,7 @@ private fun WelcomeText(width: Dp, modifier: Modifier = Modifier) {
 /**
  * "What habits will you keep?" (`A10-Onb-Habits`, #205): the presets and any habit added with
  * "Add your own", each toggled by a tap (purple ring and check when picked). A ticked row shows
- * its how-often chip, which opens [CadenceSheet]. Continue needs one every-day habit, and the
+ * its how-often chip, which opens its promise (#218). Continue needs one every-day habit, and the
  * footer counts daily habits and weekly goals apart. At [HabitLimits.MAX_HABITS] every-day habits
  * the "Add your own" row gives way to [HabitLimits.LIMIT_REACHED].
  */
@@ -232,8 +229,8 @@ internal fun HabitsStep(
     ) {
         (HabitTemplates.list + custom).forEach { t ->
             item(key = "habit_${t.title}") {
-                val picked = s.chosen.any { it.title == t.title }
-                PresetRow(t, picked, s.daysOf(t.title), onToggle = { onToggle(t) }, onCadence = { onCadence(t.title) })
+                val chosen = s.chosen.firstOrNull { it.title == t.title }
+                PresetRow(chosen ?: t, chosen != null, s.daysOf(t.title), onToggle = { onToggle(t) }, onCadence = { onCadence(t.title) })
             }
         }
         item(key = "add_own") {
@@ -286,8 +283,8 @@ private fun PresetRow(t: HabitTemplate, picked: Boolean, days: Int?, onToggle: (
 
 /**
  * The how-often chip (#205): "Every day" or "4 days a week", a white pill with a purple ring and
- * a chevron. Its touch target is 48dp tall; TalkBack reads "Exercise, 4 days a week. Change how
- * often" as a button.
+ * a chevron, which opens the habit's promise (#218). Its touch target is 48dp tall; TalkBack reads
+ * "Exercise, 4 days a week. Change how often" as a button.
  */
 @Composable
 private fun CadenceChip(title: String, days: Int?, onClick: () -> Unit) {
@@ -316,148 +313,6 @@ private fun CadenceChip(title: String, days: Int?, onClick: () -> Unit) {
     }
 }
 
-/** What the how-often sheet's controls do; the screen and the tests wire them to [OnboardingFlow]. */
-class CadenceActions(
-    val onEveryDay: () -> Unit,
-    val onSomeDays: () -> Unit,
-    val onDays: (Int) -> Unit,
-    val onDone: () -> Unit,
-    val onDismiss: () -> Unit,
-) {
-    companion object {
-        val None = CadenceActions({}, {}, {}, {}, {})
-    }
-}
-
-/** The how-often sheet (#205), while [OnboardingState.sheet] is open: a cream Daybreak bottom sheet. */
-@Composable
-internal fun CadenceSheet(s: OnboardingState, actions: CadenceActions) {
-    if (s.sheet == null || s.sheetHabit == null) return
-    ModalBottomSheet(
-        onDismissRequest = actions.onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = D.cream,
-        shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp),
-    ) { CadenceSheetBody(s, actions) }
-}
-
-/**
- * The sheet's content: "How often will you exercise?", the two options, the 1 to 6 day picker
- * with the weekly goal line under it, the summary card and "Done". At three weekly goals "Some
- * days a week" is off on an every-day habit with [WeeklyGoalCopy.LIMIT_REACHED] under it.
- */
-@Composable
-internal fun CadenceSheetBody(s: OnboardingState, actions: CadenceActions) {
-    val sheet = s.sheet ?: return
-    val habit = s.sheetHabit ?: return
-    BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val width = maxWidth
-        // Done stays in view under the scrolling options, as a step page's footer does.
-        Column(Modifier.fillMaxWidth().navigationBarsPadding().testTag("cadence_sheet")) {
-            Column(
-                Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(rememberScrollState())
-                    .padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                val title = OnboardingCopy.sheetTitle(habit.title)
-                Text(
-                    title,
-                    Modifier.padding(horizontal = 4.dp, vertical = 4.dp).testTag("cadence_title"),
-                    style = fitLongestWord(title, SheetTitleStyle, width - 48.dp),
-                    color = D.ink,
-                )
-                Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OptionRow(OnboardingCopy.EVERY_DAY, sheet.days == null, s.sheetCanEveryDay, actions.onEveryDay, "cadence_every_day")
-                    OptionRow(OnboardingCopy.SOME_DAYS, sheet.days != null, s.sheetCanSomeDays, actions.onSomeDays, "cadence_some_days")
-                }
-                if (!s.sheetCanSomeDays) LimitLine(WeeklyGoalCopy.LIMIT_REACHED, "cadence_limit")
-                if (!s.sheetCanEveryDay) LimitLine(HabitLimits.LIMIT_REACHED, "cadence_daily_limit")
-                if (sheet.days != null) {
-                    Text(WeeklyGoalCopy.DAYS_LABEL, Modifier.padding(start = 4.dp, top = 4.dp), style = DaybreakType.body.copy(fontWeight = FontWeight.Bold), color = D.ink)
-                    DayPicker(sheet.days, actions.onDays)
-                    Text(WeeklyGoalCopy.SUMMARY_BODY, Modifier.padding(horizontal = 4.dp), style = DaybreakType.caption, color = D.inkSoft)
-                }
-                Text(
-                    OnboardingCopy.sheetSummary(habit.title, weeklyTarget(habit), sheet.days),
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(D.purpleTint)
-                        .padding(horizontal = 18.dp, vertical = 14.dp).testTag("cadence_summary"),
-                    style = DaybreakType.button.copy(fontWeight = FontWeight.ExtraBold),
-                    color = D.ink,
-                )
-            }
-            PrimaryButton(
-                OnboardingCopy.DONE, onClick = actions.onDone,
-                modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 24.dp).testTag("cadence_done"),
-            )
-        }
-    }
-}
-
-/** The target beside the cadence: "30 min"; none for a photo habit, which a weekly goal cannot prove. */
-private fun weeklyTarget(t: HabitTemplate): String? =
-    if (t.proofType == ProofType.PHOTO) null else WeeklyGoalCopy.target(t.targetValue, t.unit)
-
-private val SheetTitleStyle = DaybreakType.pageTitle.copy(fontSize = 28.sp, lineHeight = (28 * 1.05).sp)
-
-/** An option: the preset row's shape as a radio button; off, it is greyed and does nothing. */
-@Composable
-private fun OptionRow(label: String, picked: Boolean, enabled: Boolean, onPick: () -> Unit, tag: String) {
-    val shape = RoundedCornerShape(20.dp)
-    Row(
-        Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(shape)
-            .background(if (picked) D.purplePale else D.white)
-            .border(2.dp, if (picked) D.purple else D.lineSoft, shape)
-            .selectable(selected = picked, enabled = enabled, role = Role.RadioButton, onClick = onPick)
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .testTag(tag),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Text(label, Modifier.weight(1f), style = DaybreakType.rowTitle, color = if (enabled) D.ink else D.disabled)
-        Box(
-            Modifier.size(24.dp).clip(CircleShape)
-                .background(if (picked) D.purple else Color.Transparent)
-                .border(2.dp, if (picked) D.purple else if (enabled) D.ring else D.lineSoft, CircleShape),
-            contentAlignment = Alignment.Center,
-        ) { if (picked) Icon(DaybreakIcons.Check, null, Modifier.size(13.dp), tint = D.white) }
-    }
-}
-
-@Composable
-private fun LimitLine(text: String, tag: String) {
-    Text(
-        text,
-        Modifier.padding(horizontal = 4.dp).semantics { liveRegion = LiveRegionMode.Polite }.testTag(tag),
-        style = DaybreakType.caption, fontWeight = FontWeight.SemiBold, color = D.muted,
-    )
-}
-
-/** 1 to 6 as the weekly goal screen's day chips: 48dp rounds, the chosen one purple. */
-@Composable
-private fun DayPicker(selected: Int, onPick: (Int) -> Unit) {
-    Row(Modifier.fillMaxWidth().selectableGroup().testTag("cadence_days")) {
-        OnboardingCadence.DAY_CHOICES.forEach { n ->
-            val on = n == selected
-            Box(
-                Modifier.weight(1f).heightIn(min = 48.dp)
-                    .selectable(selected = on, role = Role.RadioButton, onClick = { onPick(n) })
-                    .semantics { contentDescription = WeeklyGoalCopy.days(n) }
-                    .testTag("cadence_day_$n"),
-                contentAlignment = Alignment.Center,
-            ) {
-                Box(
-                    Modifier.padding(horizontal = 3.dp).fillMaxWidth().heightIn(min = 48.dp)
-                        .clip(CircleShape).background(if (on) D.purple else D.white)
-                        .then(if (on) Modifier else Modifier.border(1.5.dp, D.field, CircleShape)),
-                    contentAlignment = Alignment.Center,
-                ) { Text(n.toString(), style = DayStyle, color = if (on) D.white else D.ink, maxLines = 1) }
-            }
-        }
-    }
-}
-
-private val DayStyle = DaybreakType.button.copy(fontSize = 18.sp, lineHeight = 22.sp, fontWeight = FontWeight.ExtraBold, fontFeatureSettings = "tnum")
-
 /** "Add your own": a 64dp dashed row with a white plus tile. */
 @Composable
 private fun AddOwnRow(onClick: () -> Unit) {
@@ -478,77 +333,24 @@ private fun AddOwnRow(onClick: () -> Unit) {
 }
 
 /**
- * "Add your own" opens Add a habit (`A9-Habit-edit`), the same page as Settings' Add a habit.
- * Saving adds the habit to the picks, picked.
+ * The promise (#218) for a ticked habit's chip or for "Add your own": the same full-screen page as
+ * Settings. Done changes the habit (or adds it, ticked) at once; the page closes after Sprig's cheer.
  */
 @Composable
-internal fun AddHabitPage(onBack: () -> Unit, onSave: (HabitTemplate) -> Unit) {
-    HabitEditPage(
-        HabitDraft(),
-        onClose = onBack,
-        onSave = { d -> onSave(HabitTemplate(d.name, d.iconKey, d.proof, d.savedTarget, d.savedUnit)) },
-        modifier = Modifier.testTag("onboarding_add_habit"),
+internal fun OnboardingPromisePage(s: OnboardingState, onDone: (PromiseDraft) -> Unit, onClose: () -> Unit) {
+    val promise = s.promise ?: return
+    PromisePage(
+        promise.draft,
+        s.promiseLimits,
+        onDone = { d, saved -> onDone(d); saved() },
+        onClose = onClose,
+        taken = s.promiseTaken,
+        modifier = Modifier.testTag("onboarding_promise"),
     )
 }
 
 // ---------------------------------------------------------------------------------------------
-// Step 2: shutdown time (#164)
-
-/**
- * "Pick a shutdown time" (#164; no mockup, built like `A10`): 10 PM, 11 PM and Midnight, one at
- * most picked and none to begin with. Continue is disabled until one is picked; "Skip" goes on
- * without a shutdown time, which leaves night lockdown off.
- */
-@Composable
-internal fun ShutdownStep(selected: Int?, onPick: (Int) -> Unit, onBack: () -> Unit, onContinue: () -> Unit, onSkip: () -> Unit) {
-    StepPage(
-        header = PageHeader.Progress(OnboardingStep.SHUTDOWN, OnboardingCopy.STEPS, onBack),
-        title = OnboardingCopy.SHUTDOWN_TITLE,
-        line = OnboardingCopy.SHUTDOWN_LINE,
-        modifier = Modifier.testTag("onboarding_shutdown"),
-        footer = {
-            PrimaryButton(OnboardingCopy.CONTINUE, onClick = onContinue, enabled = selected != null, modifier = Modifier.testTag("onboarding_next"))
-            QuietButton(OnboardingCopy.SKIP, onClick = onSkip, modifier = Modifier.fillMaxWidth().testTag("onboarding_skip"))
-        },
-    ) {
-        OnboardingCopy.SHUTDOWN_TIMES.forEach { minute ->
-            item(key = "shutdown_$minute") { ShutdownRow(minute, picked = selected == minute, onPick = { onPick(minute) }) }
-        }
-    }
-}
-
-/** A shutdown row: the preset row's shape (`A10`) as a radio button, with a clock tile. */
-@Composable
-private fun ShutdownRow(minute: Int, picked: Boolean, onPick: () -> Unit) {
-    val shape = RoundedCornerShape(20.dp)
-    Row(
-        Modifier.fillMaxWidth().heightIn(min = 64.dp).clip(shape)
-            .background(if (picked) D.purplePale else D.white)
-            .border(2.dp, if (picked) D.purple else D.lineSoft, shape)
-            .selectable(selected = picked, role = Role.RadioButton, onClick = onPick)
-            .padding(horizontal = 14.dp, vertical = 8.dp)
-            .testTag("onboarding_shutdown_$minute"),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        Box(Modifier.size(40.dp).clip(RoundedCornerShape(14.dp)).background(D.purpleTint), contentAlignment = Alignment.Center) {
-            Icon(DaybreakIcons.Clock, null, Modifier.size(20.dp), tint = D.purple)
-        }
-        Column(Modifier.weight(1f)) {
-            Text(OnboardingCopy.shutdownLabel(minute), style = DaybreakType.rowTitle, color = D.ink)
-            Text(OnboardingCopy.SHUTDOWN_DETAIL, style = DaybreakType.caption, color = D.muted)
-        }
-        Box(
-            Modifier.size(28.dp).clip(CircleShape)
-                .background(if (picked) D.purple else Color.Transparent)
-                .border(2.dp, if (picked) D.purple else D.ring, CircleShape),
-            contentAlignment = Alignment.Center,
-        ) { if (picked) Icon(DaybreakIcons.Check, null, Modifier.size(15.dp), tint = D.white) }
-    }
-}
-
-// ---------------------------------------------------------------------------------------------
-// Step 3: lock window (A11)
+// Step 2: lock window (A11)
 
 /**
  * "When does the lock run?" (`A11-Onb-Rule`): the 6 am to midnight bar with the locked band, the
@@ -715,6 +517,90 @@ private fun StepButton(sign: String, description: String, enabled: Boolean, styl
             .testTag(tag),
         contentAlignment = Alignment.Center,
     ) { Text(sign, style = style, color = if (enabled) D.purple else D.disabled) }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Step 3: shutdown time (#164, #218)
+
+/**
+ * "Pick a shutdown time" (#218, after the lock window): Sprig's note, then a card with two
+ * sliders in 15 minute steps, "Shutdown at" (8 pm to 2 am) and "Phone back at" (5 am to 10 am),
+ * each time shown large, and the sentence under them that follows both. Continue turns night
+ * lockdown on at those times; "Skip" goes on without it.
+ */
+@Composable
+internal fun ShutdownStep(
+    night: NightSetting,
+    onFrom: (Int) -> Unit,
+    onUntil: (Int) -> Unit,
+    onBack: () -> Unit,
+    onContinue: () -> Unit,
+    onSkip: () -> Unit,
+) {
+    StepPage(
+        header = PageHeader.Progress(OnboardingStep.SHUTDOWN, OnboardingCopy.STEPS, onBack),
+        title = OnboardingCopy.SHUTDOWN_TITLE,
+        line = null,
+        modifier = Modifier.testTag("onboarding_shutdown"),
+        bodySpacing = 14.dp,
+        footer = {
+            PrimaryButton(OnboardingCopy.CONTINUE, onClick = onContinue, modifier = Modifier.testTag("onboarding_next"))
+            QuietButton(OnboardingCopy.SKIP, onClick = onSkip, modifier = Modifier.fillMaxWidth().testTag("onboarding_skip"))
+        },
+    ) {
+        item(key = "note") { SprigNote(OnboardingCopy.SHUTDOWN_LINE) }
+        item(key = "times") {
+            val shape = RoundedCornerShape(22.dp)
+            Column(
+                Modifier.fillMaxWidth().clip(shape).background(D.white).border(1.5.dp, D.lineSoft, shape)
+                    .padding(start = 18.dp, end = 18.dp, top = 18.dp, bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                SliderTime(NightCopy.SHUTDOWN_AT, night.fromMinute, "shutdown_from")
+                TimeSlider(
+                    NightSliders.fromIndex(night.fromMinute), NightSliders.FROM_STEPS, NightCopy.SHUTDOWN_AT, NightCopy.big(night.fromMinute),
+                    NightSliders.FROM_LABELS, onChange = { onFrom(NightSliders.fromAt(it)) }, tag = "shutdown_from_slider",
+                )
+                Box(Modifier.padding(vertical = 12.dp).fillMaxWidth().height(1.5.dp).background(D.line))
+                SliderTime(NightCopy.PHONE_BACK_AT, night.untilMinute, "shutdown_until")
+                TimeSlider(
+                    NightSliders.untilIndex(night.untilMinute), NightSliders.UNTIL_STEPS, NightCopy.PHONE_BACK_AT, NightCopy.big(night.untilMinute),
+                    NightSliders.UNTIL_LABELS, onChange = { onUntil(NightSliders.untilAt(it)) }, tag = "shutdown_until_slider",
+                )
+                Text(
+                    boldParts(NightCopy.shutdownSentence(night.fromMinute, night.untilMinute)),
+                    Modifier.padding(top = 10.dp).testTag("shutdown_sentence"),
+                    style = DaybreakType.bodySmall.copy(lineHeight = (14 * 1.45).sp),
+                    color = D.inkSoft,
+                )
+            }
+        }
+    }
+}
+
+/** Sprig's note at the top of a step: a small Sprig beside the line, on purple tint. */
+@Composable
+private fun SprigNote(text: String) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(D.purpleTint)
+            .padding(horizontal = 14.dp, vertical = 12.dp).testTag("shutdown_note"),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Box(Modifier.size(52.dp).clip(CircleShape).background(D.purplePale), contentAlignment = Alignment.Center) {
+            SprigView(SprigForm.SPRIG, SprigPose.IDLE, Modifier.size(44.dp))
+        }
+        Text(text, Modifier.weight(1f).testTag("shutdown_line"), style = DaybreakType.body, color = D.inkSoft)
+    }
+}
+
+/** A slider's label (13/600 muted) over its time, large (44/800, tabular). */
+@Composable
+private fun SliderTime(label: String, minute: Int, tag: String) {
+    Column {
+        Text(label, style = DaybreakType.caption, fontWeight = FontWeight.SemiBold, color = D.muted)
+        Text(NightCopy.big(minute), Modifier.testTag("${tag}_time"), style = BigTimeStyle, color = D.ink)
+    }
 }
 
 // ---------------------------------------------------------------------------------------------
