@@ -65,15 +65,15 @@ data class OnboardingState(
     val step: Int = OnboardingStep.WELCOME,
     val chosen: List<HabitTemplate> = listOf(HabitTemplates.list[0], HabitTemplates.list[1]),
     /**
-     * Step 2's shutdown time as a minute of the day, or null while none is picked and after Skip.
+     * The shutdown step's time as a minute of the day, or null while none is picked and after Skip.
      * Nothing is preselected; "Start today" writes it ([onboardingShutdown]).
      */
     val shutdownMinute: Int? = null,
-    /** Step 3's window: the stored one (brought inside the bar) until the person moves it. */
+    /** The lock window step's window: the stored one (brought inside the bar) until the person moves it. */
     val window: LockWindowRules.Window = LockWindowRules.normalize(Settings().lockFromMinute, Settings().dueMinute),
     /** True once the person moved the window; only then does "Start today" write it. */
     val windowTouched: Boolean = false,
-    /** Step 1's "Add your own" page is open. */
+    /** The habits step's "Add your own" page is open. */
     val addingHabit: Boolean = false,
     val saving: Boolean = false,
     /** The sign-in step's button and its error line (#193). */
@@ -154,7 +154,7 @@ class OnboardingViewModel @Inject constructor(
     val account: StateFlow<AccountState> = accounts.account
 
     init {
-        // Step 3 starts from the stored window, which a re-run of onboarding may have changed.
+        // The lock window step starts from the stored window, which a re-run of onboarding may have changed.
         viewModelScope.launch {
             val s = prefs.currentSettings()
             _state.update { if (it.windowTouched) it else it.copy(window = LockWindowRules.normalize(s.lockFromMinute, s.dueMinute)) }
@@ -199,7 +199,7 @@ class OnboardingViewModel @Inject constructor(
     )
 
     /**
-     * Persists habits and the first-use date when leaving step 1 so the exceptions/permission
+     * Persists habits and the first-use date when leaving the habits step so the exceptions/permission
      * steps can already use them. The shutdown time and the lock window are written on "Start
      * today" (the window only if it was moved): see [onboardingShutdown] and [onboardingLockWindow].
      */

@@ -15,7 +15,7 @@ const val ONBOARDING_STEPS = OnboardingCopy.STEPS
 /**
  * What leaving the habits step records. Only the first-use date: the break length is not asked
  * for during onboarding (issue #37), and the lock window is written by [onboardingLockWindow]
- * only if the person moved it on step 3, and night lockdown by [onboardingShutdown].
+ * only if the person moved it on the lock window step, and night lockdown by [onboardingShutdown].
  */
 fun Settings.onboardingDraft(today: LocalDate): Settings = copy(firstUseDate = firstUseDate ?: today)
 

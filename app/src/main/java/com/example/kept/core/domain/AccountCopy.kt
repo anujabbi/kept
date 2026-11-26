@@ -9,7 +9,7 @@ object AccountCopy {
     const val SIGN_IN = "Sign in with Google"
     const val SIGNING_IN = "Signing in…"
 
-    // Onboarding step, just before "How Sprig works"
+    // Onboarding step 1, right after the welcome screen
     const val STEP_TITLE = SIGN_IN
     const val STEP_LINE = "It's optional. Skip it and KEPT works exactly the same."
     const val FACT_ACCOUNT_BOLD = "Your KEPT account"

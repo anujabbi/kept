@@ -5,7 +5,7 @@ import kotlin.math.floor
 import kotlin.math.sqrt
 
 /**
- * Onboarding step 3, "When does the lock run?" (`A11-Onb-Rule`): the lock window on a 6 am to
+ * Onboarding step 4, "When does the lock run?" (`A11-Onb-Rule`): the lock window on a 6 am to
  * midnight bar, moved with − / + in 30 minute steps. The rules are the design script's, in
  * minutes of the day: the start never goes before 6:00 am, give-up never after 11:30 pm, and
  * give-up stays at least two hours after the start.

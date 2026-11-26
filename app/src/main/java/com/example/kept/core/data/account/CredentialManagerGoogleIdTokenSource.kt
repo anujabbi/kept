@@ -49,16 +49,16 @@ class CredentialManagerGoogleIdTokenSource(private val serverClientId: String) :
     }
 
     companion object {
+        /** A Credential Manager failure while offline is a connection failure, whatever its type. */
+        fun whenFailed(online: Boolean, cause: Throwable): IdTokenResult =
+            IdTokenResult.Failed(if (online) cause else IOException("No internet while signing in", cause))
+
         /**
          * Play services reports a network error inside its account sheet as a cancellation (seen on
          * `kept_api35` in airplane mode: "Network error", then "Account reauth failed", then a
          * cancel). Offline, a cancel is therefore read as a failure, so the person sees the
          * connection line rather than "Sign-in cancelled."
          */
-        /** A Credential Manager failure while offline is a connection failure, whatever its type. */
-        fun whenFailed(online: Boolean, cause: Throwable): IdTokenResult =
-            IdTokenResult.Failed(if (online) cause else IOException("No internet while signing in", cause))
-
         fun whenCancelled(online: Boolean): IdTokenResult =
             if (online) IdTokenResult.Cancelled else IdTokenResult.Failed(IOException("No internet while the Google sheet was open"))
 

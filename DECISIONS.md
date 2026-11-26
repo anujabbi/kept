@@ -1736,7 +1736,7 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     then, so a signed-in user never sees "Sign in with Google" flash up.
   - *Libraries.* supabase-kt 3.1.4 (auth only, no postgrest-kt) with Ktor 3.1.2's Android
     engine: 3.2 and later are built with Kotlin 2.2, which our Kotlin 2.0.21 compiler cannot read.
-    This pulls kotlinx-coroutines 1.10.1 (was 1.9.0). Credential Manager 1.5.0 with
+    This moves kotlinx-coroutines to 1.10.1 (was 1.9.0), set in the version catalog too. Credential Manager 1.5.0 with
     `GetSignInWithGoogleOption`, googleid 1.1.1.
   - *Config.* `SUPABASE_URL` (defaults to the `kept` project), `SUPABASE_PUBLISHABLE_KEY` and
     `GOOGLE_WEB_CLIENT_ID` (defaults to the web client) come from the environment or the root
