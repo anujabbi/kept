@@ -62,15 +62,49 @@ object OnboardingCopy {
     const val WELCOME_CAPTION = "This is Sprig. It grows every day you keep your promise."
 
     // Habits (A10)
-    const val HABITS_TITLE = "What will you do every day?"
+    const val HABITS_TITLE = "What habits will you keep?"
     const val HABITS_LINE = "Pick two or three. You can change them later."
     const val ADD_YOUR_OWN = "Add your own"
 
-    fun habitsPicked(n: Int): String = when (n) {
-        0 -> "Pick at least one"
-        1 -> "1 habit picked"
-        else -> "$n habits picked"
+    // How often (#205): the chip on a ticked row and its sheet.
+    const val EVERY_DAY = "Every day"
+    const val SOME_DAYS = "Some days a week"
+    const val DONE = "Done"
+    const val CHANGE_HOW_OFTEN = "Change how often"
+    const val NEEDS_DAILY = "Set one habit to every day to continue."
+
+    /** A chip: "Every day", or "4 days a week" ([WeeklyGoalCopy.days]) for [days] a week. */
+    fun cadence(days: Int?): String = if (days == null) EVERY_DAY else WeeklyGoalCopy.days(days)
+
+    /** What TalkBack reads on a chip: "Exercise, 4 days a week. Change how often". */
+    fun cadenceDescription(title: String, days: Int?): String =
+        "$title, ${if (days == null) "every day" else WeeklyGoalCopy.days(days)}. $CHANGE_HOW_OFTEN"
+
+    /** The sheet's title: "How often will you exercise?" ([WeeklyLockCopy.inSentence]). */
+    fun sheetTitle(title: String): String = "How often will you ${WeeklyLockCopy.inSentence(title)}?"
+
+    /**
+     * The sheet's summary: "Exercise, 30 min, 4 days a week", "Exercise, 30 min, every day"; a
+     * photo habit has no [target] there ("Tidy room, 2 days a week").
+     */
+    fun sheetSummary(title: String, target: String?, days: Int?): String = when {
+        days != null -> WeeklyGoalCopy.summary(title, target, days)
+        target == null -> "$title, every day"
+        else -> "$title, $target, every day"
     }
+
+    /**
+     * Under Continue: "2 daily habits", "1 daily habit · 1 weekly goal"; "Pick at least one" with
+     * nothing ticked, and [NEEDS_DAILY] when every ticked habit is weekly.
+     */
+    fun habitsFooter(daily: Int, weekly: Int): String = when {
+        daily == 0 && weekly == 0 -> "Pick at least one"
+        daily == 0 -> NEEDS_DAILY
+        weekly == 0 -> dailyCount(daily)
+        else -> "${dailyCount(daily)} · $weekly weekly ${if (weekly == 1) "goal" else "goals"}"
+    }
+
+    private fun dailyCount(n: Int) = "$n daily ${if (n == 1) "habit" else "habits"}"
 
     /** A habit row's second line: "30 min", "10 pages", "Photo check-in", "Tap when done". */
     fun habitDetail(proof: ProofType, target: Int, unit: String): String = when {
@@ -146,6 +180,9 @@ object OnboardingCopy {
     const val RULE_BREAKS = " It takes a 60-second wait and costs Sprig a level. After three breaks in a week, the day is written off."
     const val RULE_SHIELD_BOLD = "One shield a week"
     const val RULE_SHIELD = " forgives a missed day. Everything else is on you."
+    /** Only when a weekly goal was chosen (#205). */
+    const val RULE_WEEKLY_BOLD = "Weekly goals lock only when you'd fall behind."
+    const val RULE_WEEKLY = " On other days you can skip them."
     const val START_TODAY = "Start today"
     const val STARTING = "Starting…"
 

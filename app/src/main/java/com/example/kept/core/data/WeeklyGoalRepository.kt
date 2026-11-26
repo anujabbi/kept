@@ -32,6 +32,9 @@ data class WeeklyGoalWeek(val goal: WeeklyGoalEntity, val week: WeeklyGoalRules.
  */
 fun List<WeeklyGoalWeek>.mustDoLoggedAt(): List<Long?> = filter { it.week.todayCounts }.map { it.loggedTodayAt }
 
+/** A weekly goal to add: its activity, days a week and target ([targetValue] and [unit] both null for none). */
+data class WeeklyGoalSpec(val title: String, val daysPerWeek: Int, val targetValue: Int?, val unit: String?)
+
 /**
  * Weekly goals (issue #165): "X days a week", at most one session a day. The week's progress is
  * never stored; every read counts `weekly_goal_entries` for the Sunday-to-Saturday week that
@@ -102,16 +105,37 @@ class WeeklyGoalRepository @Inject constructor(
     }
 
     /**
-     * Changes a goal's activity, days a week and target (both null for none). The new days a
-     * week apply to the current week at once and logged sessions are kept; the day the goal
-     * started counting does not move.
+     * Replaces the active goals with [goals], each counting from today, in one transaction
+     * (onboarding's "Start today", #207). Running it again leaves the same set, so a "Start
+     * today" retried after the process died cannot add a goal twice or run into
+     * [WeeklyGoalRules.MAX_GOALS]. Removed goals keep their rows and sessions, as [removeGoal]'s do.
+     */
+    suspend fun replaceAll(goals: List<WeeklyGoalSpec>) {
+        require(goals.size <= WeeklyGoalRules.MAX_GOALS) { "at most ${WeeklyGoalRules.MAX_GOALS} weekly goals" }
+        val rows = goals.mapIndexed { i, g ->
+            val name = checked(g.title, g.daysPerWeek)
+            checkedTarget(g.targetValue, g.unit)
+            WeeklyGoalEntity(
+                title = name, iconKey = HabitIconRules.forName(name), daysPerWeek = g.daysPerWeek,
+                createdAt = time.nowMillis(), effectiveFrom = time.todayKey(), sortOrder = i,
+                targetValue = g.targetValue, unit = g.unit,
+            )
+        }
+        addLock.withLock { goalDao.replaceActive(rows) }
+    }
+
+    /**
+     * Changes a goal's activity, days a week and target (both null for none). The target has no
+     * default: a caller that meant to keep it passes it back, so it is never erased by omission
+     * (review on #206). The new days a week apply to the current week at once and logged
+     * sessions are kept; the day the goal started counting does not move.
      * Returns false when there is no such active goal.
      *
      * One conditional UPDATE, not a read and a write of the whole row: an edit racing a remove
      * used to be able to write `isActive = 1` back over it, bringing the goal back and, with three
      * others added meanwhile, passing [WeeklyGoalRules.MAX_GOALS] (review on #177).
      */
-    suspend fun updateGoal(id: Long, title: String, daysPerWeek: Int, targetValue: Int? = null, unit: String? = null): Boolean {
+    suspend fun updateGoal(id: Long, title: String, daysPerWeek: Int, targetValue: Int?, unit: String?): Boolean {
         val name = checked(title, daysPerWeek)
         checkedTarget(targetValue, unit)
         return goalDao.updateActive(id, name, HabitIconRules.forName(name), daysPerWeek, targetValue, unit) > 0

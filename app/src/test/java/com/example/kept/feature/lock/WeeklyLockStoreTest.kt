@@ -270,9 +270,9 @@ class WeeklyLockStoreTest {
     @Test fun `lowering 4 to 2 lifts the lock and raising it back locks again`() = runBlocking {
         val id = goal()
         assertTrue(locked())
-        assertTrue(weekly.updateGoal(id, "Exercise", 2))
+        assertTrue(weekly.updateGoal(id, "Exercise", 2, null, null))
         assertFalse("needs 2 with 4 days left", locked())
-        assertTrue(weekly.updateGoal(id, "Exercise", 4))
+        assertTrue(weekly.updateGoal(id, "Exercise", 4, null, null))
         assertTrue("raised: today is a must-do day again", locked())
     }
 
@@ -304,7 +304,7 @@ class WeeklyLockStoreTest {
     @Test fun `an edit of a goal that was removed elsewhere reports it and changes nothing`() = runBlocking {
         val id = goal()
         weekly.removeGoal(id)
-        assertFalse(weekly.updateGoal(id, "Exercise", 2))
+        assertFalse(weekly.updateGoal(id, "Exercise", 2, null, null))
         assertTrue(weekly.observeGoals().first().isEmpty())
         assertEquals(4, db.weeklyGoalDao().byId(id)!!.daysPerWeek)
     }

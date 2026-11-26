@@ -1,6 +1,9 @@
 package com.example.kept.feature.onboarding
 
+import com.example.kept.core.data.WeeklyGoalSpec
+import com.example.kept.core.data.db.HabitEntity
 import com.example.kept.core.data.prefs.Settings
+import com.example.kept.core.domain.ProofType
 import com.example.kept.core.domain.LockWindowRules
 import com.example.kept.core.domain.NightWindow
 import com.example.kept.core.domain.OnboardingCopy
@@ -41,3 +44,19 @@ fun Settings.onboardingShutdown(startMinute: Int?): Settings =
  */
 fun Settings.onboardingFinished(today: LocalDate): Settings =
     onboardingDraft(today).copy(onboardingDone = true, onboardingStep = ONBOARDING_STEPS, firstLandingPending = true)
+
+/** What Continue on step 1 writes through `HabitRepository.replaceAll`: the every-day habits only (#205). */
+fun OnboardingState.dailyHabitRows(nowMillis: Long): List<HabitEntity> = daily.map {
+    HabitEntity(title = it.title, iconKey = it.iconKey, proofType = it.proofType, targetValue = it.targetValue, unit = it.unit, createdAt = nowMillis)
+}
+
+/**
+ * The some-days habits as the weekly goals "Start today" writes with
+ * `WeeklyGoalRepository.replaceAll` (#205). Each carries its habit's target (Exercise 30 min); a
+ * photo habit has none, since weekly goals have no photo proof (owner, 25 Nov 2026).
+ */
+val OnboardingState.weeklyGoalPlans: List<WeeklyGoalSpec>
+    get() = weekly.map {
+        val photo = it.proofType == ProofType.PHOTO
+        WeeklyGoalSpec(it.title, daysOf(it.title)!!, if (photo) null else it.targetValue, if (photo) null else it.unit)
+    }

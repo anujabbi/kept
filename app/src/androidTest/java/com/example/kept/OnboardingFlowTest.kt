@@ -16,6 +16,8 @@ import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.kept.core.data.HabitRepository
+import com.example.kept.core.data.WeeklyGoalRepository
+import kotlinx.coroutines.flow.first
 import com.example.kept.core.data.db.KeptDatabase
 import com.example.kept.core.data.prefs.KeptPreferences
 import com.example.kept.core.lock.Permissions
@@ -40,6 +42,7 @@ class OnboardingFlowTest {
     @Inject lateinit var db: KeptDatabase
     @Inject lateinit var prefs: KeptPreferences
     @Inject lateinit var habits: HabitRepository
+    @Inject lateinit var weekly: WeeklyGoalRepository
     @Inject lateinit var permissions: Permissions
 
     @Before fun setUp() { hilt.inject(); resetAppState(db, prefs) }
@@ -62,7 +65,8 @@ class OnboardingFlowTest {
             compose.onNodeWithTag("page_body").performScrollToNode(androidx.compose.ui.test.hasTestTag("onboarding_add_own"))
             compose.onNodeWithTag("onboarding_add_own").assertIsDisplayed()
             compose.onNodeWithTag("onboarding_habit_limit").assertDoesNotExist()
-            compose.onNodeWithTag("onboarding_habit_count").assertTextEquals("5 habits picked")
+            // Exercise starts at 4 days a week (#205), so the footer counts it apart.
+            compose.onNodeWithTag("onboarding_habit_count").assertTextEquals("4 daily habits · 1 weekly goal")
             compose.onNodeWithTag("onboarding_next").performClick()          // habits -> shutdown time
             // The shutdown page (#164): nothing picked, Continue held back until a row is.
             waitForTag("onboarding_shutdown")
@@ -119,7 +123,11 @@ class OnboardingFlowTest {
             assertEquals(23 * 60, settings.nightFromMinute)
             assertEquals(7 * 60, settings.nightUntilMinute)
             val today = runBlocking { habits.today() }
-            assertEquals(5, today.total)
+            assertEquals(4, today.total)
+            // Exercise is a weekly goal carrying its target, not a daily habit (#205).
+            assertFalse(runBlocking { habits.observeHabits().first() }.any { it.title == "Exercise" })
+            val goal = runBlocking { weekly.observeGoals().first() }.single()
+            assertEquals(listOf("Exercise", "4", "30", "min"), listOf(goal.title, goal.daysPerWeek.toString(), goal.targetValue.toString(), goal.unit))
 
             // First landing (issue #41): the one-time card sits at the top of Home, and its
             // reminder line follows the live notifications grant rather than onboarding's answer.

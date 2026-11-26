@@ -26,6 +26,8 @@ class OnboardingScreenshotTest {
     @Test fun welcome_font2() = shots.shot("welcome", 2f)
     @Test fun habits() = shots.shot("habits", 1f)
     @Test fun habits_font2() = shots.shot("habits", 2f)
+    @Test fun cadenceSheet() = shots.shot("cadence_sheet", 1f)
+    @Test fun cadenceSheet_font2() = shots.shot("cadence_sheet", 2f)
     @Test fun habitsLimit() = shots.shot("habits_limit", 1f)
     @Test fun habitsLimit_font2() = shots.shot("habits_limit", 2f)
     @Test fun shutdown() = shots.shot("shutdown", 1f)
@@ -41,6 +43,8 @@ class OnboardingScreenshotTest {
     @Test fun permissionsAll_font2() = shots.shot("permissions_all", 2f)
     @Test fun ready() = shots.shot("ready", 1f)
     @Test fun ready_font2() = shots.shot("ready", 2f)
+    @Test fun readyWeekly() = shots.shot("ready_weekly", 1f)
+    @Test fun readyWeekly_font2() = shots.shot("ready_weekly", 2f)
 
     @Test fun everyStateFits() = shots.everyStateFits()
 }

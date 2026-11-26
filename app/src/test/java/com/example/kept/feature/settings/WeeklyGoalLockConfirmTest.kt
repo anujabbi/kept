@@ -185,7 +185,7 @@ class WeeklyGoalLockConfirmTest {
     }
 
     @Test fun `7 to 5 asks too, and confirming keeps the lock because 5 are still needed in 4 days`() {
-        runBlocking { weekly.updateGoal(goalId, "Exercise", 7) }
+        runBlocking { weekly.updateGoal(goalId, "Exercise", 7, null, null) }
         showEdit(expectHeld = true)
         rule.onNodeWithTag("goal_day_5").performClick()
         rule.onNodeWithTag("goal_save").performClick()
@@ -226,7 +226,7 @@ class WeeklyGoalLockConfirmTest {
     }
 
     @Test fun `raising a target so today becomes must-do locks with no confirm`() {
-        runBlocking { weekly.updateGoal(goalId, "Exercise", 2) }
+        runBlocking { weekly.updateGoal(goalId, "Exercise", 2, null, null) }
         assertFalse(locked())
         showEdit(expectHeld = false)
         rule.onNodeWithTag("goal_day_4").performClick()
@@ -266,7 +266,7 @@ class WeeklyGoalLockConfirmTest {
         showEdit(expectHeld = true)
         runBlocking { weekly.removeGoal(goalId) }
         await("the page to close") { closed == 1 }
-        assertFalse(runBlocking { weekly.updateGoal(goalId, "Exercise", 2) })
+        assertFalse(runBlocking { weekly.updateGoal(goalId, "Exercise", 2, null, null) })
         assertEquals(4, days())
         assertNull(settings.pendingLockChange.value)
     }
