@@ -96,7 +96,7 @@ class OnboardingStartTodayTest {
     }
 
     private fun listRows() = runBlocking {
-        weekly.observeGoals().first().map { WeeklyGoalCopy.listRow(it.title, WeeklyGoalCopy.target(it.targetValue, it.unit), it.daysPerWeek) }
+        weekly.observeGoals().first().map { listOfNotNull(it.title, WeeklyGoalCopy.target(it.targetValue, it.unit), WeeklyGoalCopy.days(it.daysPerWeek)).joinToString(" · ") }
     }
 
     private fun habitTitles() = runBlocking { habits.observeHabits().first() }.map { it.title }

@@ -32,12 +32,15 @@ class HabitDraftTest {
         assertEquals(ProofType.MANUAL, d.copy(photo = false).proof)
     }
 
-    @Test fun list_rows_read_amount_and_tap_when_done() {
-        assertEquals("30 min, tap when done", plain(HabitsCopy.detail(ProofType.MANUAL, 30, MIN)))
-        assertEquals("10 pages, tap when done", plain(HabitsCopy.detail(ProofType.MANUAL, 10, PAGES)))
-        assertEquals("Once a day, tap when done", HabitsCopy.detail(ProofType.MANUAL, 1, TIMES))
-        assertEquals("Photo check-in", HabitsCopy.detail(ProofType.PHOTO, 1, "photo"))
-        assertEquals("Tap when done", HabitsCopy.detail(ProofType.MANUAL, 1, HabitDraft.CHECK_IN))
+    @Test fun your_promises_cards_read_the_amount() {
+        assertEquals("30 min", plain(PromiseListCopy.habitAmount(false, 30, MIN)))
+        assertEquals("10 pages", plain(PromiseListCopy.habitAmount(false, 10, PAGES)))
+        assertEquals("Once a day", PromiseListCopy.habitAmount(false, 1, TIMES))
+        assertEquals("Photo check-in", PromiseListCopy.habitAmount(true, 1, "photo"))
+        assertEquals("Tap when done", PromiseListCopy.habitAmount(false, 1, HabitDraft.CHECK_IN))
+        assertEquals("1 time", plain(PromiseListCopy.goalAmount("Call grandma", 1, TIMES)))
+        assertEquals("Photo check-in", PromiseListCopy.goalAmount("Tidy room", null, null))
+        assertEquals("Tap when done", PromiseListCopy.goalAmount("Swim", null, null))
     }
 }
 

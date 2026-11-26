@@ -1814,3 +1814,45 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     - An open list hangs under the sentence and may cover Done, as the mockup's days list does;
       it scrolls when it is taller than the room, and the limit line stays in view under it. A tap
       outside the list closes it; that catcher is not in the TalkBack tree.
+- **Your promises: one list in Settings, with switching between every day and weekly (issue #236).**
+  Settings' Habits and Weekly goals rows are one row, "Your promises", whose value is the total and
+  whose line is "4 every day, 2 weekly" (both numbers always, so a 0 reads "4 every day, 0
+  weekly"). The page reuses onboarding's habit cards (`core/ui/PromiseCards.kt`: `PromiseCard`,
+  `CadenceChip`, `DashedAddRow`; onboarding now draws from the same composables). The Your habits
+  and Weekly goals screens and their routes are gone; Home's "add your first habit" row opens Your
+  promises. Choices the issue did not settle:
+  - *One order for both kinds.* Habits and goals share `sortOrder`, and a new one of either kind
+    goes after every active one of both. Schema 10 is schema 9 with a data migration
+    (`MIGRATION_9_10`): every weekly goal moves after the active habits, keeping its order among
+    goals, so an upgraded list reads as the two old screens did, habits first. Onboarding's
+    "Start today" writes its weekly goals after its habits, for the same reason.
+  - *The card is one button.* Tapping the card or its chip opens the promise; TalkBack reads the
+    card once, "Read, 10 pages, Every day", with the action "Change". The chip is not a second
+    button: both would open the same page, and two stops per card would double the swipes.
+  - *Amount line.* As onboarding's, without "tap when done": "10 pages", "30 min", "Once a day",
+    "Photo check-in"; a goal set before targets reads "Tap when done" (Tidy room "Photo check-in").
+  - *Both sides full.* With 10 habits and 3 goals the dashed Add row gives way to "That's the limit:
+    10 habits and 3 weekly goals. Remove one to add another.", as onboarding's Add your own gives
+    way to its limit line. With one side full, Add opens the promise with that side greyed out.
+  - *Every day → weekly.* The goal counts from the day the habit was set (today if the habit is
+    new today), not from today, so the switch week asks for the full target and Mon and Tue done,
+    switched on Wednesday to 4 days a week, reads "2 of 4" as the issue's example says. Counting
+    from today would cap the week at 3 (the first-week rule for a new goal). The days done this
+    week, Sunday to today, become logged sessions with their original times; earlier weeks are
+    not copied. A tick after the give-up time still carries, as it was done.
+  - *The last every-day habit cannot become weekly.* Home, the lock and onboarding all need one
+    every-day habit, as "Remove habit" already does; its weekly choices are greyed out with "Keep
+    at least one habit every day." New copy, in the existing limit line's place.
+  - *Weekly → every day* never opens the lock (the goal held it today, or nothing did; the habit
+    holds it until done), so it never asks. A session logged today makes today's tick, at the
+    session's time.
+  - *The lock confirm for every day → weekly* asks while the daily lock holds, the habit is not done
+    today, and today is not a must-do day for the new goal: "Your apps are locked right now.
+    Making this habit weekly can open them early. Still change it?", in the existing dialog with
+    "Change it anyway". It is reported as `settings_changed_during_lock` with
+    `setting = promise_switch`.
+  - *What a switch writes.* One Room transaction (`PromiseDao.habitToGoal` / `goalToHabit`, as
+    `WeeklyGoalDao.replaceActive`): the old row goes inactive with its entries, exactly as removing
+    it does, and a new row takes its place in the list with the edited name, amount and icon. A
+    switch that finds the other side full when it lands (two pages open at once) changes nothing.
+    History reads closed days, which a switch never touches.

@@ -29,7 +29,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
-import androidx.compose.ui.draw.rotate
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -44,10 +43,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.onClick
-import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.SpanStyle
@@ -88,8 +84,10 @@ import com.example.kept.core.ui.StepFooter
 import com.example.kept.core.ui.StepPage
 import com.example.kept.core.ui.TimeSlider
 import com.example.kept.core.ui.BigTimeStyle
+import com.example.kept.core.ui.CadenceChip
+import com.example.kept.core.ui.DashedAddRow
+import com.example.kept.core.ui.PromiseCard
 import com.example.kept.core.ui.boldParts
-import com.example.kept.core.ui.dashedBorder
 import com.example.kept.core.ui.fitLongestWord
 import com.example.kept.core.ui.sprig.SprigView
 import com.example.kept.feature.settings.PromisePage
@@ -248,30 +246,25 @@ internal fun HabitsStep(
 }
 
 /**
- * A preset row: 64dp, radius 20, 2dp ring; picked is purple pale with a purple ring and check,
- * and the how-often chip under the habit's detail.
+ * A preset row ([PromiseCard]): picked is purple pale with a purple ring and check, and the
+ * how-often chip under the habit's detail. TalkBack reads the chip as "Exercise, 4 days a week.
+ * Change how often", a button of its own.
  */
 @Composable
 private fun PresetRow(t: HabitTemplate, picked: Boolean, days: Int?, onToggle: () -> Unit, onCadence: () -> Unit) {
-    val shape = RoundedCornerShape(20.dp)
-    Row(
-        Modifier.fillMaxWidth().heightIn(min = 64.dp).clip(shape)
-            .background(if (picked) D.purplePale else D.white)
-            .border(2.dp, if (picked) D.purple else D.lineSoft, shape)
-            .toggleable(value = picked, role = Role.Checkbox, onValueChange = { onToggle() })
-            .padding(horizontal = 14.dp, vertical = 8.dp)
-            .testTag("onboarding_habit_${t.title}"),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    PromiseCard(
+        icon = DaybreakIcons.habit(t.iconKey) ?: HabitIcons.of(t.iconKey),
+        title = t.title,
+        detail = OnboardingCopy.habitDetail(t.proofType, t.targetValue, t.unit),
+        action = Modifier.toggleable(value = picked, role = Role.Checkbox, onValueChange = { onToggle() }),
+        tag = "onboarding_habit_${t.title}",
+        picked = picked,
+        chip = if (picked) {
+            { CadenceChip(OnboardingCopy.cadence(days), "onboarding_cadence_${t.title}", onCadence, OnboardingCopy.cadenceDescription(t.title, days)) }
+        } else {
+            null
+        },
     ) {
-        Box(Modifier.size(40.dp).clip(RoundedCornerShape(14.dp)).background(D.purpleTint), contentAlignment = Alignment.Center) {
-            Icon(DaybreakIcons.habit(t.iconKey) ?: HabitIcons.of(t.iconKey), null, Modifier.size(20.dp), tint = D.purple)
-        }
-        Column(Modifier.weight(1f)) {
-            Text(t.title, style = DaybreakType.rowTitle, color = D.ink)
-            Text(OnboardingCopy.habitDetail(t.proofType, t.targetValue, t.unit), style = DaybreakType.caption, color = D.muted)
-            if (picked) CadenceChip(t.title, days, onCadence)
-        }
         Box(
             Modifier.size(28.dp).clip(CircleShape)
                 .background(if (picked) D.purple else Color.Transparent)
@@ -281,56 +274,9 @@ private fun PresetRow(t: HabitTemplate, picked: Boolean, days: Int?, onToggle: (
     }
 }
 
-/**
- * The how-often chip (#205): "Every day" or "4 days a week", a white pill with a purple ring and
- * a chevron, which opens the habit's promise (#218). Its touch target is 48dp tall; TalkBack reads
- * "Exercise, 4 days a week. Change how often" as a button.
- */
+/** "Add your own" ([DashedAddRow]). */
 @Composable
-private fun CadenceChip(title: String, days: Int?, onClick: () -> Unit) {
-    val label = OnboardingCopy.cadence(days)
-    Box(
-        Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
-            .testTag("onboarding_cadence_$title")
-            .clickable(role = Role.Button, onClick = onClick)
-            // One label, read once: the visible "4 days a week" would otherwise be read again after it.
-            .clearAndSetSemantics {
-                contentDescription = OnboardingCopy.cadenceDescription(title, days)
-                role = Role.Button
-                onClick { onClick(); true }
-            },
-        contentAlignment = Alignment.CenterStart,
-    ) {
-        Row(
-            Modifier.clip(CircleShape).background(D.white).border(1.5.dp, D.purpleDone, CircleShape)
-                .padding(start = 12.dp, end = 8.dp, top = 5.dp, bottom = 5.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text(label, style = DaybreakType.caption, fontWeight = FontWeight.Bold, color = D.purpleInk)
-            Icon(DaybreakIcons.Chevron, null, Modifier.size(14.dp).rotate(90f), tint = D.purpleInk)
-        }
-    }
-}
-
-/** "Add your own": a 64dp dashed row with a white plus tile. */
-@Composable
-private fun AddOwnRow(onClick: () -> Unit) {
-    val shape = RoundedCornerShape(20.dp)
-    Row(
-        Modifier.fillMaxWidth().heightIn(min = 64.dp).clip(shape).dashedBorder(2.dp, D.ring, 20.dp)
-            .clickable(role = Role.Button, onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 8.dp)
-            .testTag("onboarding_add_own"),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        Box(Modifier.size(40.dp).clip(RoundedCornerShape(14.dp)).background(D.white), contentAlignment = Alignment.Center) {
-            Icon(DaybreakIcons.Plus, null, Modifier.size(20.dp), tint = D.purple)
-        }
-        Text(OnboardingCopy.ADD_YOUR_OWN, style = DaybreakType.rowTitle, color = D.ink)
-    }
-}
+private fun AddOwnRow(onClick: () -> Unit) = DashedAddRow(OnboardingCopy.ADD_YOUR_OWN, "onboarding_add_own", onClick)
 
 /**
  * The promise (#218) for a ticked habit's chip or for "Add your own": the same full-screen page as

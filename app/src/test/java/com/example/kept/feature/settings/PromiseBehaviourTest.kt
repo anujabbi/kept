@@ -207,7 +207,7 @@ class PromiseBehaviourTest {
         rule.setContent {
             Shot {
                 androidx.compose.runtime.key(allowed) {
-                    PromisePage(PromiseFixtures.READ, PromiseLimits.SAVED_HABIT, { _, _ -> }, {}, remove = PromiseRemove(HabitsCopy.REMOVE, allowed, HabitsCopy.KEEP_ONE) { removed++ })
+                    PromisePage(PromiseFixtures.READ, PromiseLimits.savedHabit(daily = if (allowed) 2 else 1, weekly = 0), { _, _ -> }, {}, remove = PromiseRemove(HabitsCopy.REMOVE, allowed, HabitsCopy.KEEP_ONE) { removed++ })
                 }
             }
         }
@@ -219,7 +219,8 @@ class PromiseBehaviourTest {
         rule.onNodeWithTag("promise_keep_one").assertTextEquals(HabitsCopy.KEEP_ONE)
         openList("days")
         rule.onNodeWithTag("promise_option_days_3").assertIsNotEnabled()
-        rule.onNodeWithTag("promise_limit").assertTextEquals("A saved habit stays every day.")
+        // The last every-day habit cannot become weekly either (#236).
+        rule.onNodeWithTag("promise_limit").assertTextEquals("Keep at least one habit every day.")
     }
 
     @Test fun talkback_reads_each_blank_as_a_button_with_its_value_at_font_1_and_2() {
@@ -271,7 +272,7 @@ class PromiseBehaviourTest {
     @Test fun remove_can_be_asked_again_but_not_after_done() {
         var removes = 0
         rule.setContent {
-            Shot { PromisePage(PromiseFixtures.READ, PromiseLimits.SAVED_HABIT, { _, done -> done() }, {}, remove = PromiseRemove(HabitsCopy.REMOVE, true) { removes++ }) }
+            Shot { PromisePage(PromiseFixtures.READ, PromiseLimits.savedHabit(daily = 2, weekly = 0), { _, done -> done() }, {}, remove = PromiseRemove(HabitsCopy.REMOVE, true) { removes++ }) }
         }
         // A cancelled lock-window confirm leaves the page open, so Remove still answers.
         rule.onNodeWithTag("promise_remove").performClick()

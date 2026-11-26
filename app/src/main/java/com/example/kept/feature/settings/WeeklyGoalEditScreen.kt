@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.kept.core.data.db.WeeklyGoalEntity
 import com.example.kept.core.domain.PromiseLimits
 import com.example.kept.core.domain.PromiseRules
 import com.example.kept.core.domain.WeeklyGoalCopy
@@ -32,8 +33,9 @@ private val D = DaybreakColors
 /**
  * Add a weekly goal, or edit goal [goalId], on the promise (#218). A new promise starts at
  * [com.example.kept.core.domain.WeeklyGoalRules.DEFAULT_DAYS] a week; picking "Every day" saves
- * it as a daily habit instead. An existing goal opens filled in and stays weekly, and saving
- * keeps this week's sessions.
+ * it as a daily habit instead. An existing goal opens filled in and saving keeps this week's
+ * sessions; picking "Every day" makes it a daily habit (#236), done today when today's session
+ * is logged. That never opens the lock, so it never asks.
  *
  * While the goal holds the lock (today is its must-do day and the daily lock is in force),
  * lowering its days a week or deleting it goes through the lock-change confirm instead
@@ -41,7 +43,8 @@ private val D = DaybreakColors
  * the page open, with no cheer. Otherwise deleting asks "Delete this weekly goal?" first.
  *
  * A goal removed elsewhere while this page is open closes the page: nothing is left to edit, and
- * a save would change nothing.
+ * a save would change nothing. A goal this page made a daily habit stays on the page, as last
+ * seen, while Sprig cheers.
  */
 @Composable
 fun WeeklyGoalEditScreen(
@@ -56,11 +59,13 @@ fun WeeklyGoalEditScreen(
     var closed by remember { mutableStateOf(false) }
     val close = { if (!closed) { closed = true; onClose() } }
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
-    val goal = s.goals.firstOrNull { it.id == goalId }
+    var switched by remember { mutableStateOf(false) }
+    val current = s.goals.firstOrNull { it.id == goalId }
     // Seen once, then gone: removed from somewhere else (or by this page, which is closing anyway).
-    val seen = remember { booleanArrayOf(false) }
-    if (goal != null) seen[0] = true
-    val gone = WeeklyGoalEditGone.of(s.loaded, goalId, goal != null, seen[0])
+    val seen = remember { arrayOfNulls<WeeklyGoalEntity>(1) }
+    if (current != null) seen[0] = current
+    val goal = current ?: seen[0]?.takeIf { switched }
+    val gone = !switched && WeeklyGoalEditGone.of(s.loaded, goalId, current != null, seen[0] != null)
     LaunchedEffect(gone) { if (gone) close() }
     when {
         // The goals and habits load after the first frame; wait rather than open on empty lists.
@@ -74,9 +79,15 @@ fun WeeklyGoalEditScreen(
         )
         else -> PromisePage(
             PromiseRules.ofGoal(goal.title, goal.daysPerWeek, goal.targetValue, goal.unit),
-            PromiseLimits.SAVED_GOAL,
+            PromiseLimits.savedGoal(daily = habits.habits.size),
             onDone = { d, saved ->
-                settings.requestWeeklyGoalChange(goal.id, goal.daysPerWeek, d.days) { if (!closed) { vm.save(goal.id, d); saved() } }
+                if (!d.weekly) {
+                    switched = true
+                    settings.toDaily(goal.id, d)
+                    saved()
+                } else {
+                    settings.requestWeeklyGoalChange(goal.id, goal.daysPerWeek, d.days) { if (!closed) { vm.save(goal.id, d); saved() } }
+                }
             },
             onClose = close,
             form = s.form,

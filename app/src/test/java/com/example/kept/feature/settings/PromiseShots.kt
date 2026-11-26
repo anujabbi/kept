@@ -71,9 +71,9 @@ internal val promiseScreens: List<Triple<String, String?, @Composable () -> Unit
     Triple("limit", "days") { PromisePage(PromiseFixtures.MEDITATE, PromiseFixtures.AT_LIMIT, { _, _ -> }, {}) },
     Triple("custom", null) { PromisePage(PromiseFixtures.SWIM, PromiseLimits(), { _, _ -> }, {}) },
     Triple("typing", null) { PromisePage(PromiseFixtures.TYPING, PromiseLimits(), { _, _ -> }, {}) },
-    Triple("photo", null) { PromisePage(PromiseFixtures.TIDY, PromiseLimits.SAVED_HABIT, { _, _ -> }, {}, remove = PromiseRemove(HabitsCopy.REMOVE, true) {}) },
+    Triple("photo", null) { PromisePage(PromiseFixtures.TIDY, PromiseLimits.savedHabit(daily = 2, weekly = 0), { _, _ -> }, {}, remove = PromiseRemove(HabitsCopy.REMOVE, true) {}) },
     Triple("edit_last", null) {
-        PromisePage(PromiseFixtures.READ, PromiseLimits.SAVED_HABIT, { _, _ -> }, {}, remove = PromiseRemove(HabitsCopy.REMOVE, false, HabitsCopy.KEEP_ONE) {})
+        PromisePage(PromiseFixtures.READ, PromiseLimits.savedHabit(daily = 1, weekly = 0), { _, _ -> }, {}, remove = PromiseRemove(HabitsCopy.REMOVE, false, HabitsCopy.KEEP_ONE) {})
     },
     Triple("cheer", "done") { PromisePage(PromiseFixtures.EXERCISE, PromiseLimits(), { _, saved -> saved() }, {}, form = SprigForm.BLOOM) },
 )

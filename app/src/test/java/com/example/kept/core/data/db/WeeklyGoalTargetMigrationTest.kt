@@ -12,6 +12,7 @@ import com.example.kept.core.domain.WeeklyCardCopy
 import com.example.kept.core.domain.WeeklyGoalCopy
 import com.example.kept.core.domain.WeeklyLockCopy
 import com.example.kept.core.domain.WeeklyLockScreen
+import com.example.kept.feature.settings.promise
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.junit.After
@@ -137,7 +138,7 @@ class WeeklyGoalTargetMigrationTest {
         val db = upgrade()
         val after = db.rowsAfter()
 
-        assertEquals(9, db.version)
+        assertEquals(10, db.version)
         assertEquals(
             listOf("id", "title", "iconKey", "daysPerWeek", "isActive", "createdAt", "effectiveFrom", "sortOrder", "targetValue", "unit"),
             after.getValue("weekly_goals").first().keys.toList(),
@@ -147,7 +148,9 @@ class WeeklyGoalTargetMigrationTest {
         }
         // Every other column of every row, in every table, is as it was: names, days, the start
         // date and every logged session.
-        assertEquals(before, after.mapValues { (table, rows) -> if (table == "weekly_goals") rows.map { it - newColumns.toSet() } else rows })
+        // 9 -> 10 moves the goals after the habits in Your promises (#236): PromiseOrderMigrationTest.
+        fun ordered(m: Map<String, List<Map<String, String>>>) = m.mapValues { (t, r) -> if (t == "weekly_goals") r.map { it - "sortOrder" } else r }
+        assertEquals(ordered(before), ordered(after.mapValues { (table, rows) -> if (table == "weekly_goals") rows.map { it - newColumns.toSet() } else rows }))
     }
 
     @Test
@@ -173,7 +176,9 @@ class WeeklyGoalTargetMigrationTest {
         val target = WeeklyGoalCopy.target(g.goal.targetValue, g.goal.unit)
         assertNull(target)
         val nb = { s: String -> s.replace(WeeklyGoalCopy.NBSP, ' ') }
-        assertEquals("Exercise · 4 days a week", nb(WeeklyGoalCopy.listRow(g.goal.title, target, g.goal.daysPerWeek)))
+        val promise = g.goal.promise()
+        assertEquals("Your promises: no amount", "Tap when done", promise.amount)
+        assertEquals("4 days a week", nb(promise.chip))
         val card = WeeklyCard.of(g.goal.title, g.week, goalTarget = target)
         assertEquals("Exercise · 2 of 4 this week", nb(card.title))
         assertEquals(WeeklyCardCopy.TODAY_ROW, card.todayDetail)
@@ -189,7 +194,7 @@ class WeeklyGoalTargetMigrationTest {
     fun anEmptyReleaseDatabaseUpgrades() {
         createReleaseDatabase {}
         val db = upgrade()
-        assertEquals(9, db.version)
+        assertEquals(10, db.version)
         db.query("SELECT COUNT(*) FROM weekly_goals").use { it.moveToFirst(); assertEquals(0, it.getInt(0)) }
     }
 }

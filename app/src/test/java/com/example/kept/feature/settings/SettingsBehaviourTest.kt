@@ -41,8 +41,7 @@ class SettingsBehaviourTest {
     @Test fun every_row_opens_its_editor_or_page() {
         val opened = mutableListOf<String>()
         val actions = SettingsActions(
-            onOpenHabits = { opened += "habits" },
-            onOpenWeeklyGoals = { opened += "weekly_goals" },
+            onOpenPromises = { opened += "promises" },
             onEditLockFrom = { opened += "lock_from" },
             onEditGiveUp = { opened += "give_up" },
             onOpenExceptions = { opened += "exceptions" },
@@ -52,15 +51,17 @@ class SettingsBehaviourTest {
         )
         rule.setContent { Shot(1f) { SettingsFrame(SettingsFixtures.ALL_SET, actions) } }
         for (row in settingsRows) rule.onNodeWithTag(row).performScrollTo().assertHasClickAction().performClick()
-        assertEquals(listOf("habits", "weekly_goals", "lock_from", "give_up", "exceptions", "break", "permissions", "history"), opened)
+        assertEquals(listOf("promises", "lock_from", "give_up", "exceptions", "break", "permissions", "history"), opened)
     }
 
     @Test fun every_value_is_live() {
         var page by mutableStateOf(SettingsFixtures.ALL_SET)
         rule.setContent { Shot(1f) { SettingsFrame(page) } }
-        assertEquals("6", text("settings_habits_value"))
-        assertEquals("Weekly goals", text("settings_weekly_goals_title"))
-        assertEquals("1", text("settings_weekly_goals_value"))
+        assertEquals("Your promises", text("settings_promises_title"))
+        assertEquals("6", text("settings_promises_value"))
+        rule.onNodeWithText("4 every day, 2 weekly").assertExists()
+        rule.onNodeWithText("Habits").assertDoesNotExist()
+        rule.onNodeWithText("Weekly goals").assertDoesNotExist()
         assertEquals("7:00 am", text("settings_lock_from_value"))
         assertEquals("9:00 pm", text("settings_give_up_value"))
         assertEquals("2 apps", text("settings_exceptions_row_value"))
@@ -70,8 +71,8 @@ class SettingsBehaviourTest {
 
         page = page.copy(habits = 1, weeklyGoals = 3, lockFromMinute = 6 * 60 + 30, dueMinute = 23 * 60 + 30, exceptions = 1, breakMinutes = 60, permissionsOff = 3, bestStreak = 40)
         rule.waitForIdle()
-        assertEquals("1", text("settings_habits_value"))
-        assertEquals("3", text("settings_weekly_goals_value"))
+        assertEquals("4", text("settings_promises_value"))
+        rule.onNodeWithText("1 every day, 3 weekly").assertExists()
         assertEquals("6:30 am", text("settings_lock_from_value"))
         assertEquals("11:30 pm", text("settings_give_up_value"))
         assertEquals("1 app", text("settings_exceptions_row_value"))

@@ -25,11 +25,10 @@ object PromiseCopy {
     const val WEEK_LINE = "Week starts on Sunday."
 
     /**
-     * The days list's line when a saved habit or goal is edited: changing between every day and
-     * some days a week after saving is out of scope (#218), so the other kind is off.
+     * The days list's line when the last every-day habit is edited (#236): it cannot become weekly,
+     * as Home and the lock need one every-day habit.
      */
-    const val STAYS_DAILY = "A saved habit stays every day."
-    const val STAYS_WEEKLY = "A saved weekly goal stays weekly."
+    const val KEEP_ONE_DAILY = "Keep at least one habit every day."
 
     // What TalkBack calls each blank.
     const val ACTIVITY = "Activity"
@@ -234,7 +233,8 @@ object PromiseRules {
 /**
  * What the days list lets the person pick, and the line under it when something is off: at three
  * weekly goals the weekly choices are off ([WeeklyGoalCopy.LIMIT_REACHED]); at ten every-day
- * habits "Every day" is ([HabitLimits.LIMIT_REACHED]); a saved habit or goal keeps its kind.
+ * habits "Every day" is ([HabitLimits.LIMIT_REACHED]). A saved habit or goal may switch kind
+ * (#236) under the same limits; its own kind is always on.
  */
 data class PromiseLimits(val everyDay: Boolean = true, val weekly: Boolean = true, val line: String? = null) {
     fun allows(days: Int?): Boolean = if (days == null) everyDay else weekly
@@ -259,10 +259,25 @@ data class PromiseLimits(val everyDay: Boolean = true, val weekly: Boolean = tru
             return PromiseLimits(canDaily, canWeekly, line)
         }
 
-        /** A saved daily habit: it stays every day. */
-        val SAVED_HABIT = PromiseLimits(everyDay = true, weekly = false, line = PromiseCopy.STAYS_DAILY)
+        /**
+         * A saved daily habit, one of [daily] every-day habits beside [weekly] weekly goals: it may
+         * become weekly while there is room for a goal and it is not the last every-day habit.
+         */
+        fun savedHabit(daily: Int, weekly: Int): PromiseLimits {
+            val room = WeeklyGoalRules.canAdd(weekly)
+            val notLast = HabitLimits.canRemove(daily)
+            val line = when {
+                !room -> WeeklyGoalCopy.LIMIT_REACHED
+                !notLast -> PromiseCopy.KEEP_ONE_DAILY
+                else -> null
+            }
+            return PromiseLimits(everyDay = true, weekly = room && notLast, line = line)
+        }
 
-        /** A saved weekly goal: it stays weekly. */
-        val SAVED_GOAL = PromiseLimits(everyDay = false, weekly = true, line = PromiseCopy.STAYS_WEEKLY)
+        /** A saved weekly goal beside [daily] every-day habits: it may become every day while there is room for a habit. */
+        fun savedGoal(daily: Int): PromiseLimits {
+            val room = HabitLimits.canAdd(daily)
+            return PromiseLimits(everyDay = room, weekly = true, line = if (room) null else HabitLimits.LIMIT_REACHED)
+        }
     }
 }

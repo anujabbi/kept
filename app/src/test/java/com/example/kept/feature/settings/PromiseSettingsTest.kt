@@ -19,6 +19,7 @@ import com.example.kept.core.analytics.Analytics
 import com.example.kept.core.data.DayRepository
 import com.example.kept.core.data.HabitRepository
 import com.example.kept.core.data.LockRepository
+import com.example.kept.core.data.PromiseRepository
 import com.example.kept.core.data.SprigRepository
 import com.example.kept.core.data.TimeSource
 import com.example.kept.core.data.WeeklyGoalRepository
@@ -99,7 +100,8 @@ class PromiseSettingsTest {
         viewModels.create {
             SettingsViewModel(
                 ctx, prefs, habits, lock, sprig, DayRepository(db.dayRecordDao(), time), InstalledAppsSource(ctx), AllowlistResolver(ctx),
-                WorkScheduler(ctx, prefs, time), ReminderPoster(habits, prefs, KeptNotifications(ctx), time), time, Permissions(ctx), NoAnalytics, scope,
+                WorkScheduler(ctx, prefs, time), ReminderPoster(habits, prefs, KeptNotifications(ctx), time), time, Permissions(ctx), NoAnalytics,
+                PromiseRepository(db.promiseDao(), habits, time), scope,
             )
         }
     }
@@ -135,7 +137,7 @@ class PromiseSettingsTest {
     }
 
     private fun habitRows() = runBlocking { habits.observeHabits().first() }.map { Triple(it.title, it.targetValue, it.unit) }
-    private fun goalRows() = runBlocking { weekly.observeGoals().first() }.map { WeeklyGoalCopy.listRow(it.title, WeeklyGoalCopy.target(it.targetValue, it.unit), it.daysPerWeek).replace(WeeklyGoalCopy.NBSP, ' ') }
+    private fun goalRows() = runBlocking { weekly.observeGoals().first() }.map { listOfNotNull(it.title, WeeklyGoalCopy.target(it.targetValue, it.unit), WeeklyGoalCopy.days(it.daysPerWeek)).joinToString(" · ").replace(WeeklyGoalCopy.NBSP, ' ') }
 
     private fun showHabit(id: Long?) {
         rule.setContent { Shot { if (closed == 0) HabitEditScreen(id, onClose = { closed++ }, vm = settings, goals = goals) } }

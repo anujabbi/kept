@@ -96,7 +96,8 @@ class WeeklyGoalRepository @Inject constructor(
                     WeeklyGoalEntity(
                         title = name, iconKey = HabitIconRules.forName(name), daysPerWeek = daysPerWeek,
                         createdAt = time.nowMillis(), effectiveFrom = time.todayKey(),
-                        sortOrder = (active.maxOfOrNull { it.sortOrder } ?: -1) + 1,
+                        // After every daily habit and weekly goal in Your promises (#236).
+                        sortOrder = goalDao.nextOrder(),
                         targetValue = targetValue, unit = unit,
                     ),
                 )

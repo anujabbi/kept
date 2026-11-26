@@ -152,8 +152,20 @@ val MIGRATION_8_9 = object : Migration(8, 9) {
     }
 }
 
+/**
+ * Schema 9 -> 10 (#236): Your promises shows daily habits and weekly goals in one list, ordered by
+ * a `sortOrder` the two now share. Before, each counted from 0 on its own; every weekly goal moves
+ * after the active habits, keeping its order among the goals, so the list reads as the two old
+ * screens did, habits first. No table changes shape, so schema 10 is schema 9 with a new version.
+ */
+val MIGRATION_9_10 = object : Migration(9, 10) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("UPDATE weekly_goals SET sortOrder = sortOrder + (SELECT COALESCE(MAX(sortOrder), -1) + 1 FROM habits WHERE isActive = 1)")
+    }
+}
+
 /** Every migration, in order. The app and the migration tests both use this list. */
-val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
+val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
 
 @Database(
     entities = [
@@ -167,7 +179,7 @@ val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRAT
         WeeklyGoalEntity::class,
         WeeklyGoalEntryEntity::class,
     ],
-    version = 9,
+    version = 10,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -181,4 +193,5 @@ abstract class KeptDatabase : RoomDatabase() {
     abstract fun galleryDao(): GalleryDao
     abstract fun weeklyGoalDao(): WeeklyGoalDao
     abstract fun weeklyGoalEntryDao(): WeeklyGoalEntryDao
+    abstract fun promiseDao(): PromiseDao
 }
