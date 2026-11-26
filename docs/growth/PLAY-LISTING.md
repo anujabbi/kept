@@ -11,6 +11,10 @@ The 2.1 lines were checked against `main` at c34993b on 2026-11-23: `WeeklyGoalR
 `WeeklyGoalSetup.kt` (one to seven days a week, three goals, Sunday to Saturday, the day you
 can't skip), `RecapLayout.kt` (a missed must-do day), `NightLock.kt` and `Rules.kt` (night
 lockdown, off by default, 1 to 12 hours) and `KeptDatabase.kt` (the "Sleep by 11" cleanup).
+Refreshed 2026-11-26 for 2.2 (issue #247); the 2.2 lines were checked against `main` at 62d4e51:
+`Promise.kt` (the one-sentence promise, every day or 1 to 6 days a week, an amount per
+session), `PromiseList.kt` and `PromisesScreen.kt` (Settings → Your promises, switching between
+every day and weekly), `Rules.kt` and `WeeklyGoalRules.kt` (ten habits, three weekly).
 Edit freely; if a feature changes, update this file in the same PR.
 
 ## App name (max 30)
@@ -27,8 +31,9 @@ Willpower loses to an infinite feed. KEPT changes the deal: your phone stays loc
 the promises you made to yourself today. Habits first. Phone after.
 
 HOW IT WORKS
-• Pick one to ten daily habits: read, work out, study, practise guitar, whatever matters to you.
-  Start from a quick pick or write your own.
+• Make up to ten promises to yourself: read, work out, study, practise guitar, whatever matters
+  to you. Each one is a sentence, like "I will exercise for 30 minutes, 4 days a week." Pick
+  from the lists or write your own.
 • Choose when the lock runs. From then until your habits are done, every app is locked except the
   essentials (phone, messages, maps, camera, clock, contacts, settings) and the few exceptions
   you choose.
@@ -38,7 +43,10 @@ HOW IT WORKS
   is missed.
 
 WEEKLY GOALS, FOR WHAT ISN'T DAILY
-• Add up to three weekly goals: pick an activity and how many days a week, from one to seven.
+• Any habit can be every day or some days a week, from one to six, with an amount per session.
+  Up to three can be weekly.
+• Change your mind in Settings → Your promises, one list for all of them: switch a habit
+  between every day and weekly, and this week's progress comes along.
 • The week runs Sunday to Saturday. Log a session on any day; a card on Home shows the week.
 • Your phone locks for a weekly goal only on the day you can no longer skip. Log that day's
   session and your apps open.
@@ -82,20 +90,21 @@ Privacy policy: https://anujabbi.github.io/kept-site/privacy-policy.html
 ## Graphics
 
 All in `docs/play/`, rendered from the real Daybreak screens on `main` (issue #161; the
-screenshots were refreshed for 2.1 in issue #185, framed with `scripts/play-screenshots.py`).
+screenshots were refreshed for 2.1 in issue #185 and for 2.2 in issue #247, framed with `scripts/play-screenshots.py`).
 
 - **App icon:** `docs/play/icon-512.png` (512 × 512, merged in #156).
 - **Feature graphic:** `docs/play/feature-graphic.png` (1024 × 500, no alpha): the dawn sky, Sprig
   and "KEPT / Habits first. Phone after.", with nothing important near the edges.
 - **Phone screenshots:** `docs/play/screenshots/`, eight 1080 × 1920 PNGs (24-bit, no alpha), in
   this order. Captions are drafts; change them in the PR or ask for a re-render.
-  1. `01-home.png` — "Your apps wait until your habits are done" (Home with a weekly goal card)
+  1. `01-home.png` — "Your apps wait until your habits are done" (Home with a weekly goal card, 2.2)
   2. `02-lock-screen.png` — "Tick habits right on the lock screen"
-  3. `03-weekly-lock.png` — "Weekly goals lock only when you can't skip"
+  3. `03-weekly-lock.png` — "Weekly goals lock only when you can't skip" (the session's amount, 2.2)
   4. `04-night-lockdown.png` — "Apps lock overnight, at the times you set"
   5. `05-break-the-lock.png` — "Breaking the lock costs something"
   6. `06-promise-kept.png` — "Keep your promise, grow Sprig"
-  7. `07-recap.png` — "A recap of every day, kept or not"
+  7. `07-every-day-or-weekly.png` — "Every day, or some days a week" (onboarding's first step, 2.2;
+     replaces `07-recap.png`)
   8. `08-sprig-collection.png` — "Seven forms, from Sprig to Celestial"
 
 ## Other listing fields
@@ -104,11 +113,16 @@ screenshots were refreshed for 2.1 in issue #185, framed with `scripts/play-scre
 - Ads: none. App access: no login required.
 - Target audience: 13+ (see `PLAY-RELEASE-CHECKLIST.md` §5).
 
-## Do not claim (not in the app on 2026-11-23)
+## Do not claim (not in the app on 2026-11-26)
+
+- A separate "Weekly goals" or "Your habits" screen — since 2.2 both live in one list, Settings
+  → Your promises.
+- Seven days a week for a new weekly goal — new ones go from one to six (seven is "every day");
+  a goal saved at seven before 2.2 keeps it.
 
 - A "Sleep by 11" habit or bedtime habit — removed in #167; night lockdown is the overnight lock.
 - That a weekly goal locks the phone every day — it locks only on a day that can't be skipped
-  (a seven-days-a-week goal is the one that locks daily).
+  (a seven-days-a-week goal from before 2.2 is the one that locks daily).
 - That night lockdown is on by default, or that it counts toward the streak — it is optional and
   the streak ignores it.
 - Better sleep, less screen time or any other result — say what the app does.
