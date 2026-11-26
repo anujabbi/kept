@@ -14,7 +14,7 @@ lockdown, off by default, 1 to 12 hours) and `KeptDatabase.kt` (the "Sleep by 11
 Refreshed 2026-11-26 for 2.2 (issue #247); the 2.2 lines were checked against `main` at 62d4e51:
 `Promise.kt` (the one-sentence promise, every day or 1 to 6 days a week, an amount per
 session), `PromiseList.kt` and `PromisesScreen.kt` (Settings → Your promises, switching between
-every day and weekly), `Rules.kt` and `WeeklyGoalRules.kt` (ten habits, three weekly).
+every day and weekly), `Rules.kt` and `WeeklyGoalRules.kt` (ten daily habits, plus up to three weekly).
 Edit freely; if a feature changes, update this file in the same PR.
 
 ## App name (max 30)
@@ -31,7 +31,7 @@ Willpower loses to an infinite feed. KEPT changes the deal: your phone stays loc
 the promises you made to yourself today. Habits first. Phone after.
 
 HOW IT WORKS
-• Make up to ten promises to yourself: read, work out, study, practise guitar, whatever matters
+• Make up to ten daily promises to yourself: read, work out, study, practise guitar, whatever matters
   to you. Each one is a sentence, like "I will exercise for 30 minutes, 4 days a week." Pick
   from the lists or write your own.
 • Choose when the lock runs. From then until your habits are done, every app is locked except the
@@ -44,7 +44,7 @@ HOW IT WORKS
 
 WEEKLY GOALS, FOR WHAT ISN'T DAILY
 • Any habit can be every day or some days a week, from one to six, with an amount per session.
-  Up to three can be weekly.
+  Up to three more can be weekly, on top of the ten daily ones.
 • Change your mind in Settings → Your promises, one list for all of them: switch a habit
   between every day and weekly, and this week's progress comes along.
 • The week runs Sunday to Saturday. Log a session on any day; a card on Home shows the week.
@@ -119,7 +119,6 @@ screenshots were refreshed for 2.1 in issue #185 and for 2.2 in issue #247, fram
   → Your promises.
 - Seven days a week for a new weekly goal — new ones go from one to six (seven is "every day");
   a goal saved at seven before 2.2 keeps it.
-
 - A "Sleep by 11" habit or bedtime habit — removed in #167; night lockdown is the overnight lock.
 - That a weekly goal locks the phone every day — it locks only on a day that can't be skipped
   (a seven-days-a-week goal from before 2.2 is the one that locks daily).
