@@ -69,7 +69,7 @@ val permissionCards = listOf(
 )
 
 /** "Let KEPT do its job" is onboarding step 5. */
-const val PERMISSIONS_STEP = 5
+const val PERMISSIONS_STEP = 6
 
 /** Re-evaluates permission state every time the screen comes back to the foreground. */
 @Composable

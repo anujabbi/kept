@@ -59,7 +59,7 @@ private val D = DaybreakColors
 enum class BodyMode { ONBOARDING, SETTINGS }
 
 /** "What stays open?" is onboarding step 4. */
-const val EXCEPTIONS_STEP = 4
+const val EXCEPTIONS_STEP = 5
 
 /** Settings → What stays open (`A12-Exceptions-settings`): the shared body in settings mode. */
 @Composable

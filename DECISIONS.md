@@ -1704,3 +1704,48 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     but no habit preset, gets them. The delete confirm still names the goal by its name and days.
   - *Shared, not copied.* `AmountRow` and the unit chips moved out of Add a habit as internal
     composables with a test-tag prefix; Add a habit's tags are unchanged.
+- **Sign in with Google, optional (story #193, feature #190).** No mockup; built on the existing
+  step page and settings row patterns.
+  - *Onboarding placement: first (owner decision, 2026-11-25).* The sign-in step is step 1 of 7,
+    right after the welcome screen, not before "How Sprig works" as the plan proposed. Skip and a
+    successful sign-in both go on to the habits (now step 2); a cancelled or failed attempt stays
+    on the step with one line and Skip. Already signed in (back from step 2), the step says
+    "Signed in as ..." and offers Continue. The welcome button keeps its final copy, "Pick my
+    habits", although the sign-in step now comes between it and the habits. Every later step
+    moved up one, so the analytics `onboarding_step` numbers shift by one from this build:
+    habits is 2, how Sprig works 7; the sign-in step reports as 1.
+  - *Copy.* Title and button "Sign in with Google" (Google's wording); line "It's optional. Skip
+    it and KEPT works exactly the same."; two facts, "Your KEPT account uses your Google name and
+    email. Nothing else." and "Habits stay on this phone. Check-ins, photos, goals and your lock
+    never leave it." Errors: "Sign-in cancelled."; "Couldn't sign in. Check your connection and
+    try again." only when the cause is a connection failure (an `IOException` in its chain);
+    any other failure (a rejected key or token, no Google account) reads "Couldn't sign in. Try
+    again in a moment." The plan used the connection line for every failure; an owner-reported
+    run showed it blaming the connection for a rejected key. Each failure is logged under
+    `KeptAccount` with its cause. Settings: an "Account" group before History with the
+    one row, hint "Optional. Your habits stay on this phone.", and the error line under it.
+  - *The button.* Daybreak's secondary button (white, 2dp ink outline, fully round) with Google's
+    unaltered four-colour G, which Google's guidelines allow for a custom button. The G's colours
+    are Google's and live only in `GoogleMark`, not in the Daybreak tokens.
+  - *Offline is decided by the device.* Play services reports a lost connection inside its
+    account sheet as a cancellation or as "[28404] Failed to retrieve an ID token" (both seen on
+    `kept_api35` in airplane mode), so a Credential Manager cancel or failure while the phone has
+    no internet shows the connection line, not "Sign-in cancelled." or the generic line.
+  - *Restoring.* `AccountState` has a third state, `Restoring`, while the stored session loads
+    (and after a refresh that failed offline, which keeps the session). Settings hides the row
+    then, so a signed-in user never sees "Sign in with Google" flash up.
+  - *Libraries.* supabase-kt 3.1.4 (auth only, no postgrest-kt) with Ktor 3.1.2's Android
+    engine: 3.2 and later are built with Kotlin 2.2, which our Kotlin 2.0.21 compiler cannot read.
+    This pulls kotlinx-coroutines 1.10.1 (was 1.9.0). Credential Manager 1.5.0 with
+    `GetSignInWithGoogleOption`, googleid 1.1.1.
+  - *Config.* `SUPABASE_URL` (defaults to the `kept` project), `SUPABASE_PUBLISHABLE_KEY` and
+    `GOOGLE_WEB_CLIENT_ID` (defaults to the web client) come from the environment or the root
+    `.env`, like PostHog. With no key there is no Supabase client: the app is signed out and
+    tapping Sign in shows the error, without opening the Google sheet.
+  - *Goldens.* Changed because the step count went from 6 to 7 and the later steps moved up one (the progress bar only):
+    `onboarding_{habits,habits_limit,shutdown,shutdown_picked,lock_window,exceptions,
+    permissions_all,permissions_missing,ready}` and their `onboarding_360_*` twins. Changed
+    because signed-out Settings gains the Account group: `settings_settings_end` and
+    `settings_360_settings_end` at font 1.0 and 2.0. New: `onboarding_account`,
+    `onboarding_account_error`, `onboarding_360_account_error_font2.0`,
+    `settings_sign_in_error`. Every other golden is byte-identical to `main`.

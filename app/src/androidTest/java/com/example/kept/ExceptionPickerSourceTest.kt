@@ -8,6 +8,7 @@ import com.example.kept.core.data.HabitRepository
 import com.example.kept.core.data.LockRepository
 import com.example.kept.core.data.SprigRepository
 import com.example.kept.core.data.TimeSource
+import com.example.kept.core.data.account.AccountRepository
 import com.example.kept.core.data.db.KeptDatabase
 import com.example.kept.core.data.prefs.KeptPreferences
 import com.example.kept.core.di.ApplicationScope
@@ -64,6 +65,7 @@ class ExceptionPickerSourceTest {
     @Inject lateinit var reminders: ReminderPoster
     @Inject lateinit var time: TimeSource
     @Inject lateinit var permissions: Permissions
+    @Inject lateinit var accounts: AccountRepository
 
     @Before fun setUp() {
         hilt.inject()
@@ -74,6 +76,7 @@ class ExceptionPickerSourceTest {
         ctx, prefs, habitsRepo, lockRepo, sprigRepo, dayRepo, appsSource, allowlist, scheduler, reminders, time, permissions,
         // Nothing reported: this test only cares where the picker reads its exempt set from.
         NoOpAnalytics(),
+        accounts,
         appScope,
     )
 

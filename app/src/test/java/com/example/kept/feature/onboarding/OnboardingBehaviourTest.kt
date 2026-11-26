@@ -6,6 +6,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.state.ToggleableState
@@ -26,9 +28,11 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.SemanticsMatcher
+import com.example.kept.core.data.account.SignInResult
 import com.example.kept.core.domain.HabitLimits
 import com.example.kept.core.domain.LockWindowRules
 import com.example.kept.core.domain.OnboardingCopy
+import com.example.kept.core.domain.SignInUi
 import com.example.kept.core.lock.PermissionKind
 import com.example.kept.core.ui.shots.Shot
 import com.example.kept.feature.settings.BodyMode
@@ -57,7 +61,11 @@ class OnboardingBehaviourTest {
 
     private var latest = OnboardingState()
 
-    /** Welcome and steps 1 to 3 wired as the screen wires them; later steps are a placeholder. */
+    /** What the fake account layer answers, and how often it was asked (#193). */
+    private var signInAnswer: SignInResult = SignInResult.Success
+    private var signInCalls = 0
+
+    /** Welcome and steps 1 to 4 wired as the screen wires them; later steps are a placeholder. */
     @Composable
     private fun Flow(initial: OnboardingState) {
         var s by remember { mutableStateOf(initial) }
@@ -80,7 +88,15 @@ class OnboardingBehaviourTest {
                 onSkip = { s = OnboardingFlow.skipShutdown(s) },
             )
             s.step == OnboardingStep.LOCK_WINDOW -> LockWindowStep(s.window, { s = OnboardingFlow.setWindow(s, it) }, { s = OnboardingFlow.back(s) }, { s = OnboardingFlow.next(s) })
-            else -> Text("step ${s.step}")
+            s.step == OnboardingStep.ACCOUNT -> AccountStep(
+                s.signIn,
+                signedInAs = null,
+                onSignIn = { signInCalls++; s = OnboardingFlow.signInFinished(OnboardingFlow.startSignIn(s), signInAnswer) },
+                onBack = { s = OnboardingFlow.back(s) },
+                onContinue = { s = OnboardingFlow.next(s) },
+                onSkip = { s = OnboardingFlow.skipAccount(s) },
+            )
+            else -> Text("step ${s.step}", Modifier.testTag("later_placeholder"))
         }
     }
 
@@ -96,8 +112,11 @@ class OnboardingBehaviourTest {
         rule.onNodeWithText(OnboardingCopy.WELCOME_HEADLINE).assertIsDisplayed()
         rule.onNodeWithText(OnboardingCopy.WELCOME_CAPTION).assertIsDisplayed()
         rule.onNodeWithTag("welcome_start").assertTextEquals("Pick my habits").performClick()
+        // Sign in with Google is step 1 (#193); Skip goes on to the habits, step 2.
+        rule.onNodeWithTag("onboarding_account").assertIsDisplayed()
+        rule.onNodeWithTag("onboarding_skip").performClick()
         rule.onNodeWithTag("onboarding_habits").assertIsDisplayed()
-        rule.onNodeWithTag("step_progress").assert(SemanticsMatcher.expectValue(SemanticsProperties.ContentDescription, listOf("Step 1 of 6")))
+        rule.onNodeWithTag("step_progress").assert(SemanticsMatcher.expectValue(SemanticsProperties.ContentDescription, listOf("Step 2 of 7")))
     }
 
     @Test fun preset_rows_toggle_and_the_footer_counts_them() {
@@ -193,6 +212,8 @@ class OnboardingBehaviourTest {
         rule.onNodeWithTag("page_back").performClick()
         rule.onNodeWithTag("page_back").performClick()
         rule.onNodeWithTag("page_back").performClick()
+        rule.onNodeWithTag("onboarding_account").assertIsDisplayed()
+        rule.onNodeWithTag("page_back").performClick()
         rule.onNodeWithTag("onboarding_welcome").assertIsDisplayed()
         assertEquals(3, latest.chosen.size)
     }
@@ -205,7 +226,7 @@ class OnboardingBehaviourTest {
         show(OnboardingFixtures.habits)
         rule.onNodeWithTag("onboarding_next").performClick()
         rule.onNodeWithTag("onboarding_shutdown").assertIsDisplayed()
-        rule.onNodeWithTag("step_progress").assert(SemanticsMatcher.expectValue(SemanticsProperties.ContentDescription, listOf("Step 2 of 6")))
+        rule.onNodeWithTag("step_progress").assert(SemanticsMatcher.expectValue(SemanticsProperties.ContentDescription, listOf("Step 3 of 7")))
         rule.onNodeWithTag("page_title").assertTextEquals("Pick a shutdown time")
         rule.onNodeWithText("A shutdown time helps you stop doomscrolling at night.").assertIsDisplayed()
         listOf("10 PM", "11 PM", "Midnight").forEachIndexed { i, label ->
@@ -239,7 +260,7 @@ class OnboardingBehaviourTest {
         rule.onNodeWithTag("onboarding_shutdown_1320").performClick()
         rule.onNodeWithTag("onboarding_skip").performClick()
         rule.onNodeWithTag("onboarding_lock_window").assertIsDisplayed()
-        rule.onNodeWithTag("step_progress").assert(SemanticsMatcher.expectValue(SemanticsProperties.ContentDescription, listOf("Step 3 of 6")))
+        rule.onNodeWithTag("step_progress").assert(SemanticsMatcher.expectValue(SemanticsProperties.ContentDescription, listOf("Step 4 of 7")))
         assertEquals(null, latest.shutdownMinute)
     }
 
@@ -280,6 +301,100 @@ class OnboardingBehaviourTest {
             shutdownRows.forEach { tag ->
                 val node = rule.onNodeWithTag(tag).fetchSemanticsNode()
                 assertEquals("$tag is a radio button", androidx.compose.ui.semantics.Role.RadioButton, node.config[SemanticsProperties.Role])
+            }
+        }
+    }
+
+    // Sign in with Google (#193) -----------------------------------------------------------------
+
+    /** Owner decision 2026-11-25: the first screen after the welcome. */
+    @Test fun the_sign_in_step_is_step_1_right_after_the_welcome() {
+        show()
+        rule.onNodeWithTag("welcome_start").performClick()
+        rule.onNodeWithTag("onboarding_account").assertIsDisplayed()
+        rule.onNodeWithTag("step_progress").assert(SemanticsMatcher.expectValue(SemanticsProperties.ContentDescription, listOf("Step 1 of 7")))
+        rule.onNodeWithTag("page_title").assertTextEquals("Sign in with Google")
+        rule.onNodeWithTag("account_sign_in").assertIsDisplayed().assertIsEnabled().assertTextEquals("Sign in with Google")
+        rule.onNodeWithTag("onboarding_skip").assertIsDisplayed().assertTextEquals("Skip")
+        rule.onNodeWithTag("account_error").assertDoesNotExist()
+    }
+
+    @Test fun skip_goes_to_the_habits_and_never_asks_the_account_layer() {
+        show(OnboardingState(step = OnboardingStep.ACCOUNT))
+        rule.onNodeWithTag("onboarding_skip").performClick()
+        rule.onNodeWithTag("onboarding_habits").assertIsDisplayed()
+        assertEquals(OnboardingStep.HABITS, latest.step)
+        assertEquals(0, signInCalls)
+    }
+
+    @Test fun a_successful_sign_in_goes_on_to_the_habits() {
+        signInAnswer = SignInResult.Success
+        show(OnboardingState(step = OnboardingStep.ACCOUNT))
+        rule.onNodeWithTag("account_sign_in").performClick()
+        rule.onNodeWithTag("onboarding_habits").assertIsDisplayed()
+        assertEquals(1, signInCalls)
+        assertEquals(SignInUi.Idle, latest.signIn)
+    }
+
+    @Test fun cancelling_the_sheet_stays_on_the_step_with_a_short_line_and_skip() {
+        signInAnswer = SignInResult.Cancelled
+        show(OnboardingState(step = OnboardingStep.ACCOUNT))
+        rule.onNodeWithTag("account_sign_in").performClick()
+        rule.onNodeWithTag("onboarding_account").assertIsDisplayed()
+        rule.onNodeWithTag("account_error").assertTextEquals("Sign-in cancelled.")
+        rule.onNodeWithTag("account_sign_in").assertIsEnabled()
+        rule.onNodeWithTag("onboarding_skip").assertIsEnabled().performClick()
+        rule.onNodeWithTag("onboarding_habits").assertIsDisplayed()
+        assertEquals(SignInUi.Idle, latest.signIn)
+    }
+
+    @Test fun no_connection_says_check_your_connection_and_can_be_tried_again() {
+        signInAnswer = SignInResult.Failed(java.io.IOException("offline"))
+        show(OnboardingState(step = OnboardingStep.ACCOUNT))
+        rule.onNodeWithTag("account_sign_in").performClick()
+        rule.onNodeWithTag("account_error").assertTextEquals("Couldn't sign in. Check your connection and try again.")
+        signInAnswer = SignInResult.Success
+        rule.onNodeWithTag("account_sign_in").performClick()
+        rule.onNodeWithTag("onboarding_habits").assertIsDisplayed()
+        assertEquals(2, signInCalls)
+    }
+
+    /** A server or setup failure is not blamed on the connection (#193, owner-reported). */
+    @Test fun any_other_failure_does_not_blame_the_connection() {
+        signInAnswer = SignInResult.Failed(IllegalStateException("401 invalid api key"))
+        show(OnboardingState(step = OnboardingStep.ACCOUNT))
+        rule.onNodeWithTag("account_sign_in").performClick()
+        rule.onNodeWithTag("account_error").assertTextEquals("Couldn't sign in. Try again in a moment.")
+        rule.onNodeWithTag("onboarding_skip").assertIsEnabled()
+    }
+
+    @Test fun while_signing_in_the_button_waits() {
+        rule.setContent { Shot(1f) { AccountStep(SignInUi.Busy, null, {}, {}, {}, {}) } }
+        rule.onNodeWithTag("account_sign_in").assertIsNotEnabled().assertTextEquals("Signing in…")
+    }
+
+    @Test fun signed_in_already_the_step_says_who_and_continues() {
+        var continued = 0
+        rule.setContent { Shot(1f) { AccountStep(SignInUi.Idle, "sam@example.com", {}, {}, { continued++ }, {}) } }
+        rule.onNodeWithTag("account_signed_in").assertTextEquals("Signed in as sam@example.com")
+        rule.onNodeWithTag("account_sign_in").assertDoesNotExist()
+        rule.onNodeWithTag("onboarding_next").assertTextEquals("Continue").performClick()
+        assertEquals(1, continued)
+    }
+
+    /** The existing accessibility check: 48 x 48dp and something TalkBack reads, at font 1 and 2. */
+    @Test fun sign_in_and_skip_are_accessible_at_font_1_and_2() {
+        var scale by mutableStateOf(1f)
+        rule.setContent { Shot(scale) { AccountStep(SignInUi.Idle, null, {}, {}, {}, {}) } }
+        for (f in listOf(1f, 2f)) {
+            scale = f
+            rule.waitForIdle()
+            val d = rule.density.density
+            for (tag in listOf("account_sign_in", "onboarding_skip", "page_back")) {
+                val node = rule.onNodeWithTag(tag).fetchSemanticsNode()
+                assertTrue("$tag at font $f is tappable", hasClickAction().matches(node))
+                assertTrue("$tag at font $f is ${node.size.height / d}dp tall", node.size.height / d >= 47.9f)
+                assertTrue("$tag at font $f is ${node.size.width / d}dp wide", node.size.width / d >= 47.9f)
             }
         }
     }

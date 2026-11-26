@@ -39,6 +39,9 @@ class OnboardingScreenshotTest {
     @Test fun permissionsMissing_font2() = shots.shot("permissions_missing", 2f)
     @Test fun permissionsAll() = shots.shot("permissions_all", 1f)
     @Test fun permissionsAll_font2() = shots.shot("permissions_all", 2f)
+    @Test fun account() = shots.shot("account", 1f)
+    @Test fun account_font2() = shots.shot("account", 2f)
+    @Test fun accountError() = shots.shot("account_error", 1f)
     @Test fun ready() = shots.shot("ready", 1f)
     @Test fun ready_font2() = shots.shot("ready", 2f)
 

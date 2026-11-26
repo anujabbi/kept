@@ -1,8 +1,10 @@
 package com.example.kept.feature.onboarding
 
+import com.example.kept.core.data.account.SignInResult
 import com.example.kept.core.domain.HabitLimits
 import com.example.kept.core.domain.LockWindowRules
 import com.example.kept.core.domain.ProofType
+import com.example.kept.core.domain.SignInUi
 import com.example.kept.core.ui.HabitTemplate
 import com.example.kept.core.ui.HabitTemplates
 import org.junit.Assert.assertEquals
@@ -15,17 +17,17 @@ class OnboardingFlowRulesTest {
 
     private fun custom(i: Int) = HabitTemplate("Custom $i", "star", ProofType.MANUAL, 5, "min")
 
-    @Test fun `next stops at step 6 and back stops at the welcome screen`() {
+    @Test fun `next stops at step 7 and back stops at the welcome screen`() {
         var s = OnboardingState()
         repeat(9) { s = OnboardingFlow.next(s) }
         assertEquals(OnboardingStep.READY, s.step)
-        assertEquals(6, s.step)
+        assertEquals(7, s.step)
         repeat(9) { s = OnboardingFlow.back(s) }
         assertEquals(OnboardingStep.WELCOME, s.step)
     }
 
     @Test fun `back from any step keeps every choice`() {
-        var s = OnboardingFlow.next(OnboardingState())
+        var s = OnboardingFlow.next(OnboardingFlow.next(OnboardingState()))
         s = OnboardingFlow.toggle(s, HabitTemplates.list[0]) // Exercise off
         s = OnboardingFlow.toggle(s, HabitTemplates.list[4]) // Tidy room on
         s = OnboardingFlow.next(s)
@@ -36,7 +38,7 @@ class OnboardingFlowRulesTest {
         val window = s.window
         repeat(3) { s = OnboardingFlow.next(s) }
         assertEquals(OnboardingStep.READY, s.step)
-        repeat(6) {
+        repeat(7) {
             s = OnboardingFlow.back(s)
             assertEquals(chosen, s.chosen)
             assertEquals(23 * 60, s.shutdownMinute)
@@ -44,6 +46,16 @@ class OnboardingFlowRulesTest {
             assertTrue(s.windowTouched)
         }
         assertEquals(listOf("Read", "Tidy room"), s.chosen.map { it.title })
+    }
+
+    /** #193: an answer from the Google sheet that lands after Back must not move the person on. */
+    @Test fun `a sign-in answer after going back clears the button and stays put`() {
+        val waiting = OnboardingFlow.startSignIn(OnboardingState(step = OnboardingStep.ACCOUNT))
+        val back = OnboardingFlow.back(waiting)
+        val after = OnboardingFlow.signInFinished(back, SignInResult.Success)
+        assertEquals(OnboardingStep.WELCOME, after.step)
+        assertEquals(SignInUi.Idle, after.signIn)
+        assertEquals(OnboardingStep.HABITS, OnboardingFlow.signInFinished(waiting, SignInResult.Success).step)
     }
 
     @Test fun `a saved habit is added picked and the page closes`() {

@@ -19,6 +19,8 @@ import com.example.kept.core.data.LockRepository
 import com.example.kept.core.data.SprigRepository
 import com.example.kept.core.data.TimeSource
 import com.example.kept.core.data.WeeklyGoalRepository
+import com.example.kept.core.data.account.IdTokenResult
+import com.example.kept.core.data.account.SupabaseAccountRepository
 import com.example.kept.core.data.db.KeptDatabase
 import com.example.kept.core.data.db.WeeklyGoalEntity
 import com.example.kept.core.data.prefs.KeptPreferences
@@ -103,7 +105,8 @@ class WeeklyGoalLockConfirmTest {
         viewModels.create {
             SettingsViewModel(
                 ctx, prefs, habits, lock, sprig, DayRepository(db.dayRecordDao(), time), InstalledAppsSource(ctx), AllowlistResolver(ctx),
-                WorkScheduler(ctx, prefs, time), ReminderPoster(habits, prefs, KeptNotifications(ctx), time), time, Permissions(ctx), analytics, scope,
+                WorkScheduler(ctx, prefs, time), ReminderPoster(habits, prefs, KeptNotifications(ctx), time), time, Permissions(ctx), analytics,
+                SupabaseAccountRepository(null, { _, _ -> IdTokenResult.Cancelled }, scope), scope,
             )
         }
     }

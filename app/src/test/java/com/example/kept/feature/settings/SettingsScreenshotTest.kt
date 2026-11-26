@@ -32,6 +32,8 @@ class SettingsScreenshotTest {
     @Test fun night_on_font2() = shots.nightShot(on = true, 2f)
     @Test fun settings_end() = shots.scrolledShot(1f)
     @Test fun settings_end_font2() = shots.scrolledShot(2f)
+    @Test fun sign_in_error() = shots.signInShot(1f)
+    @Test fun sign_in_error_font2() = shots.signInShot(2f)
     @Test fun history() = shots.shot("history", 1f)
     @Test fun history_font2() = shots.shot("history", 2f)
     @Test fun history_weekly() = shots.shot("history_weekly", 1f)

@@ -21,14 +21,14 @@ class OnboardingCommitTest {
     /** The debug seed path, or a user who changed Settings before re-running onboarding. */
     private val tuned = Settings(lockFromMinute = 6 * 60, dueMinute = 22 * 60 + 15, breakDurationMin = 60)
 
-    @Test fun `finishing marks onboarding done at the last of six steps`() {
+    @Test fun `finishing marks onboarding done at the last of seven steps`() {
         val after = Settings().onboardingFinished(today)
         assertTrue(after.onboardingDone)
-        assertEquals(6, ONBOARDING_STEPS)
-        assertEquals(6, OnboardingStep.READY)
+        assertEquals(7, ONBOARDING_STEPS)
+        assertEquals(7, OnboardingStep.READY)
         assertEquals(
-            listOf(1, 2, 3, 4, 5, 6),
-            listOf(OnboardingStep.HABITS, OnboardingStep.SHUTDOWN, OnboardingStep.LOCK_WINDOW, EXCEPTIONS_STEP, PERMISSIONS_STEP, OnboardingStep.READY),
+            listOf(1, 2, 3, 4, 5, 6, 7),
+            listOf(OnboardingStep.ACCOUNT, OnboardingStep.HABITS, OnboardingStep.SHUTDOWN, OnboardingStep.LOCK_WINDOW, EXCEPTIONS_STEP, PERMISSIONS_STEP, OnboardingStep.READY),
         )
         assertEquals(OnboardingStep.EXCEPTIONS, EXCEPTIONS_STEP)
         assertEquals(OnboardingStep.PERMISSIONS, PERMISSIONS_STEP)

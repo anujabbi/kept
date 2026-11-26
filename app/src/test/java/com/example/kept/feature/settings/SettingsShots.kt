@@ -23,6 +23,7 @@ import androidx.compose.ui.text.TextLayoutResult
 import com.example.kept.core.data.db.DayRecordEntity
 import com.example.kept.core.domain.HillEdge
 import com.example.kept.core.domain.NightSetting
+import com.example.kept.core.domain.SignInUi
 import com.example.kept.core.domain.SprigForm
 import com.example.kept.core.lock.InstalledApp
 import com.example.kept.core.lock.PermissionKind
@@ -43,6 +44,9 @@ object SettingsFixtures {
 
     /** Night lockdown switched on with nothing else changed (issue #164): 11:00 pm to 7:00 am. */
     val NIGHT_ON = ALL_SET.copy(night = NightSetting(enabled = true))
+
+    /** Signed out after a sign-in that failed (#193): the Account group with its error line. */
+    val SIGN_IN_FAILED = ALL_SET.copy(signIn = SignInUi.failed(cancelled = false, offline = true))
 
     /** Two permissions off, reminders off, one exception, a 15 minute break. */
     val MISSING = ALL_SET.copy(permissionsOff = 2, reminders = false, analytics = true, exceptions = 1, breakMinutes = 15)
@@ -104,6 +108,7 @@ internal val settingsScreens: List<Pair<String, @Composable () -> Unit>> = listO
     "settings" to { SettingsFrame(SettingsFixtures.ALL_SET) },
     "settings_missing" to { SettingsFrame(SettingsFixtures.MISSING) },
     "settings_night" to { SettingsFrame(SettingsFixtures.NIGHT_ON) },
+    "settings_sign_in_error" to { SettingsFrame(SettingsFixtures.SIGN_IN_FAILED) },
     "history" to { HistoryContent(SettingsFixtures.HISTORY, 12, {}, {}) },
     "history_empty" to { HistoryContent(emptyList(), 0, {}, {}) },
     "history_weekly" to { HistoryContent(SettingsFixtures.HISTORY_WEEKLY, 12, {}, {}) },
@@ -151,6 +156,15 @@ class SettingsShots(private val rule: ComposeContentTestRule, private val prefix
         rule.onNodeWithTag(if (on) "settings_night_end" else "night_toggle").performScrollTo()
         rule.waitForIdle()
         rule.onRoot().captureRoboImage("src/test/screenshots/settings${prefix}_night_${if (on) "on" else "off"}_font$fontScale.png")
+    }
+
+    /** The Account group (#193) scrolled into view, signed out, after a failed sign-in. */
+    fun signInShot(fontScale: Float) {
+        rule.setContent { Shot(fontScale) { SettingsFrame(SettingsFixtures.SIGN_IN_FAILED) } }
+        rule.onNodeWithTag("settings_history").performScrollTo()
+        rule.onNodeWithTag("settings_sign_in_error").performScrollTo()
+        rule.waitForIdle()
+        rule.onRoot().captureRoboImage("src/test/screenshots/settings${prefix}_sign_in_error_font$fontScale.png")
     }
 
     /** History scrolled to its last day. */
@@ -257,6 +271,17 @@ class SettingsShots(private val rule: ComposeContentTestRule, private val prefix
             rule.waitForIdle()
             assertNoWordSplit(rule, "${row}_title", at, unmerged = true)
             assertOneLine(at, "${row}_value", unmerged = true)
+        }
+        // The sign-in row (#193): its title never splits a word and it is a full row tall.
+        rule.onNodeWithTag("settings_sign_in").performScrollTo()
+        rule.waitForIdle()
+        assertNoWordSplit(rule, "settings_sign_in_title", at, unmerged = true)
+        val signIn = bounds("settings_sign_in")
+        assertTrue("$at: the sign-in row $signIn is off the screen or too small", signIn.left >= 0f && signIn.right <= w + 0.5f && signIn.height >= 55.9f)
+        if (rule.onAllNodesWithTag("settings_sign_in_error").fetchSemanticsNodes().isNotEmpty()) {
+            rule.onNodeWithTag("settings_sign_in_error").performScrollTo()
+            rule.waitForIdle()
+            assertNoWordSplit(rule, "settings_sign_in_error", at)
         }
         rule.onNodeWithTag("settings_privacy").performScrollTo()
         rule.waitForIdle()

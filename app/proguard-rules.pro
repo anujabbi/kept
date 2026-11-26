@@ -49,6 +49,34 @@
 -keepclassmembers class com.posthog.** { *; }
 -dontwarn com.posthog.**
 
+# --- Sign in with Google (#193): supabase-kt, Ktor, kotlinx.serialization -----------------------
+# supabase-kt decodes the auth server's JSON (the session, the user) with kotlinx.serialization.
+# Its generated serializers are found through each @Serializable class's Companion and
+# `serializer()`; if R8 renames or drops them the release build fails only at runtime, with a
+# SerializationException on sign-in or on restoring a stored session.
+-keepattributes *Annotation*, InnerClasses, Signature, Exceptions
+-dontnote kotlinx.serialization.**
+-keepclassmembers @kotlinx.serialization.Serializable class io.github.jan.supabase.** {
+    *** Companion;
+    *** INSTANCE;
+    kotlinx.serialization.KSerializer serializer(...);
+}
+-keepclasseswithmembers class io.github.jan.supabase.** {
+    kotlinx.serialization.KSerializer serializer(...);
+}
+-keep class io.github.jan.supabase.**$$serializer { *; }
+# The session is stored through multiplatform-settings, set up by its androidx.startup initializer
+# (reached by name from the merged manifest).
+-keep class com.russhwolf.settings.** { *; }
+# Ktor's Android engine is passed in explicitly (no ServiceLoader lookup), but Ktor references
+# JVM classes Android does not have (java.lang.management, SLF4J); they are never reached.
+-dontwarn io.ktor.**
+-dontwarn org.slf4j.**
+-dontwarn java.lang.management.**
+# Credential Manager finds the Play services provider by the class name in its manifest metadata.
+-keep class androidx.credentials.playservices.** { *; }
+-keep class com.google.android.libraries.identity.googleid.** { *; }
+
 # --- App ------------------------------------------------------------------------------------
 # Serializable/Parcelable-ish enums crossing Room's TypeConverters by `valueOf`.
 -keepclassmembers enum com.example.kept.** {

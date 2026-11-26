@@ -1,6 +1,7 @@
 package com.example.kept.feature.settings
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -21,6 +23,7 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
@@ -35,7 +38,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
@@ -48,17 +53,22 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.kept.core.data.account.AccountState
+import com.example.kept.core.domain.AccountCopy
 import com.example.kept.core.domain.LockWindowField
 import com.example.kept.core.domain.NightEdit
 import com.example.kept.core.domain.NightSetting
 import com.example.kept.core.domain.NightWindow
 import com.example.kept.core.domain.SettingsCopy
 import com.example.kept.core.domain.SettingsSky
+import com.example.kept.core.domain.SignInUi
 import com.example.kept.core.domain.SprigForm
 import com.example.kept.core.domain.SprigPose
 import com.example.kept.core.domain.WeeklyGoalCopy
 import com.example.kept.core.lock.PermissionKind
+import com.example.kept.core.ui.DaybreakIcons
 import com.example.kept.core.ui.DaybreakType
+import com.example.kept.core.ui.GoogleMark
 import com.example.kept.core.ui.Hill
 import com.example.kept.core.ui.KeptChip
 import com.example.kept.core.ui.RowGroup
@@ -71,6 +81,9 @@ import com.example.kept.core.ui.fitLongestWord
 import com.example.kept.core.ui.sprig.SprigView
 import kotlin.math.ceil
 import com.example.kept.core.ui.DaybreakColors as D
+
+/** Whether the Settings tab offers "Sign in with Google" (#193). Unknown while a stored session loads. */
+enum class SettingsAccount { SIGNED_OUT, SIGNED_IN, UNKNOWN }
 
 /** Everything the Settings tab shows, read from the real stores (`A7-Settings`). */
 data class SettingsPage(
@@ -90,9 +103,19 @@ data class SettingsPage(
     val wilted: Boolean = false,
     /** Night lockdown (issue #164): off, 11:00 pm to 7:00 am, until changed. */
     val night: NightSetting = NightSetting(),
+    /** Signed out shows the "Sign in with Google" row (#193); #194 adds the signed-in row. */
+    val account: SettingsAccount = SettingsAccount.SIGNED_OUT,
+    /** The sign-in row's state and its error line. */
+    val signIn: SignInUi = SignInUi.Idle,
 ) {
     companion object {
-        fun of(s: SettingsUi, permissionsOff: Int, weeklyGoals: Int = 0) = SettingsPage(
+        fun of(
+            s: SettingsUi,
+            permissionsOff: Int,
+            weeklyGoals: Int = 0,
+            account: AccountState = AccountState.SignedOut,
+            signIn: SignInUi = SignInUi.Idle,
+        ) = SettingsPage(
             habits = s.habits.size,
             weeklyGoals = weeklyGoals,
             lockFromMinute = s.settings.lockFromMinute,
@@ -106,6 +129,12 @@ data class SettingsPage(
             form = s.sprig.form,
             wilted = s.sprig.wilted,
             night = NightSetting(s.settings.nightLockEnabled, s.settings.nightFromMinute, s.settings.nightUntilMinute),
+            account = when (account) {
+                AccountState.SignedOut -> SettingsAccount.SIGNED_OUT
+                is AccountState.SignedIn -> SettingsAccount.SIGNED_IN
+                AccountState.Restoring -> SettingsAccount.UNKNOWN
+            },
+            signIn = signIn,
         )
     }
 }
@@ -125,6 +154,7 @@ data class SettingsActions(
     val onReminders: (Boolean) -> Unit = {},
     val onAnalytics: (Boolean) -> Unit = {},
     val onOpenHistory: () -> Unit = {},
+    val onSignIn: () -> Unit = {},
 )
 
 private enum class Editor { LOCK_FROM, GIVE_UP, BREAK, NIGHT_START, NIGHT_START_CUSTOM, NIGHT_END }
@@ -143,7 +173,10 @@ fun SettingsScreen(
     val goals by goalsVm.state.collectAsStateWithLifecycle()
     val perms = rememberPermissionStates(vm.permissions, PermissionKind.entries)
     var editor by rememberSaveable { mutableStateOf<Editor?>(null) }
-    val page = SettingsPage.of(s, perms.count { !it.value }, goals.goals.size)
+    val account by vm.account.collectAsStateWithLifecycle()
+    val signIn by vm.signIn.collectAsStateWithLifecycle()
+    val activity = LocalContext.current
+    val page = SettingsPage.of(s, perms.count { !it.value }, goals.goals.size, account, signIn)
 
     SettingsContent(
         page,
@@ -161,6 +194,7 @@ fun SettingsScreen(
             onReminders = { vm.setReminders(it) },
             onAnalytics = { vm.setAnalyticsEnabled(it) },
             onOpenHistory = onOpenHistory,
+            onSignIn = { vm.signIn(activity) },
         ),
     )
 
@@ -285,6 +319,18 @@ private fun Groups(page: SettingsPage, a: SettingsActions) {
             SwitchRow(SettingsCopy.REMINDERS, SettingsCopy.REMINDERS_HINT, page.reminders, a.onReminders, first = true, tag = "reminders_toggle")
             SwitchRow(SettingsCopy.ANALYTICS, SettingsCopy.ANALYTICS_HINT, page.analytics, a.onAnalytics, tag = "analytics_toggle")
         }
+        if (page.account == SettingsAccount.SIGNED_OUT) {
+            RowGroup(AccountCopy.GROUP) { SignInRow(page.signIn, a.onSignIn) }
+            if (page.signIn is SignInUi.Error) {
+                Text(
+                    page.signIn.message,
+                    Modifier.padding(horizontal = 4.dp).offset(y = (-12).dp).testTag("settings_sign_in_error")
+                        .semantics { liveRegion = LiveRegionMode.Polite },
+                    style = DaybreakType.bodySmall,
+                    color = D.danger,
+                )
+            }
+        }
         RowGroup(null) {
             ValueRow(SettingsCopy.HISTORY, RowValue(SettingsCopy.bestStreak(page.bestStreak)), a.onOpenHistory, first = true, tag = "settings_history")
         }
@@ -294,6 +340,34 @@ private fun Groups(page: SettingsPage, a: SettingsActions) {
             style = DaybreakType.caption.copy(lineHeight = (13 * 1.4).sp),
             color = D.muted,
         )
+    }
+}
+
+/**
+ * "Sign in with Google" (#193): the row's shape (`A7`, 56dp, 16dp sides) with Google's G in
+ * front, the title, the hint under it and the chevron. While [signIn] is busy the title reads
+ * "Signing in…" and a tap does nothing.
+ */
+@Composable
+private fun SignInRow(signIn: SignInUi, onSignIn: () -> Unit) {
+    val busy = signIn == SignInUi.Busy
+    Row(
+        Modifier.fillMaxWidth().clickable(enabled = !busy, role = Role.Button, onClick = onSignIn)
+            .heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 8.dp).testTag("settings_sign_in"),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(GoogleMark, null, Modifier.size(20.dp), tint = Color.Unspecified)
+        Column(Modifier.weight(1f)) {
+            Text(
+                if (busy) AccountCopy.SIGNING_IN else AccountCopy.SIGN_IN,
+                Modifier.testTag("settings_sign_in_title"),
+                style = DaybreakType.rowTitle,
+                color = if (busy) D.muted else D.ink,
+            )
+            Text(AccountCopy.ROW_HINT, Modifier.testTag("settings_sign_in_hint"), style = DaybreakType.caption, color = D.muted)
+        }
+        Icon(DaybreakIcons.Chevron, null, Modifier.size(18.dp), tint = D.faint)
     }
 }
 

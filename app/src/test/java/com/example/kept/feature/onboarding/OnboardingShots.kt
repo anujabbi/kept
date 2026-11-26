@@ -16,6 +16,7 @@ import androidx.compose.ui.text.TextLayoutResult
 import com.example.kept.core.domain.HillEdge
 import com.example.kept.core.domain.LockWindowRules
 import com.example.kept.core.domain.ProofType
+import com.example.kept.core.domain.SignInUi
 import com.example.kept.core.lock.InstalledApp
 import com.example.kept.core.lock.PermissionKind
 import com.example.kept.core.ui.HabitTemplate
@@ -68,6 +69,8 @@ val onboardingScreens: List<Pair<String, @Composable () -> Unit>> = listOf(
     "exceptions" to { ExceptionsContent(BodyMode.ONBOARDING, emptyList(), OnboardingFixtures.apps, "", {}, { _, _ -> }, {}, {}) },
     "permissions_missing" to { permissions(BodyMode.ONBOARDING, OnboardingFixtures.oneRequiredMissing) },
     "permissions_all" to { permissions(BodyMode.ONBOARDING, OnboardingFixtures.allGranted) },
+    "account" to { AccountStep(SignInUi.Idle, null, {}, {}, {}, {}) },
+    "account_error" to { AccountStep(SignInUi.failed(cancelled = false, offline = true), null, {}, {}, {}, {}) },
     "ready" to { ReadyStep(saving = false, onBack = {}, onStart = {}) },
     "exceptions_settings" to { ExceptionsContent(BodyMode.SETTINGS, emptyList(), OnboardingFixtures.apps, "", {}, { _, _ -> }, {}, {}) },
     "permissions_settings" to { permissions(BodyMode.SETTINGS, OnboardingFixtures.oneRequiredMissing) },
@@ -126,7 +129,7 @@ class OnboardingShots(private val rule: ComposeContentTestRule, private val pref
     }
 
     /**
-     * At font 1.0, 1.3 and 2.0: headlines never split inside a word; on Welcome and step 6 Sprig
+     * At font 1.0, 1.3 and 2.0: headlines never split inside a word; on Welcome and step 7 Sprig
      * touches no text and its lower body is behind the hill; the welcome text ends above the
      * crest; each step's footer button is on screen, not under the bottom edge.
      */
@@ -158,8 +161,9 @@ class OnboardingShots(private val rule: ComposeContentTestRule, private val pref
                 }
                 else -> {
                     assertNoWordSplit(rule, "page_title", at)
-                    if (name != "add_habit" && !name.endsWith("_settings")) assertOnScreen(at, "onboarding_next")
-                    if (name.startsWith("shutdown")) assertOnScreen(at, "onboarding_skip")
+                    if (name.startsWith("account")) assertOnScreen(at, "account_sign_in")
+                    else if (name != "add_habit" && !name.endsWith("_settings")) assertOnScreen(at, "onboarding_next")
+                    if (name.startsWith("shutdown") || name.startsWith("account")) assertOnScreen(at, "onboarding_skip")
                 }
             }
             if (name == "lock_window") {
