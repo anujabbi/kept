@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assertHasClickAction
@@ -17,9 +18,12 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.performScrollTo
 import com.example.kept.core.domain.NightEdit
 import com.example.kept.core.domain.NightSetting
+import com.example.kept.core.domain.NightSliders
 import com.example.kept.core.domain.NightWindow
 import com.example.kept.core.domain.SettingsCopy
 import com.example.kept.core.ui.shots.Shot
@@ -106,42 +110,59 @@ class NightSettingsBehaviourTest {
         assertEquals(listOf("start", "end"), opened)
     }
 
-    @Test fun picking_a_preset_start_saves_it_and_closes() {
+    private fun slide(index: Int) {
+        rule.onNodeWithTag("night_start_slider").performSemanticsAction(SemanticsActions.SetProgress) { it(index.toFloat()) }
+        rule.waitForIdle()
+    }
+
+    @Test fun starts_at_has_the_slider_from_the_saved_start_and_set_saves_its_time() {
         val picked = mutableListOf<Int>()
         var open by mutableStateOf(true)
         rule.setContent { Shot(1f) { if (open) NightStartEditor(NightSetting(true), onDismiss = { open = false }, onCustom = {}) { picked += it } } }
-        val chips = NightWindow.PRESETS.map { m ->
-            rule.onNodeWithTag("night_start_$m").fetchSemanticsNode().config[SemanticsProperties.Text].joinToString { it.text }.replace(SettingsCopy.NBSP, ' ')
-        }
-        assertEquals(listOf("10:00 pm", "11:00 pm", "Midnight"), chips)
-        rule.onNodeWithText("Custom…").assertExists()
-        assertEquals(true, rule.onNodeWithTag("night_start_1380").fetchSemanticsNode().config.getOrNull(SemanticsProperties.Selected))
-        assertEquals(false, rule.onNodeWithTag("night_start_custom").fetchSemanticsNode().config.getOrNull(SemanticsProperties.Selected))
+        assertEquals("11:00 pm", text("night_start_time"))
+        assertEquals("Apps lock from 11:00 pm until 7:00 am.", text("night_start_sentence"))
+        val slider = rule.onNodeWithTag("night_start_slider").fetchSemanticsNode().config
+        assertEquals(listOf("Starts at"), slider[SemanticsProperties.ContentDescription])
+        assertEquals("11:00 pm", slider[SemanticsProperties.StateDescription].replace(SettingsCopy.NBSP, ' '))
+        slide(17)
+        assertEquals("12:15 am", text("night_start_time"))
+        assertEquals("Apps lock from 12:15 am until 7:00 am.", text("night_start_sentence"))
         rule.onNodeWithTag("night_start_error").assertDoesNotExist()
-        rule.onNodeWithTag("night_start_0").performClick()
+        rule.onNodeWithTag("night_start_set").assertIsEnabled().performClick()
         rule.waitForIdle()
-        assertEquals(listOf(0), picked)
+        assertEquals(listOf(15), picked)
         assertTrue(!open)
     }
 
-    @Test fun custom_opens_the_time_picker_and_is_selected_for_a_custom_start() {
+    @Test fun the_slider_runs_8_pm_to_2_am_in_15_minute_steps() {
+        rule.setContent { Shot(1f) { NightStartEditor(NightSetting(true), onDismiss = {}, onCustom = {}) {} } }
+        slide(0)
+        assertEquals("8:00 pm", text("night_start_time"))
+        slide(1)
+        assertEquals("8:15 pm", text("night_start_time"))
+        slide(16)
+        assertEquals("Midnight", text("night_start_time"))
+        slide(NightSliders.FROM_STEPS)
+        assertEquals("2:00 am", text("night_start_time"))
+    }
+
+    @Test fun custom_sits_under_the_slider_and_opens_the_time_picker() {
         var custom = 0
         rule.setContent { Shot(1f) { NightStartEditor(NightSetting(true, 21 * 60 + 30, 7 * 60), onDismiss = {}, onCustom = { custom++ }) {} } }
-        assertEquals(true, rule.onNodeWithTag("night_start_custom").fetchSemanticsNode().config.getOrNull(SemanticsProperties.Selected))
-        for (m in NightWindow.PRESETS) assertEquals(false, rule.onNodeWithTag("night_start_$m").fetchSemanticsNode().config.getOrNull(SemanticsProperties.Selected))
-        rule.onNodeWithTag("night_start_custom").performClick()
+        assertTrue(top("night_start_custom") > top("night_start_slider"))
+        rule.onNodeWithTag("night_start_custom").assertTextEquals("Custom…").performClick()
         assertEquals(1, custom)
     }
 
-    @Test fun a_preset_more_than_12_hours_before_the_end_cannot_be_picked() {
+    @Test fun a_start_more_than_12_hours_before_the_end_cannot_be_set() {
         val picked = mutableListOf<Int>()
-        // Ends at 11:00 am: 10:00 pm would be 13 hours, 11:00 pm 12 and Midnight 11.
+        // Ends at 11:00 am: 10:00 pm would be 13 hours, 11:00 pm 12.
         rule.setContent { Shot(1f) { NightStartEditor(NightSetting(true, 23 * 60, 11 * 60), onDismiss = {}, onCustom = {}) { picked += it } } }
-        rule.onNodeWithTag("night_start_1320").assertIsNotEnabled()
-        rule.onNodeWithTag("night_start_0").assertIsEnabled()
-        rule.onNodeWithTag("night_start_error").assertExists()
+        rule.onNodeWithTag("night_start_set").assertIsEnabled()
+        slide(8)
+        rule.onNodeWithTag("night_start_set").assertIsNotEnabled()
         rule.onNodeWithText("Pick an end time 1 to 12 hours after the start.").assertExists()
-        rule.onNodeWithTag("night_start_1320").performClick()
+        rule.onNodeWithTag("night_start_set").performClick()
         assertEquals(emptyList<Int>(), picked)
     }
 
@@ -236,9 +257,11 @@ class NightSettingsBehaviourTest {
         for (f in listOf(1f, 2f)) {
             scale = f
             rule.waitForIdle()
-            assertAccessible(NightWindow.PRESETS.map { "night_start_$it" } + "night_start_custom")
-            val buttons = rule.onAllNodes(hasClickAction() and hasAnyAncestor(isDialog())).fetchSemanticsNodes()
-            assertTrue("the chips and Cancel are all there at font $f", buttons.size >= 5)
+            assertAccessible(listOf("night_start_custom", "night_start_set"))
+            val d = rule.density.density
+            val slider = rule.onNodeWithTag("night_start_slider").fetchSemanticsNode()
+            assertTrue("the slider is 48dp tall at font $f", slider.size.height / d >= 47.9f)
+            assertTrue("the slider has a label", slider.config.contains(SemanticsProperties.ContentDescription))
         }
     }
 }

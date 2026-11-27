@@ -5,48 +5,18 @@ import com.example.kept.core.domain.HabitDraft.Companion.MIN
 import com.example.kept.core.domain.HabitDraft.Companion.PAGES
 import com.example.kept.core.domain.HabitDraft.Companion.TIMES
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Add a habit's rules (`A9-Habit-edit` script, spec "Habits"; issue #134). */
+/** What a daily habit saves and how its amount reads (spec "Habits"; issues #134, #218). */
 class HabitDraftTest {
 
     private val nb = HabitsCopy.NBSP
     private fun plain(s: String) = s.replace(nb, ' ')
 
-    @Test fun minutes_step_by_5_and_every_other_unit_by_1() {
-        val m = HabitDraft(target = 20, unit = MIN)
-        assertEquals(25, m.more().target)
-        assertEquals(15, m.less().target)
-        for (u in listOf(PAGES, TIMES, GLASSES)) {
-            val d = HabitDraft(target = 4, unit = u)
-            assertEquals("$u up", 5, d.more().target)
-            assertEquals("$u down", 3, d.less().target)
-        }
-    }
-
-    @Test fun the_stepper_never_goes_below_one_step() {
-        val m = HabitDraft(target = 5, unit = MIN)
-        assertFalse(m.canLess)
-        assertEquals(5, m.less().target)
-        assertEquals(5, HabitDraft(target = 7, unit = MIN).less().target)
-        val t = HabitDraft(target = 1, unit = TIMES)
-        assertFalse(t.canLess)
-        assertEquals(1, t.less().target)
-        assertTrue(HabitDraft(target = 2, unit = TIMES).canLess)
-    }
-
-    @Test fun the_stepper_stops_at_three_digits() {
-        val d = HabitDraft(target = 995, unit = MIN)
-        assertFalse(d.canMore)
-        assertEquals(995, d.more().target)
-        assertEquals(999, HabitDraft(target = 998, unit = PAGES).more().target)
-    }
-
     @Test fun once_a_day_for_one_time() {
-        assertEquals("Once a day", HabitDraft(target = 1, unit = TIMES).amount)
-        assertEquals("2 times", plain(HabitDraft(target = 2, unit = TIMES).amount))
+        assertEquals("Once a day", HabitDraft.amount(1, TIMES))
+        assertEquals("2 times", plain(HabitDraft.amount(2, TIMES)))
         assertEquals("Once a day", HabitDraft.amount(1, HabitDraft.CHECK_IN))
         assertEquals("1 page", plain(HabitDraft.amount(1, PAGES)))
         assertEquals("1 glass", plain(HabitDraft.amount(1, GLASSES)))
@@ -54,54 +24,23 @@ class HabitDraftTest {
         assertEquals("amounts never wrap", "30${nb}min", HabitDraft.amount(30, MIN))
     }
 
-    @Test fun save_is_enabled_only_once_the_name_has_text() {
-        assertFalse(HabitDraft().canSave)
-        assertFalse(HabitDraft(title = "   ").canSave)
-        assertTrue(HabitDraft(title = "Walk").canSave)
-        assertEquals("Walk", HabitDraft(title = "  Walk ").name)
+    @Test fun a_photo_habit_is_saved_as_one_photo() {
+        val d = HabitDraft(title = "Tidy room", target = 30, unit = MIN, photo = true)
+        assertEquals(ProofType.PHOTO, d.proof)
+        assertEquals(1, d.savedTarget)
+        assertEquals("photo", d.savedUnit)
+        assertEquals(ProofType.MANUAL, d.copy(photo = false).proof)
     }
 
-    @Test fun names_are_capped_at_28_characters() {
-        assertEquals(28, HabitDraft().withTitle("x".repeat(40)).title.length)
-    }
-
-    @Test fun unit_chips_show_only_for_a_name_that_is_not_a_quick_pick() {
-        assertFalse(HabitDraft().showsUnits)
-        assertFalse(HabitDraft(title = " ").showsUnits)
-        for (p in HabitDraft.PRESETS) assertFalse(p.title, HabitDraft(title = p.title).showsUnits)
-        assertFalse(HabitDraft(title = "Read ").showsUnits)
-        assertTrue(HabitDraft(title = "Piano").showsUnits)
-        assertTrue(HabitDraft(title = "Reading").showsUnits)
-    }
-
-    @Test fun the_photo_switch_hides_how_much_and_saves_a_photo_habit() {
-        val d = HabitDraft(title = "Tidy room", target = 30, unit = MIN)
-        assertTrue(d.showsAmount)
-        assertEquals(ProofType.MANUAL, d.proof)
-        val p = d.togglePhoto()
-        assertFalse(p.showsAmount)
-        assertEquals(ProofType.PHOTO, p.proof)
-        assertEquals(1, p.savedTarget)
-        assertEquals("photo", p.savedUnit)
-        val back = p.togglePhoto()
-        assertEquals("turning it off keeps the amount", 30, back.savedTarget)
-        assertEquals(MIN, back.savedUnit)
-    }
-
-    @Test fun an_existing_habit_fills_the_draft() {
-        val m = HabitDraft.of("Read", ProofType.MANUAL, 12, PAGES)
-        assertEquals(HabitDraft("Read", 12, PAGES, false), m)
-        val p = HabitDraft.of("Tidy room", ProofType.PHOTO, 1, "photo")
-        assertTrue(p.photo)
-        assertEquals("a photo habit's amount starts at 20 min", "20 min", plain(p.togglePhoto().amount))
-    }
-
-    @Test fun list_rows_read_amount_and_tap_when_done() {
-        assertEquals("30 min, tap when done", plain(HabitsCopy.detail(ProofType.MANUAL, 30, MIN)))
-        assertEquals("10 pages, tap when done", plain(HabitsCopy.detail(ProofType.MANUAL, 10, PAGES)))
-        assertEquals("Once a day, tap when done", HabitsCopy.detail(ProofType.MANUAL, 1, TIMES))
-        assertEquals("Photo check-in", HabitsCopy.detail(ProofType.PHOTO, 1, "photo"))
-        assertEquals("Tap when done", HabitsCopy.detail(ProofType.MANUAL, 1, HabitDraft.CHECK_IN))
+    @Test fun your_promises_cards_read_the_amount() {
+        assertEquals("30 min", plain(PromiseListCopy.habitAmount(false, 30, MIN)))
+        assertEquals("10 pages", plain(PromiseListCopy.habitAmount(false, 10, PAGES)))
+        assertEquals("Once a day", PromiseListCopy.habitAmount(false, 1, TIMES))
+        assertEquals("Photo check-in", PromiseListCopy.habitAmount(true, 1, "photo"))
+        assertEquals("Tap when done", PromiseListCopy.habitAmount(false, 1, HabitDraft.CHECK_IN))
+        assertEquals("1 time", plain(PromiseListCopy.goalAmount("Call grandma", 1, TIMES)))
+        assertEquals("Photo check-in", PromiseListCopy.goalAmount("Tidy room", null, null))
+        assertEquals("Tap when done", PromiseListCopy.goalAmount("Swim", null, null))
     }
 }
 

@@ -1704,6 +1704,158 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     but no habit preset, gets them. The delete confirm still names the goal by its name and days.
   - *Shared, not copied.* `AmountRow` and the unit chips moved out of Add a habit as internal
     composables with a test-tag prefix; Add a habit's tags are unchanged.
+- **Onboarding step 1: every day or some days a week (task #207, story #205).** Each ticked habit
+  has a how-often chip and sheet; "Start today" writes some-days habits as weekly goals.
+  - *Photo habits can be weekly, with no target (owner, 25 Nov 2026,
+    https://github.com/anujabbi/kept/issues/205#issuecomment-7176310008).* Weekly goals have no
+    photo proof, so Tidy room (or a custom habit with "Prove it with a photo") set to some days
+    a week becomes a weekly goal logged with one tap and with no target: "Tidy room, 2 days a
+    week". Its sheet summary reads the same.
+  - *Writes.* Continue on step 1 writes every-day habits only (`dailyHabitRows`); the weekly goals
+    are written on "Start today" (`WeeklyGoalRepository.replaceAll`), counting from that day. The camera
+    step still asks whenever any ticked habit is a photo habit, weekly or not.
+    `onboarding_completed`'s `habit_count` keeps counting every ticked row; no new analytics.
+  - *Same data as Settings.* A weekly goal from onboarding takes its icon from its name
+    (`HabitIconRules.forName`), as every weekly goal does, not the icon a custom habit picked.
+  - *Not in the issue.* At ten every-day habits a weekly habit's sheet turns "Every day" off and
+    shows `HabitLimits.LIMIT_REACHED`, the mirror of the three-goal limit; Exercise can still be
+    ticked as weekly then. "Some days a week" starts at the habit's own days, otherwise 3
+    (`WeeklyGoalRules.DEFAULT_DAYS`). Dismissing the sheet without Done keeps the cadence it opened
+    with. The chip sits under the habit's detail line, so a ticked row grows to fit its 48dp touch
+    target.
+  - *"Start today" replaces the weekly goals, it does not add them (review on #210).* If the
+    process dies after the goals are written but before onboarding is marked done, onboarding
+    runs again on the next launch; appending would add Exercise twice and, at three goals, drop
+    the rest at `MAX_GOALS`. `WeeklyGoalRepository.replaceAll` deactivates the active goals and
+    inserts the new ones in one Room transaction under the add lock, the same way
+    `HabitRepository.replaceAll` already treats daily habits. Replaced goals keep their rows and
+    sessions, as a removed goal's do.
+  - *`WeeklyGoalRepository.updateGoal` has no target defaults.* The #206 review noted a caller
+    passing only title and days would quietly erase the target; `targetValue` and `unit` are now
+    required (null, null still means no target), and every caller says which it means.
+- **One promise screen, roomier Home, shutdown after the lock step, time sliders (issue #218).**
+  - *Shutdown sliders keep the night 1 to 12 hours long.* 8 pm to 10 am would be 14 hours, which
+    `NightWindow` refuses. Moving one slider past 12 hours moves the other with it
+    (`NightSliders.pickFrom` / `pickUntil`): shutdown at 8 pm pulls "Phone back at" to 8 am at the
+    latest, and phone back at 10 am pushes shutdown to 10 pm at the earliest. The pair on screen
+    can always be saved.
+  - *Skip keeps the times.* Skip stores night lockdown off; Back to the step still shows the times
+    moved before Skip, and Continue then turns it on at them.
+  - *Midnight reads "Midnight" large and "midnight" in the sentence*, as the Settings row reads it.
+  - *Settings → Starts at* now has a "Set" button: a slider position is not saved until Set, where
+    a chip used to save on tap. A start that would make the night longer than 12 hours with the
+    saved end disables Set with the existing line, as the chips did. "Custom…" sits under the
+    slider and opens the clock dial as before. "Ends at" keeps the clock dial; the issue changes
+    only "Starts at".
+  - *The slider thumb is a 30dp round in a 48dp tall box* (Material's is 44dp tall), so every
+    slider is 48dp to touch. The labels under a slider shrink together at a large font on a
+    narrow screen rather than overlap.
+  - *Home's sky.* One compact sky for every habit count: Sprig 150dp on the right, the headline
+    column taking the rest of the row (220dp at 412), and the crest at 156dp under the status bar,
+    lower only when the headline block needs it. Sprig's top sits 100dp above the crest with
+    nothing done, so its face shows over the hill as in the mockup, and it rises 34dp (not the
+    design's 44) as habits are done, so its lower corners stay behind the hill when all are done.
+  - *One scroll.* Everything under the hill scrolls together; the 4+ habit layout no longer pins
+    "Today", "Last 7 days" or the shield. Rows stay roomy for 1 to 3 habits and compact from 4.
+    With no weekly goal the "Add a weekly goal" row still comes after the shield, as on the roomy
+    Home before.
+  - *The first-week line* sits under the card's title in the goal's first week whenever that week
+    asks for fewer days than the goal: "First week: 3 days left, so 3 this week", "1 day left, so
+    1 this week", and for a goal set on a Saturday "First week: no days left, so it starts Sunday"
+    (not in the issue). It shows all that week, not only on the day the goal was set.
+  - *The promise replaces three screens.* Onboarding's how-often sheet, its "Add your own" page
+    (Add a habit), Settings → Add/Edit habit and the weekly goal setup screen are gone; all of
+    them open `PromisePage`. The rules are `PromiseDraft`, `PromiseRules` and `PromiseLimits` in
+    `core/domain/Promise.kt`. The setup screen's day chips, quick picks, stepper and unit chips,
+    `WeeklyGoalDraft` and the sheet's copy went with them.
+  - *No photo switch.* The promise has no "Prove it with a photo" row: Tidy room is the photo
+    habit (no amount or unit blank, as decided on #205), and a saved photo habit opens and stays
+    a photo habit. A habit of one's own can no longer be made a photo habit.
+  - *Edit keeps its way out.* The mockups have no Remove: under Done an edit still offers "Remove
+    habit" (or the existing "Keep at least one habit…" line for the last one) and "Delete goal"
+    with its "Delete this weekly goal?" confirm. The lock-change confirms are unchanged; a save
+    held for one does not cheer or close until it is confirmed.
+  - *A saved habit stays daily and a saved goal weekly (out of scope in the issue).* The days list
+    still shows every choice, but the other kind is off with a line in the list: "A saved habit
+    stays every day." / "A saved weekly goal stays weekly." A goal saved at 7 days a week keeps
+    "7 days a week" on its list.
+  - *Where a new promise starts.* On the first activity (Exercise, Read, Practice, Study, Tidy
+    room) not already a habit or goal, with its amount; on an empty "Something else…" if all are.
+    From Habits it starts every day, from Weekly goals at 3 days a week (`DEFAULT_DAYS`). If that
+    choice is off (10 daily habits, or 3 goals) it opens on the other kind. "Add your own" in
+    onboarding opens on an empty "Something else…", every day.
+  - *Amounts and units.* A unit change starts at that unit's value (minutes 20, pages 10, times 1,
+    glasses 8), all on the lists. A saved amount not on its list (25 minutes, 12 pages) is added to
+    the list in order. A one-tap habit (unit "check-in") opens as "1 time" and saves as such.
+    One of a unit reads singular: "1 page", "1 time", "1 glass".
+  - *Typed activities.* The field takes up to 28 characters, as before. The saved name starts with
+    a capital ("walk the dog" is saved "Walk the dog"); the sentence lowers it as the weekly lock
+    copy does. Until something is typed the field shows "something" and Done is off. A saved
+    activity of one's own shows as a blank like the presets; picking "Something else…" turns it
+    into the field with its text. In onboarding Done is also off for the name of another ticked
+    habit, since onboarding keeps habits apart by name; picking a preset there renames the habit.
+  - *Done.* The habit or goal is saved on the tap; the page then keeps its text and its footer's
+    place (Done is hidden, not removed, so the sentence does not move), Sprig rises from the
+    bottom in the cheer pose and the page closes 1.5 s later. With reduce motion Sprig is simply
+    there for the same 1.5 s. Cancel and Back close without saving; Back first closes an open list.
+  - *"Your promise"* is in sentence case, not the mockup's capitals, as Daybreak never uses all
+    caps. The mockups' drag handle is left out: the page is not a sheet and cannot be dragged.
+  - *Found on the emulator walk, fixed before the PR.*
+    - Home on `kept_api35` has a 49dp status bar and a 24dp navigation bar, which the Robolectric
+      test did not have, and the weekly card ended under the tab bar. The headline now starts 16dp
+      under the status bar (was 22), the pill has 6dp under it (was 10), the page is lifted 24dp
+      into the sky's bottom edge (was 14, so the first row sits about 28dp under the crest, clear
+      of the hill's curve), and "This week" has 8dp above it (was 14). `HomeRoomTest` now counts
+      the emulator's bars.
+    - A compact row's detail on the right ("Today · 30 min" on the weekly card's row) split the
+      title inside a word at font 2.0 ("Exerci / se"); this was on `main` since #206. When the
+      title's longest word does not fit beside the detail, the detail now goes under the title
+      (`DaybreakHabitRow`, compact only). Rows where it fitted are unchanged.
+    - An open list hangs under the sentence and may cover Done, as the mockup's days list does;
+      it scrolls when it is taller than the room, and the limit line stays in view under it. A tap
+      outside the list closes it; that catcher is not in the TalkBack tree.
+- **Your promises: one list in Settings, with switching between every day and weekly (issue #236).**
+  Settings' Habits and Weekly goals rows are one row, "Your promises", whose value is the total and
+  whose line is "4 every day, 2 weekly" (both numbers always, so a 0 reads "4 every day, 0
+  weekly"). The page reuses onboarding's habit cards (`core/ui/PromiseCards.kt`: `PromiseCard`,
+  `CadenceChip`, `DashedAddRow`; onboarding now draws from the same composables). The Your habits
+  and Weekly goals screens and their routes are gone; Home's "add your first habit" row opens Your
+  promises. Choices the issue did not settle:
+  - *One order for both kinds.* Habits and goals share `sortOrder`, and a new one of either kind
+    goes after every active one of both. Schema 10 is schema 9 with a data migration
+    (`MIGRATION_9_10`): every weekly goal moves after the active habits, keeping its order among
+    goals, so an upgraded list reads as the two old screens did, habits first. Onboarding's
+    "Start today" writes its weekly goals after its habits, for the same reason.
+  - *The card is one button.* Tapping the card or its chip opens the promise; TalkBack reads the
+    card once, "Read, 10 pages, Every day", with the action "Change". The chip is not a second
+    button: both would open the same page, and two stops per card would double the swipes.
+  - *Amount line.* As onboarding's, without "tap when done": "10 pages", "30 min", "Once a day",
+    "Photo check-in"; a goal set before targets reads "Tap when done" (Tidy room "Photo check-in").
+  - *Both sides full.* With 10 habits and 3 goals the dashed Add row gives way to "That's the limit:
+    10 habits and 3 weekly goals. Remove one to add another.", as onboarding's Add your own gives
+    way to its limit line. With one side full, Add opens the promise with that side greyed out.
+  - *Every day → weekly.* The goal counts from the day the habit was set (today if the habit is
+    new today), not from today, so the switch week asks for the full target and Mon and Tue done,
+    switched on Wednesday to 4 days a week, reads "2 of 4" as the issue's example says. Counting
+    from today would cap the week at 3 (the first-week rule for a new goal). The days done this
+    week, Sunday to today, become logged sessions with their original times; earlier weeks are
+    not copied. A tick after the give-up time still carries, as it was done.
+  - *The last every-day habit cannot become weekly.* Home, the lock and onboarding all need one
+    every-day habit, as "Remove habit" already does; its weekly choices are greyed out with "Keep
+    at least one habit every day." New copy, in the existing limit line's place.
+  - *Weekly → every day* never opens the lock (the goal held it today, or nothing did; the habit
+    holds it until done), so it never asks. A session logged today makes today's tick, at the
+    session's time.
+  - *The lock confirm for every day → weekly* asks while the daily lock holds, the habit is not done
+    today, and today is not a must-do day for the new goal: "Your apps are locked right now.
+    Making this habit weekly can open them early. Still change it?", in the existing dialog with
+    "Change it anyway". It is reported as `settings_changed_during_lock` with
+    `setting = promise_switch`.
+  - *What a switch writes.* One Room transaction (`PromiseDao.habitToGoal` / `goalToHabit`, as
+    `WeeklyGoalDao.replaceActive`): the old row goes inactive with its entries, exactly as removing
+    it does, and a new row takes its place in the list with the edited name, amount and icon. A
+    switch that finds the other side full when it lands (two pages open at once) changes nothing.
+    History reads closed days, which a switch never touches.
 - **Sign in with Google, optional (story #193, feature #190).** No mockup; built on the existing
   step page and settings row patterns.
   - *Onboarding placement: first (owner decision, 2026-11-25).* The sign-in step is step 1 of 7,
@@ -1722,8 +1874,8 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     any other failure (a rejected key or token, no Google account) reads "Couldn't sign in. Try
     again in a moment." The plan used the connection line for every failure; an owner-reported
     run showed it blaming the connection for a rejected key. Each failure is logged under
-    `KeptAccount` with its cause. Settings: an "Account" group before History with the
-    one row, hint "Optional. Your habits stay on this phone.", and the error line under it.
+    `KeptAccount` with its cause. Settings: an "Account" group between "Reminders and privacy" and
+    History with the one row, hint "Optional. Your habits stay on this phone.", and the error line under it.
   - *The button.* Daybreak's secondary button (white, 2dp ink outline, fully round) with Google's
     unaltered four-colour G, which Google's guidelines allow for a custom button. The G's colours
     are Google's and live only in `GoogleMark`, not in the Daybreak tokens.
@@ -1742,10 +1894,10 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     `GOOGLE_WEB_CLIENT_ID` (defaults to the web client) come from the environment or the root
     `.env`, like PostHog. With no key there is no Supabase client: the app is signed out and
     tapping Sign in shows the error, without opening the Google sheet.
-  - *Goldens.* Changed because the step count went from 6 to 7 and the later steps moved up one (the progress bar only):
-    `onboarding_{habits,habits_limit,shutdown,shutdown_picked,lock_window,exceptions,
-    permissions_all,permissions_missing,ready}` and their `onboarding_360_*` twins. Changed
-    because signed-out Settings gains the Account group: `settings_settings_end` and
+  - *Goldens.* Changed because the step count went from 6 to 7 and the later steps moved up
+    one (the progress bar only): `onboarding_{habits,habits_limit,lock_window,shutdown,exceptions,
+    permissions_all,permissions_missing,ready,ready_weekly}` and their `onboarding_360_*` twins.
+    Changed because signed-out Settings gains the Account group: `settings_settings_end` and
     `settings_360_settings_end` at font 1.0 and 2.0. New: `onboarding_account`,
     `onboarding_account_error`, `onboarding_360_account_error_font2.0`,
     `settings_sign_in_error`. Every other golden is byte-identical to `main`.

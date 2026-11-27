@@ -70,7 +70,7 @@ internal fun WeeklySection(goals: List<WeeklyGoalWeek>, actions: HomeActions, mo
             WeeklyGoalCard(
                 id = g.id,
                 activity = g.goal.title,
-                card = WeeklyCard.of(g.goal.title, g.week, lockEndedToday, WeeklyGoalCopy.target(g.goal.targetValue, g.goal.unit)),
+                card = WeeklyCard.of(g.goal.title, g.week, lockEndedToday, WeeklyGoalCopy.target(g.goal.targetValue, g.goal.unit), g.goal.daysPerWeek),
                 onDone = { actions.onWeeklyDone(g.id) },
                 onUndo = { actions.onWeeklyUndo(g.id) },
             )
@@ -91,13 +91,22 @@ internal fun WeeklyGoalCard(id: Long, activity: String, card: WeeklyCard, onDone
             .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 14.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(
-            card.title,
-            Modifier.testTag("home_weekly_title_$id"),
-            style = DaybreakType.rowTitle.copy(fontSize = 17.sp, lineHeight = 22.sp),
-            fontWeight = FontWeight.ExtraBold,
-            color = D.ink,
-        )
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                card.title,
+                Modifier.testTag("home_weekly_title_$id"),
+                style = DaybreakType.rowTitle.copy(fontSize = 17.sp, lineHeight = 22.sp),
+                fontWeight = FontWeight.ExtraBold,
+                color = D.ink,
+            )
+            if (card.firstWeekLine != null) {
+                Text(
+                    card.firstWeekLine,
+                    Modifier.testTag("home_weekly_first_week_$id"),
+                    style = DaybreakType.caption, fontWeight = FontWeight.SemiBold, color = D.muted,
+                )
+            }
+        }
         if (card.segments > 0) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 repeat(card.segments) { i ->

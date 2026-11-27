@@ -71,6 +71,7 @@ object AppModule {
     @Provides fun galleryDao(db: KeptDatabase) = db.galleryDao()
     @Provides fun weeklyGoalDao(db: KeptDatabase) = db.weeklyGoalDao()
     @Provides fun weeklyGoalEntryDao(db: KeptDatabase) = db.weeklyGoalEntryDao()
+    @Provides fun promiseDao(db: KeptDatabase) = db.promiseDao()
 
     @Provides @Singleton
     fun recapNotifier(n: KeptNotifications): RecapNotifier = RecapNotifier { summary, unlocks -> n.recap(summary, unlocks) }

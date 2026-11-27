@@ -148,7 +148,7 @@ class WeeklyGoalMigrationTest {
 
         val db = upgrade()
 
-        assertEquals(9, db.version)
+        assertEquals(10, db.version)
         assertEquals(
             listOf("id", "title", "iconKey", "daysPerWeek", "isActive", "createdAt", "effectiveFrom", "sortOrder", "targetValue", "unit"), // the last two from schema 9 (story #205)
             db.columns("weekly_goals"),
@@ -209,7 +209,7 @@ class WeeklyGoalMigrationTest {
     fun anEmptyReleaseDatabaseUpgrades() {
         createReleaseDatabase {}
         val db = upgrade()
-        assertEquals(9, db.version)
+        assertEquals(10, db.version)
         assertEquals(0, db.count("weekly_goals"))
         assertEquals(0, db.count("habits"))
     }

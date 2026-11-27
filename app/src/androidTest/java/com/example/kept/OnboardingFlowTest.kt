@@ -3,9 +3,6 @@ package com.example.kept
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
-import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.assertIsNotSelected
-import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -16,6 +13,8 @@ import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.kept.core.data.HabitRepository
+import com.example.kept.core.data.WeeklyGoalRepository
+import kotlinx.coroutines.flow.first
 import com.example.kept.core.data.db.KeptDatabase
 import com.example.kept.core.data.prefs.KeptPreferences
 import com.example.kept.core.lock.Permissions
@@ -40,6 +39,7 @@ class OnboardingFlowTest {
     @Inject lateinit var db: KeptDatabase
     @Inject lateinit var prefs: KeptPreferences
     @Inject lateinit var habits: HabitRepository
+    @Inject lateinit var weekly: WeeklyGoalRepository
     @Inject lateinit var permissions: Permissions
 
     @Before fun setUp() { hilt.inject(); resetAppState(db, prefs) }
@@ -65,33 +65,26 @@ class OnboardingFlowTest {
             compose.onNodeWithTag("page_body").performScrollToNode(androidx.compose.ui.test.hasTestTag("onboarding_add_own"))
             compose.onNodeWithTag("onboarding_add_own").assertIsDisplayed()
             compose.onNodeWithTag("onboarding_habit_limit").assertDoesNotExist()
-            compose.onNodeWithTag("onboarding_habit_count").assertTextEquals("5 habits picked")
-            compose.onNodeWithTag("onboarding_next").performClick()          // habits -> shutdown time
-            // The shutdown page (#164): nothing picked, Continue held back until a row is.
-            waitForTag("onboarding_shutdown")
-            compose.onNodeWithContentDescription("Step 3 of 7").assertExists()
-            compose.onNodeWithText("Pick a shutdown time").assertIsDisplayed()
-            compose.onNodeWithText("A shutdown time helps you stop doomscrolling at night.").assertIsDisplayed()
-            listOf(1320 to "10 PM", 1380 to "11 PM", 0 to "Midnight").forEach { (minute, label) ->
-                compose.onNodeWithTag("onboarding_shutdown_$minute").assertIsNotSelected()
-                    .assertTextEquals(label, "Apps lock until 7:00 am. Phone, messages and maps still work.")
-            }
-            compose.onNodeWithTag("onboarding_next").assertIsNotEnabled()
-            compose.onNodeWithTag("onboarding_skip").assertTextEquals("Skip")
-            compose.onNodeWithTag("onboarding_shutdown_1380").performClick()
-            compose.onNodeWithTag("onboarding_shutdown_1380").assertIsSelected()
-            compose.onNodeWithTag("onboarding_next").assertIsEnabled().performClick()   // shutdown time -> lock window
+            // Exercise starts at 4 days a week (#205), so the footer counts it apart.
+            compose.onNodeWithTag("onboarding_habit_count").assertTextEquals("4 daily habits · 1 weekly goal")
+            compose.onNodeWithTag("onboarding_next").performClick()          // habits -> lock window
+            // The lock comes before the shutdown time (#218).
             waitForTag("onboarding_lock_window")
+            compose.onNodeWithContentDescription("Step 3 of 7").assertExists()
+            compose.onNodeWithTag("lock_from_value").assertTextEquals("7:00 am")
+            compose.onNodeWithTag("onboarding_next").performClick()          // lock window -> shutdown time
+            // The shutdown step (#164, #218): sliders at 11:00 pm to 7:00 am; Continue keeps them.
+            waitForTag("onboarding_shutdown")
             compose.onNodeWithContentDescription("Step 4 of 7").assertExists()
+            compose.onNodeWithText("Pick a shutdown time").assertIsDisplayed()
+            compose.onNodeWithTag("onboarding_skip").assertTextEquals("Skip")
             // Back keeps the choice, and nothing about night lockdown is stored before "Start today".
             compose.onNodeWithTag("page_back").performClick()
-            waitForTag("onboarding_shutdown")
-            compose.onNodeWithTag("onboarding_shutdown_1380").assertIsSelected()
+            waitForTag("onboarding_lock_window")
             assertFalse(runBlocking { prefs.currentSettings() }.nightLockEnabled)
             compose.onNodeWithTag("onboarding_next").performClick()
-            waitForTag("onboarding_lock_window")
-            compose.onNodeWithTag("lock_from_value").assertTextEquals("7:00\u00A0am")
-            compose.onNodeWithTag("onboarding_next").performClick()          // lock window -> exceptions
+            waitForTag("onboarding_shutdown")
+            compose.onNodeWithTag("onboarding_next").assertIsEnabled().performClick()   // shutdown time -> exceptions
             compose.waitUntil(5_000) { compose.onAllNodes(androidx.compose.ui.test.hasTestTag("onboarding_exceptions")).fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithContentDescription("Step 5 of 7").assertExists()
             compose.onNodeWithTag("onboarding_next").performClick()          // exceptions -> permissions
@@ -117,12 +110,16 @@ class OnboardingFlowTest {
             assertEquals(7 * 60, settings.lockFromMinute)
             assertEquals(21 * 60, settings.dueMinute)
             assertEquals(30, settings.breakDurationMin)
-            // 11 PM was picked on the shutdown page (#164): night lockdown on, 11:00 pm to 7:00 am.
+            // Continue on the shutdown step (#218): night lockdown on, 11:00 pm to 7:00 am.
             assertTrue(settings.nightLockEnabled)
             assertEquals(23 * 60, settings.nightFromMinute)
             assertEquals(7 * 60, settings.nightUntilMinute)
             val today = runBlocking { habits.today() }
-            assertEquals(5, today.total)
+            assertEquals(4, today.total)
+            // Exercise is a weekly goal carrying its target, not a daily habit (#205).
+            assertFalse(runBlocking { habits.observeHabits().first() }.any { it.title == "Exercise" })
+            val goal = runBlocking { weekly.observeGoals().first() }.single()
+            assertEquals(listOf("Exercise", "4", "30", "min"), listOf(goal.title, goal.daysPerWeek.toString(), goal.targetValue.toString(), goal.unit))
 
             // First landing (issue #41): the one-time card sits at the top of Home, and its
             // reminder line follows the live notifications grant rather than onboarding's answer.
@@ -150,7 +147,7 @@ class OnboardingFlowTest {
         }
     }
 
-    /** Skip on the shutdown page (#164) goes on to the lock window and leaves night lockdown off. */
+    /** Skip on the shutdown step (#164, #218) goes on to the exceptions and leaves night lockdown off. */
     @Test fun skipping_the_shutdown_time_leaves_night_lockdown_off() {
         ActivityScenario.launch(MainActivity::class.java).use {
             waitForTag("onboarding_welcome", 10_000)
@@ -158,13 +155,12 @@ class OnboardingFlowTest {
             waitForTag("onboarding_account")
             leaveAccountStep()                                               // sign in -> habits
             waitForTag("onboarding_habits")
-            compose.onNodeWithTag("onboarding_next").performClick()          // habits -> shutdown time
-            waitForTag("onboarding_shutdown")
-            compose.onNodeWithTag("onboarding_shutdown_1320").performClick()
-            compose.onNodeWithTag("onboarding_skip").performClick()          // Skip -> lock window
+            compose.onNodeWithTag("onboarding_next").performClick()          // habits -> lock window
             waitForTag("onboarding_lock_window")
+            compose.onNodeWithTag("onboarding_next").performClick()          // lock window -> shutdown time
+            waitForTag("onboarding_shutdown")
             compose.onNodeWithContentDescription("Step 4 of 7").assertExists()
-            compose.onNodeWithTag("onboarding_next").performClick()          // lock window -> exceptions
+            compose.onNodeWithTag("onboarding_skip").performClick()          // Skip -> exceptions
             waitForTag("onboarding_exceptions")
             compose.onNodeWithTag("onboarding_next").performClick()          // exceptions -> permissions
             waitForTag("onboarding_permissions")

@@ -5,7 +5,7 @@ import kotlin.math.floor
 import kotlin.math.sqrt
 
 /**
- * Onboarding step 4, "When does the lock run?" (`A11-Onb-Rule`): the lock window on a 6 am to
+ * Onboarding step 3, "When does the lock run?" (`A11-Onb-Rule`): the lock window on a 6 am to
  * midnight bar, moved with − / + in 30 minute steps. The rules are the design script's, in
  * minutes of the day: the start never goes before 6:00 am, give-up never after 11:30 pm, and
  * give-up stays at least two hours after the start.
@@ -62,15 +62,34 @@ object OnboardingCopy {
     const val WELCOME_CAPTION = "This is Sprig. It grows every day you keep your promise."
 
     // Habits (A10)
-    const val HABITS_TITLE = "What will you do every day?"
+    const val HABITS_TITLE = "What habits will you keep?"
     const val HABITS_LINE = "Pick two or three. You can change them later."
     const val ADD_YOUR_OWN = "Add your own"
 
-    fun habitsPicked(n: Int): String = when (n) {
-        0 -> "Pick at least one"
-        1 -> "1 habit picked"
-        else -> "$n habits picked"
+    // How often (#205): the chip on a ticked row, which opens the habit's promise (#218).
+    const val EVERY_DAY = "Every day"
+    const val CHANGE_HOW_OFTEN = "Change how often"
+    const val NEEDS_DAILY = "Set one habit to every day to continue."
+
+    /** A chip: "Every day", or "4 days a week" ([WeeklyGoalCopy.days]) for [days] a week. */
+    fun cadence(days: Int?): String = if (days == null) EVERY_DAY else WeeklyGoalCopy.days(days)
+
+    /** What TalkBack reads on a chip: "Exercise, 4 days a week. Change how often". */
+    fun cadenceDescription(title: String, days: Int?): String =
+        "$title, ${if (days == null) "every day" else WeeklyGoalCopy.days(days)}. $CHANGE_HOW_OFTEN"
+
+    /**
+     * Under Continue: "2 daily habits", "1 daily habit · 1 weekly goal"; "Pick at least one" with
+     * nothing ticked, and [NEEDS_DAILY] when every ticked habit is weekly.
+     */
+    fun habitsFooter(daily: Int, weekly: Int): String = when {
+        daily == 0 && weekly == 0 -> "Pick at least one"
+        daily == 0 -> NEEDS_DAILY
+        weekly == 0 -> dailyCount(daily)
+        else -> "${dailyCount(daily)} · $weekly weekly ${if (weekly == 1) "goal" else "goals"}"
     }
+
+    private fun dailyCount(n: Int) = "$n daily ${if (n == 1) "habit" else "habits"}"
 
     /** A habit row's second line: "30 min", "10 pages", "Photo check-in", "Tap when done". */
     fun habitDetail(proof: ProofType, target: Int, unit: String): String = when {
@@ -79,20 +98,10 @@ object OnboardingCopy {
         else -> "$target $unit"
     }
 
-    // Shutdown time (#164; no mockup, built on the step page like A10 and A11)
+    // Shutdown time (#164, #218): after the lock window, with Sprig's note and two sliders.
     const val SHUTDOWN_TITLE = "Pick a shutdown time"
-    const val SHUTDOWN_LINE = "A shutdown time helps you stop doomscrolling at night."
-    const val SHUTDOWN_DETAIL = "Apps lock until 7:00 am. Phone, messages and maps still work."
+    const val SHUTDOWN_LINE = "Sprig highly recommends a shutdown time, so your phone doesn't eat into your sleep."
     const val SKIP = "Skip"
-
-    /** The starts the shutdown step offers, as minutes of the day: 10 PM, 11 PM, Midnight. */
-    val SHUTDOWN_TIMES: List<Int> = NightWindow.PRESETS
-
-    /** A shutdown row's title: "10 PM", "11 PM", "Midnight" (minute 0). */
-    fun shutdownLabel(minute: Int): String = when {
-        minute == 0 -> SettingsCopy.MIDNIGHT
-        else -> "${(minute / 60 + 11) % 12 + 1} ${if (minute < 12 * 60) "AM" else "PM"}"
-    }
 
     // Lock window (A11)
     const val RULE_TITLE = "When does the lock run?"
@@ -146,6 +155,9 @@ object OnboardingCopy {
     const val RULE_BREAKS = " It takes a 60-second wait and costs Sprig a level. After three breaks in a week, the day is written off."
     const val RULE_SHIELD_BOLD = "One shield a week"
     const val RULE_SHIELD = " forgives a missed day. Everything else is on you."
+    /** Only when a weekly goal was chosen (#205). */
+    const val RULE_WEEKLY_BOLD = "Weekly goals lock only when you'd fall behind."
+    const val RULE_WEEKLY = " On other days you can skip them."
     const val START_TODAY = "Start today"
     const val STARTING = "Starting…"
 

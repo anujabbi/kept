@@ -11,7 +11,6 @@ class SettingsLayoutTest {
     private fun plain(s: String) = s.replace(SettingsCopy.NBSP, ' ')
 
     @Test fun row_values_read_as_in_the_design() {
-        assertEquals("6", SettingsCopy.habits(6))
         assertEquals("7:00 am", plain(SettingsCopy.time(7 * 60)))
         assertEquals("9:00 pm", plain(SettingsCopy.time(21 * 60)))
         assertEquals("2 apps", plain(SettingsCopy.exceptions(2)))

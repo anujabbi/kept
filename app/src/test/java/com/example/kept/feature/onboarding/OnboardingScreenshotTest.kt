@@ -26,11 +26,12 @@ class OnboardingScreenshotTest {
     @Test fun welcome_font2() = shots.shot("welcome", 2f)
     @Test fun habits() = shots.shot("habits", 1f)
     @Test fun habits_font2() = shots.shot("habits", 2f)
+    @Test fun promise() = shots.shot("promise", 1f)
+    @Test fun promise_font2() = shots.shot("promise", 2f)
     @Test fun habitsLimit() = shots.shot("habits_limit", 1f)
     @Test fun habitsLimit_font2() = shots.shot("habits_limit", 2f)
     @Test fun shutdown() = shots.shot("shutdown", 1f)
-    @Test fun shutdownPicked() = shots.shot("shutdown_picked", 1f)
-    @Test fun shutdownPicked_font2() = shots.shot("shutdown_picked", 2f)
+    @Test fun shutdown_font2() = shots.shot("shutdown", 2f)
     @Test fun lockWindow() = shots.shot("lock_window", 1f)
     @Test fun lockWindow_font2() = shots.shot("lock_window", 2f)
     @Test fun exceptions() = shots.shot("exceptions", 1f)
@@ -44,6 +45,8 @@ class OnboardingScreenshotTest {
     @Test fun accountError() = shots.shot("account_error", 1f)
     @Test fun ready() = shots.shot("ready", 1f)
     @Test fun ready_font2() = shots.shot("ready", 2f)
+    @Test fun readyWeekly() = shots.shot("ready_weekly", 1f)
+    @Test fun readyWeekly_font2() = shots.shot("ready_weekly", 2f)
 
     @Test fun everyStateFits() = shots.everyStateFits()
 }

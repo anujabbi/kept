@@ -12,7 +12,6 @@ object SettingsCopy {
     const val TITLE = "Settings"
 
     const val GROUP_PROMISE = "Your promise"
-    const val HABITS = "Habits"
     const val LOCK_FROM = "Lock apps from"
     const val GIVE_UP = "Give-up time"
     const val GIVE_UP_HINT = "After this, apps open and the day is missed"
@@ -62,9 +61,6 @@ object SettingsCopy {
 
     /** The break lengths the editor offers, in minutes. */
     val BREAK_LENGTHS = listOf(15, 30, 60)
-
-    /** Habits row value: the count alone. */
-    fun habits(n: Int): String = n.toString()
 
     /** "7:00 am", with a no-break space so the time never wraps. */
     fun time(minute: Int): String = minute.minuteOfDayLabel().replace(' ', NBSP)

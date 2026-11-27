@@ -86,6 +86,23 @@ class OnboardingLayoutTest {
         assertEquals("Tap when done", OnboardingCopy.habitDetail(ProofType.MANUAL, 1, "check-in"))
     }
 
+    @Test fun `how often copy reads as the plan on 205`() {
+        assertEquals("What habits will you keep?", OnboardingCopy.HABITS_TITLE)
+        assertEquals("Every day", OnboardingCopy.cadence(null))
+        assertEquals("4 days a week", OnboardingCopy.cadence(4))
+        assertEquals("Exercise, 4 days a week. Change how often", OnboardingCopy.cadenceDescription("Exercise", 4))
+        assertEquals("Read, every day. Change how often", OnboardingCopy.cadenceDescription("Read", null))
+    }
+
+    @Test fun `the footer counts daily habits and weekly goals apart`() {
+        assertEquals("Pick at least one", OnboardingCopy.habitsFooter(0, 0))
+        assertEquals("Set one habit to every day to continue.", OnboardingCopy.habitsFooter(0, 2))
+        assertEquals("1 daily habit", OnboardingCopy.habitsFooter(1, 0))
+        assertEquals("2 daily habits", OnboardingCopy.habitsFooter(2, 0))
+        assertEquals("1 daily habit · 1 weekly goal", OnboardingCopy.habitsFooter(1, 1))
+        assertEquals("2 daily habits · 3 weekly goals", OnboardingCopy.habitsFooter(2, 3))
+    }
+
     @Test fun `exceptions count line`() {
         assertEquals("Everything locks", OnboardingCopy.appsOpen(0))
         assertEquals("1 app stays open", OnboardingCopy.appsOpen(1))

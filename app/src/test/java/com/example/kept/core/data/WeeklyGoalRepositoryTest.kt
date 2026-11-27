@@ -126,7 +126,7 @@ class WeeklyGoalRepositoryTest {
         assertEquals(3, before.needed)
         assertTrue(before.isMustDay)
 
-        assertTrue(goals.updateGoal(id, "Read", 2))
+        assertTrue(goals.updateGoal(id, "Read", 2, null, null))
 
         val after = week(id)
         assertEquals(2, after.target)
@@ -138,7 +138,7 @@ class WeeklyGoalRepositoryTest {
         assertEquals("Read", goal.title)
         assertEquals("book", goal.iconKey)
         assertEquals("the start date does not move", "2026-11-16", goal.effectiveFrom)
-        assertFalse(goals.updateGoal(id + 99, "Read", 2))
+        assertFalse(goals.updateGoal(id + 99, "Read", 2, null, null))
     }
 
     // --- the target (story #205, task #206) ----------------------------------------------------
@@ -188,7 +188,7 @@ class WeeklyGoalRepositoryTest {
     @Test fun an_edit_that_loses_to_a_remove_does_not_bring_the_goal_back() = runBlocking {
         val id = goals.addGoal("Exercise", 4)!!
         val racing = RemovedOnRead(db.weeklyGoalDao())
-        val edited = WeeklyGoalRepository(racing, db.weeklyGoalEntryDao(), time).updateGoal(id, "Read", 2)
+        val edited = WeeklyGoalRepository(racing, db.weeklyGoalEntryDao(), time).updateGoal(id, "Read", 2, null, null)
         val row = db.weeklyGoalDao().byId(id)!!
         if (racing.removed) {
             assertFalse("the removed goal is active again", row.isActive)
@@ -204,7 +204,7 @@ class WeeklyGoalRepositoryTest {
         val first = goals.addGoal("Exercise", 4)!!
         goals.removeGoal(first)
         repeat(WeeklyGoalRules.MAX_GOALS) { goals.addGoal("Goal $it", 3) }
-        assertFalse(goals.updateGoal(first, "Read", 2))
+        assertFalse(goals.updateGoal(first, "Read", 2, null, null))
         val row = db.weeklyGoalDao().byId(first)!!
         assertFalse(row.isActive)
         assertEquals("a removed goal keeps what it was", "Exercise", row.title)
@@ -217,7 +217,7 @@ class WeeklyGoalRepositoryTest {
         repeat(40) { round ->
             val id = goals.addGoal("Round $round", 3)!!
             listOf(
-                async(Dispatchers.IO) { goals.updateGoal(id, "Edited $round", 5) },
+                async(Dispatchers.IO) { goals.updateGoal(id, "Edited $round", 5, null, null) },
                 async(Dispatchers.IO) { goals.removeGoal(id) },
             ).awaitAll()
             assertFalse("round $round: the removed goal is active", db.weeklyGoalDao().byId(id)!!.isActive)
@@ -229,7 +229,7 @@ class WeeklyGoalRepositoryTest {
         val a = goals.addGoal("Exercise", 4)!!
         val b = goals.addGoal("Study", 2)!!
         val before = db.weeklyGoalDao().byId(b)!!
-        assertTrue(goals.updateGoal(b, "  Tidy room ", 6))
+        assertTrue(goals.updateGoal(b, "  Tidy room ", 6, null, null))
         assertEquals(before.copy(title = "Tidy room", iconKey = "tidy", daysPerWeek = 6), db.weeklyGoalDao().byId(b))
         assertEquals("the other goal is untouched", "Exercise", db.weeklyGoalDao().byId(a)!!.title)
     }

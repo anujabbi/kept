@@ -35,6 +35,13 @@ first bug. Treat a review ask or a QA failure on your card as a defect in your o
    (`docs/em/2026-11-22.md`) removed 223 tests that broke this rule.
 7. Make it pass with the smallest change that meets the acceptance list. Follow the module
    layout in `README.md`. If you depart from the issue or the spec, add a line to `DECISIONS.md`.
+   Some trade-offs cost the user something they can see: a control is hidden or dropped, or
+   something the user needs moves below the fold, or the build looks different from the
+   planner's mockups in a way a user would notice. For those, a `DECISIONS.md` line is not
+   enough. Also list the trade-off in the PR body under **For the owner**, in one line each.
+   QA files each one as a `usability` card. #174 put the weekly add row half below the fold;
+   #206 hid the unit chips for preset weekly goals. Both were recorded, approved, and found
+   later by the owner.
 8. Self-verify, all of it, before anything else:
    - `./gradlew testDebugUnitTest` green.
    - `./gradlew assembleDebug` green.

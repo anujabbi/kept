@@ -15,6 +15,7 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.text.TextLayoutResult
 import com.example.kept.core.domain.HillEdge
 import com.example.kept.core.domain.LockWindowRules
+import com.example.kept.core.domain.NightSetting
 import com.example.kept.core.domain.ProofType
 import com.example.kept.core.domain.SignInUi
 import com.example.kept.core.lock.InstalledApp
@@ -40,16 +41,16 @@ object OnboardingFixtures {
     /** Step 1 as it opens: Exercise and Read picked. */
     val habits = OnboardingState(step = OnboardingStep.HABITS)
 
-    /** Ten picked: every preset and five of their own. */
+    /** Ten every-day habits: every preset but Exercise (4 days a week) and six of their own. */
     val habitsAtLimit = OnboardingState(
         step = OnboardingStep.HABITS,
-        chosen = HabitTemplates.list + (1..5).map { HabitTemplate("Own habit $it", "star", ProofType.MANUAL, 5, "min") },
+        chosen = HabitTemplates.list + (1..6).map { HabitTemplate("Own habit $it", "star", ProofType.MANUAL, 5, "min") },
     )
 
     val window = LockWindowRules.Window(7 * 60, 21 * 60)
 
-    /** The shutdown step with 10 PM picked: the first row, so it shows at font 2.0 on a small screen too. */
-    const val SHUTDOWN_PICKED = 22 * 60
+    /** Exercise's promise as its chip opens it: "I will exercise for 30 minutes, 4 days a week." */
+    val promise = OnboardingFlow.openPromise(habits, "Exercise")
 
     /** The design's permissions state: usage access and notifications on, overlay missing. */
     val oneRequiredMissing: (PermissionKind) -> Boolean = { it == PermissionKind.USAGE_ACCESS || it == PermissionKind.NOTIFICATIONS }
@@ -60,18 +61,18 @@ object OnboardingFixtures {
 /** Every screen the issue lists, by golden name. */
 val onboardingScreens: List<Pair<String, @Composable () -> Unit>> = listOf(
     "welcome" to { WelcomeStep(onStart = {}) },
-    "habits" to { HabitsStep(OnboardingFixtures.habits, {}, {}, {}, {}) },
-    "habits_limit" to { HabitsStep(OnboardingFixtures.habitsAtLimit, {}, {}, {}, {}) },
-    "add_habit" to { AddHabitPage(onBack = {}, onSave = {}) },
-    "shutdown" to { ShutdownStep(null, {}, {}, {}, {}) },
-    "shutdown_picked" to { ShutdownStep(OnboardingFixtures.SHUTDOWN_PICKED, {}, {}, {}, {}) },
+    "habits" to { HabitsStep(OnboardingFixtures.habits, {}, {}, {}, {}, {}) },
+    "habits_limit" to { HabitsStep(OnboardingFixtures.habitsAtLimit, {}, {}, {}, {}, {}) },
+    "promise" to { OnboardingPromisePage(OnboardingFixtures.promise, {}, {}) },
+    "shutdown" to { ShutdownStep(NightSetting(enabled = true), {}, {}, {}, {}, {}) },
     "lock_window" to { LockWindowStep(OnboardingFixtures.window, {}, {}, {}) },
     "exceptions" to { ExceptionsContent(BodyMode.ONBOARDING, emptyList(), OnboardingFixtures.apps, "", {}, { _, _ -> }, {}, {}) },
     "permissions_missing" to { permissions(BodyMode.ONBOARDING, OnboardingFixtures.oneRequiredMissing) },
     "permissions_all" to { permissions(BodyMode.ONBOARDING, OnboardingFixtures.allGranted) },
     "account" to { AccountStep(SignInUi.Idle, null, {}, {}, {}, {}) },
     "account_error" to { AccountStep(SignInUi.failed(cancelled = false, offline = true), null, {}, {}, {}, {}) },
-    "ready" to { ReadyStep(saving = false, onBack = {}, onStart = {}) },
+    "ready" to { ReadyStep(saving = false, hasWeeklyGoal = false, onBack = {}, onStart = {}) },
+    "ready_weekly" to { ReadyStep(saving = false, hasWeeklyGoal = true, onBack = {}, onStart = {}) },
     "exceptions_settings" to { ExceptionsContent(BodyMode.SETTINGS, emptyList(), OnboardingFixtures.apps, "", {}, { _, _ -> }, {}, {}) },
     "permissions_settings" to { permissions(BodyMode.SETTINGS, OnboardingFixtures.oneRequiredMissing) },
 )
@@ -129,7 +130,7 @@ class OnboardingShots(private val rule: ComposeContentTestRule, private val pref
     }
 
     /**
-     * At font 1.0, 1.3 and 2.0: headlines never split inside a word; on Welcome and step 7 Sprig
+     * At font 1.0, 1.3 and 2.0: headlines never split inside a word; on Welcome and step 6 Sprig
      * touches no text and its lower body is behind the hill; the welcome text ends above the
      * crest; each step's footer button is on screen, not under the bottom edge.
      */
@@ -159,11 +160,20 @@ class OnboardingShots(private val rule: ComposeContentTestRule, private val pref
                     assertTrue("$at: the title runs into the hill", bounds("ready_title").bottom <= bounds("ready_crest", unmerged = true).top)
                     assertOnScreen(at, "onboarding_finish")
                 }
+                "promise" -> assertOnScreen(at, "promise_done")
+                "ready_weekly" -> assertOnScreen(at, "onboarding_finish")
                 else -> {
                     assertNoWordSplit(rule, "page_title", at)
                     if (name.startsWith("account")) assertOnScreen(at, "account_sign_in")
-                    else if (name != "add_habit" && !name.endsWith("_settings")) assertOnScreen(at, "onboarding_next")
+                    else if (!name.endsWith("_settings")) assertOnScreen(at, "onboarding_next")
                     if (name.startsWith("shutdown") || name.startsWith("account")) assertOnScreen(at, "onboarding_skip")
+                }
+            }
+            if (name == "shutdown") {
+                for (t in listOf("shutdown_from_time", "shutdown_until_time")) {
+                    rule.onNodeWithTag("page_body").performScrollToNode(hasTestTag(t))
+                    rule.waitForIdle()
+                    assertTrue("$at: $t wraps", layout(t).lineCount == 1)
                 }
             }
             if (name == "lock_window") {

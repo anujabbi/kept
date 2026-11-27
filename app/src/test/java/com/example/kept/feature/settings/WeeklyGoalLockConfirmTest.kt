@@ -16,18 +16,20 @@ import com.example.kept.core.analytics.Analytics
 import com.example.kept.core.data.DayRepository
 import com.example.kept.core.data.HabitRepository
 import com.example.kept.core.data.LockRepository
+import com.example.kept.core.data.PromiseRepository
 import com.example.kept.core.data.SprigRepository
 import com.example.kept.core.data.TimeSource
 import com.example.kept.core.data.WeeklyGoalRepository
-import com.example.kept.core.data.account.IdTokenResult
-import com.example.kept.core.data.account.SupabaseAccountRepository
+import com.example.kept.core.data.account.NoAccount
 import com.example.kept.core.data.db.KeptDatabase
 import com.example.kept.core.data.db.WeeklyGoalEntity
 import com.example.kept.core.data.prefs.KeptPreferences
 import com.example.kept.core.di.drainAndCancel
 import com.example.kept.core.domain.LockPolicy
 import com.example.kept.core.domain.ProofType
-import com.example.kept.core.domain.WeeklyGoalDraft
+import com.example.kept.core.domain.PromiseDraft
+import com.example.kept.core.domain.PromiseLimits
+import com.example.kept.core.domain.PromiseRules
 import com.example.kept.core.domain.WeeklyGoalLockEdit
 import com.example.kept.core.lock.AllowlistResolver
 import com.example.kept.core.lock.InstalledAppsSource
@@ -106,7 +108,7 @@ class WeeklyGoalLockConfirmTest {
             SettingsViewModel(
                 ctx, prefs, habits, lock, sprig, DayRepository(db.dayRecordDao(), time), InstalledAppsSource(ctx), AllowlistResolver(ctx),
                 WorkScheduler(ctx, prefs, time), ReminderPoster(habits, prefs, KeptNotifications(ctx), time), time, Permissions(ctx), analytics,
-                SupabaseAccountRepository(null, { _, _ -> IdTokenResult.Cancelled }, scope), scope,
+                PromiseRepository(db.promiseDao(), habits, time), NoAccount, scope,
             )
         }
     }
@@ -142,6 +144,8 @@ class WeeklyGoalLockConfirmTest {
         val end = System.currentTimeMillis() + 10_000
         while (!done()) {
             shadowOf(Looper.getMainLooper()).idle()
+            // Sprig's cheer after a save runs on the compose clock before the page closes.
+            rule.mainClock.advanceTimeBy(100)
             rule.waitForIdle()
             assertTrue("timed out waiting for $what", System.currentTimeMillis() < end)
             Thread.sleep(10)
@@ -158,15 +162,23 @@ class WeeklyGoalLockConfirmTest {
                 if (closed == 0) WeeklyGoalEditScreen(goalId, onClose = { closed++ }, vm = goals, settings = settings)
             }
         }
-        await("the edit page") { rule.onAllNodes(androidx.compose.ui.test.hasTestTag("goal_save")).fetchSemanticsNodes().isNotEmpty() }
+        await("the edit page") { rule.onAllNodes(androidx.compose.ui.test.hasTestTag("promise_done")).fetchSemanticsNodes().isNotEmpty() }
         await("the lock hold") { settings.lockHold.value.weeklyGoalHolds(goalId) == expectHeld }
     }
+
+    /** Opens the days list and picks [n] a week, as a tap on "4 days a week" and then on the choice. */
+    private fun pickDays(n: Int) {
+        rule.onNodeWithTag("promise_blank_days").performClick()
+        rule.onNodeWithTag("promise_option_days_$n").performClick()
+    }
+
+    private fun done() = rule.onNodeWithTag("promise_done").performClick()
 
     @Test fun `4 to 2 while the goal holds the lock asks first, and cancel keeps the target and the lock`() {
         assertTrue(locked())
         showEdit(expectHeld = true)
-        rule.onNodeWithTag("goal_day_2").performClick()
-        rule.onNodeWithTag("goal_save").performClick()
+        pickDays(2)
+        done()
         rule.onNodeWithText("Apps are locked right now").assertExists()
         rule.onNodeWithText(WeeklyGoalLockEdit.LOWER_WHILE_LOCKED).assertExists()
         assertEquals("nothing is saved before the answer", 4, days())
@@ -178,20 +190,20 @@ class WeeklyGoalLockConfirmTest {
         assertEquals("the page stays open and usable", 0, closed)
         assertTrue(lockEvents().isEmpty())
         // Asked again, and this time confirmed.
-        rule.onNodeWithTag("goal_save").performClick()
+        done()
         rule.onNodeWithText(WeeklyGoalLockEdit.LOWER_WHILE_LOCKED).assertExists()
         rule.onNodeWithTag("change_anyway").performClick()
         await("the save") { days() == 2 }
         assertFalse("needs 2 with 4 days left: the lock lifts", locked())
-        assertEquals(1, closed)
+        await("the page to close") { closed == 1 }
         assertEquals(listOf<Any?>("weekly_goal"), lockEvents())
     }
 
     @Test fun `7 to 5 asks too, and confirming keeps the lock because 5 are still needed in 4 days`() {
-        runBlocking { weekly.updateGoal(goalId, "Exercise", 7) }
+        runBlocking { weekly.updateGoal(goalId, "Exercise", 7, null, null) }
         showEdit(expectHeld = true)
-        rule.onNodeWithTag("goal_day_5").performClick()
-        rule.onNodeWithTag("goal_save").performClick()
+        pickDays(5)
+        done()
         rule.onNodeWithText(WeeklyGoalLockEdit.LOWER_WHILE_LOCKED).assertExists()
         rule.onNodeWithTag("change_anyway").performClick()
         await("the save") { days() == 5 }
@@ -200,7 +212,7 @@ class WeeklyGoalLockConfirmTest {
 
     @Test fun `deleting the goal while it holds the lock asks the same way, once`() {
         showEdit(expectHeld = true)
-        rule.onNodeWithTag("goal_delete").performClick()
+        rule.onNodeWithTag("promise_remove").performClick()
         rule.onNodeWithText("Apps are locked right now").assertExists()
         rule.onNodeWithText(WeeklyGoalLockEdit.DELETE_WHILE_LOCKED).assertExists()
         rule.onNodeWithText("Delete this weekly goal?").assertDoesNotExist()
@@ -209,31 +221,31 @@ class WeeklyGoalLockConfirmTest {
         assertTrue(active())
         assertTrue(locked())
         assertEquals(0, closed)
-        rule.onNodeWithTag("goal_delete").performClick()
+        rule.onNodeWithTag("promise_remove").performClick()
         rule.onNodeWithTag("change_anyway").performClick()
         await("the delete") { !active() }
         assertFalse(locked())
-        assertEquals(1, closed)
+        await("the page to close") { closed == 1 }
         assertEquals(listOf<Any?>("weekly_goal"), lockEvents())
     }
 
     @Test fun `raising the target or renaming the goal asks nothing even while it holds the lock`() {
         showEdit(expectHeld = true)
-        rule.onNodeWithTag("goal_day_6").performClick()
-        rule.onNodeWithTag("goal_save").performClick()
+        pickDays(6)
+        done()
         rule.onNodeWithText("Apps are locked right now").assertDoesNotExist()
         await("the save") { days() == 6 }
-        assertEquals(1, closed)
+        await("the page to close") { closed == 1 }
         assertTrue(locked())
         assertTrue(lockEvents().isEmpty())
     }
 
     @Test fun `raising a target so today becomes must-do locks with no confirm`() {
-        runBlocking { weekly.updateGoal(goalId, "Exercise", 2) }
+        runBlocking { weekly.updateGoal(goalId, "Exercise", 2, null, null) }
         assertFalse(locked())
         showEdit(expectHeld = false)
-        rule.onNodeWithTag("goal_day_4").performClick()
-        rule.onNodeWithTag("goal_save").performClick()
+        pickDays(4)
+        done()
         rule.onNodeWithText("Apps are locked right now").assertDoesNotExist()
         await("the save") { days() == 4 }
         assertTrue("the lock is on from the next tick", locked())
@@ -244,12 +256,12 @@ class WeeklyGoalLockConfirmTest {
         runBlocking { weekly.logToday(goalId) }
         assertFalse(locked())
         showEdit(expectHeld = false)
-        rule.onNodeWithTag("goal_delete").performClick()
+        rule.onNodeWithTag("promise_remove").performClick()
         rule.onNodeWithText("Apps are locked right now").assertDoesNotExist()
         rule.onNodeWithText("Delete this weekly goal?").assertExists()
         rule.onNodeWithTag("goal_delete_cancel").performClick()
-        rule.onNodeWithTag("goal_day_2").performClick()
-        rule.onNodeWithTag("goal_save").performClick()
+        pickDays(2)
+        done()
         rule.onNodeWithText("Apps are locked right now").assertDoesNotExist()
         await("the save") { days() == 2 }
         assertTrue(lockEvents().isEmpty())
@@ -259,8 +271,8 @@ class WeeklyGoalLockConfirmTest {
         clock.now = Instant.parse("2026-11-25T21:30:00Z")
         assertFalse(locked())
         showEdit(expectHeld = false)
-        rule.onNodeWithTag("goal_day_2").performClick()
-        rule.onNodeWithTag("goal_save").performClick()
+        pickDays(2)
+        done()
         rule.onNodeWithText("Apps are locked right now").assertDoesNotExist()
         await("the save") { days() == 2 }
     }
@@ -269,7 +281,7 @@ class WeeklyGoalLockConfirmTest {
         showEdit(expectHeld = true)
         runBlocking { weekly.removeGoal(goalId) }
         await("the page to close") { closed == 1 }
-        assertFalse(runBlocking { weekly.updateGoal(goalId, "Exercise", 2) })
+        assertFalse(runBlocking { weekly.updateGoal(goalId, "Exercise", 2, null, null) })
         assertEquals(4, days())
         assertNull(settings.pendingLockChange.value)
     }
@@ -283,17 +295,16 @@ class WeeklyGoalLockConfirmTest {
     }
 
     @Test fun `a held save does not latch the page - the draft passed on is the one on screen`() {
-        var asked = 0
-        val saved = mutableListOf<WeeklyGoalDraft>()
+        val asked = mutableListOf<PromiseDraft>()
+        var closedPage = 0
         rule.setContent {
-            Shot { WeeklyGoalEditPage(WeeklyGoalDraft("Exercise", 4), onClose = {}, onSave = { saved += it; asked++ }, onDelete = { asked++ }, asksFirst = { true }) }
+            Shot { PromisePage(PromiseRules.ofGoal("Exercise", 4, 30, "min"), PromiseLimits.savedGoal(daily = 1), onDone = { d, _ -> asked += d }, onClose = { closedPage++ }) }
         }
-        rule.onNodeWithTag("goal_day_2").performClick()
-        rule.onNodeWithTag("goal_save").performClick()
-        rule.onNodeWithTag("goal_save").performClick()
-        assertEquals("each tap asks again: the confirm may have been cancelled", listOf(WeeklyGoalDraft("Exercise", 2), WeeklyGoalDraft("Exercise", 2)), saved)
-        rule.onNodeWithTag("goal_delete").performClick()
-        rule.onNodeWithText("Delete this weekly goal?").assertDoesNotExist()
-        assertEquals(3, asked)
+        pickDays(2)
+        done()
+        done()
+        assertEquals("each tap asks again: the confirm may have been cancelled", listOf(2, 2), asked.map { it.days })
+        rule.onNodeWithTag("promise_sprig").assertDoesNotExist()
+        assertEquals(0, closedPage)
     }
 }

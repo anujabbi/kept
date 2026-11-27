@@ -169,4 +169,23 @@ class WeeklyGoalCardTest {
         assertEquals("the title keeps its cadence", "Exercise · 0 of 4 this week", card(4, day(3), goalTarget = "30 min").title.replace(WeeklyCardCopy.NBSP, ' '))
         assertEquals("Today", WeeklyCardCopy.todayRow(null))
     }
+
+    // --- the first week (#218) -------------------------------------------------------------------
+
+    private fun firstWeek(days: Int, setOn: LocalDate, today: LocalDate = setOn) =
+        WeeklyCard.of("Exercise", WeeklyGoalRules.week(WeeklyGoalRules.Goal(days, setOn), emptySet(), today), daysPerWeek = days).firstWeekLine?.replace(WeeklyCardCopy.NBSP, ' ')
+
+    @Test fun `a goal set mid-week says how many days are left and what this week asks`() {
+        assertEquals("First week: 3 days left, so 3 this week", firstWeek(4, day(3)))
+        assertEquals("First week: 1 day left, so 1 this week", firstWeek(4, day(5)))
+        assertEquals("First week: no days left, so it starts Sunday", firstWeek(2, day(6)))
+        assertEquals("it stays all week", "First week: 3 days left, so 3 this week", firstWeek(4, day(3), today = day(5)))
+    }
+
+    @Test fun `no line when the first week asks for every day, or after it`() {
+        assertEquals(null, firstWeek(2, day(3)))
+        assertEquals(null, firstWeek(4, day(0)))
+        assertEquals(null, firstWeek(4, day(3), today = day(8)))
+        assertEquals("without the goal's days there is no line", null, card(4, day(3), from = day(3)).firstWeekLine)
+    }
 }

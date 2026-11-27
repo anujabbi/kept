@@ -7,7 +7,7 @@ import com.example.kept.core.data.WeeklyGoalRepository
 import com.example.kept.core.data.db.WeeklyGoalEntity
 import com.example.kept.core.di.ApplicationScope
 import com.example.kept.core.domain.SprigForm
-import com.example.kept.core.domain.WeeklyGoalDraft
+import com.example.kept.core.domain.PromiseDraft
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
@@ -42,11 +42,17 @@ class WeeklyGoalsViewModel @Inject constructor(
         WeeklyGoalsUi(g, loaded = true, form = s.form, wilted = s.wilted)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), WeeklyGoalsUi())
 
-    /** A new goal counts from today. At the limit nothing is added. */
-    fun add(d: WeeklyGoalDraft) = appScope.launch { if (d.canSave) goals.addGoal(d.name, d.days, d.target, d.unit) }
+    /** A weekly promise (#218) as a new goal, counting from today. At the limit nothing is added. */
+    fun add(d: PromiseDraft) = appScope.launch {
+        val days = d.days
+        if (d.canSave && days != null) goals.addGoal(d.name, days, d.goalTarget, d.goalUnit)
+    }
 
     /** The new activity, target and days apply at once; this week's logged sessions are kept. */
-    fun save(id: Long, d: WeeklyGoalDraft) = appScope.launch { if (d.canSave) goals.updateGoal(id, d.name, d.days, d.target, d.unit) }
+    fun save(id: Long, d: PromiseDraft) = appScope.launch {
+        val days = d.days
+        if (d.canSave && days != null) goals.updateGoal(id, d.name, days, d.goalTarget, d.goalUnit)
+    }
 
     fun remove(id: Long) = appScope.launch { goals.removeGoal(id) }
 }
