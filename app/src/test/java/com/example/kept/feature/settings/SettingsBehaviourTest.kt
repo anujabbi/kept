@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.state.ToggleableState
@@ -242,16 +243,20 @@ class SettingsBehaviourTest {
     }
 
     @Test fun signed_in_or_still_restoring_the_row_is_gone() {
-        var page by mutableStateOf(SettingsFixtures.ALL_SET.copy(account = SettingsAccount.SIGNED_IN))
+        var page by mutableStateOf(SettingsFixtures.SIGNED_IN)
         rule.setContent { Shot(1f) { SettingsFrame(page) } }
         rule.onNodeWithTag("settings_sign_in").assertDoesNotExist()
         rule.onNodeWithTag("settings_history").assertExists()
-        page = page.copy(account = SettingsAccount.UNKNOWN)
+        page = page.copy(account = AccountState.Restoring)
         rule.waitForIdle()
         rule.onNodeWithTag("settings_sign_in").assertDoesNotExist()
-        page = page.copy(account = SettingsAccount.SIGNED_OUT)
+        rule.onNodeWithTag("settings_account").assertDoesNotExist()
+        rule.onNodeWithTag("settings_sign_out").assertDoesNotExist()
+        page = page.copy(account = AccountState.SignedOut)
         rule.waitForIdle()
         rule.onNodeWithTag("settings_sign_in").assertExists()
+        rule.onNodeWithTag("settings_account").assertDoesNotExist()
+        rule.onNodeWithTag("settings_sign_out").assertDoesNotExist()
     }
 
     @Test fun a_failed_sign_in_leaves_one_line_and_the_row_usable() {
@@ -279,8 +284,80 @@ class SettingsBehaviourTest {
 
     @Test fun the_settings_page_reads_the_account_state() {
         val ui = SettingsUi()
-        assertEquals(SettingsAccount.SIGNED_OUT, SettingsPage.of(ui, 0, account = AccountState.SignedOut).account)
-        assertEquals(SettingsAccount.SIGNED_IN, SettingsPage.of(ui, 0, account = AccountState.SignedIn("a@b.c", null)).account)
-        assertEquals(SettingsAccount.UNKNOWN, SettingsPage.of(ui, 0, account = AccountState.Restoring).account)
+        assertEquals(AccountState.SignedOut, SettingsPage.of(ui, 0, account = AccountState.SignedOut).account)
+        assertEquals(AccountState.SignedIn("a@b.c", null), SettingsPage.of(ui, 0, account = AccountState.SignedIn("a@b.c", null)).account)
+        assertEquals(AccountState.Restoring, SettingsPage.of(ui, 0, account = AccountState.Restoring).account)
+        assertTrue(SettingsPage.of(ui, 0, account = AccountState.SignedIn("a@b.c", null), signingOut = true).signingOut)
+    }
+
+    // Signed in, and sign out (#194) -----------------------------------------------------------
+
+    /** Item 1: the account row shows the name with the email under it, and is not a button. */
+    @Test fun signed_in_settings_shows_the_account_and_sign_out() {
+        rule.setContent { Shot(1f) { SettingsFrame(SettingsFixtures.SIGNED_IN) } }
+        rule.onNodeWithTag("settings_account").performScrollTo()
+        assertEquals("Sam Rivera", text("settings_account_title"))
+        assertEquals("sam.rivera@gmail.com", text("settings_account_email"))
+        val row = rule.onNodeWithTag("settings_account").fetchSemanticsNode().config
+        assertEquals("the account row is not tappable", null, row.getOrNull(SemanticsActions.OnClick))
+        rule.onNodeWithTag("settings_sign_out").performScrollTo().assertHasClickAction()
+        assertEquals("Sign out", text("settings_sign_out_title"))
+        assertEquals("Your habits stay on this phone.", text("settings_sign_out_hint"))
+        rule.onNodeWithTag("settings_sign_in").assertDoesNotExist()
+    }
+
+    /** Item 1: no display name shows the email alone; neither shows "Signed in". */
+    @Test fun the_account_row_falls_back_to_the_email_then_signed_in() {
+        var page by mutableStateOf(SettingsFixtures.SIGNED_IN.copy(account = AccountState.SignedIn("sam.rivera@gmail.com", null)))
+        rule.setContent { Shot(1f) { SettingsFrame(page) } }
+        rule.onNodeWithTag("settings_account").performScrollTo()
+        assertEquals("sam.rivera@gmail.com", text("settings_account_title"))
+        rule.onNodeWithTag("settings_account_email", useUnmergedTree = true).assertDoesNotExist()
+        page = page.copy(account = AccountState.SignedIn(null, null))
+        rule.waitForIdle()
+        assertEquals("Signed in", text("settings_account_title"))
+        rule.onNodeWithTag("settings_account_email", useUnmergedTree = true).assertDoesNotExist()
+        page = page.copy(account = AccountState.SignedIn(null, "Sam Rivera"))
+        rule.waitForIdle()
+        assertEquals("Sam Rivera", text("settings_account_title"))
+        rule.onNodeWithTag("settings_account_email", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    /** Owner decision 2026-11-27: Sign out asks first; Cancel keeps the session, confirming signs out. */
+    @Test fun sign_out_asks_first_and_cancel_keeps_the_user_signed_in() {
+        var signedOut = 0
+        rule.setContent { Shot(1f) { SettingsFrame(SettingsFixtures.SIGNED_IN, SettingsActions(onSignOut = { signedOut++ })) } }
+        rule.onNodeWithTag("settings_sign_out").performScrollTo().performClick()
+        rule.onNodeWithText("Sign out?").assertExists()
+        rule.onNodeWithText("Your habits, check-ins and progress stay on this phone.").assertExists()
+        rule.onNodeWithTag("sign_out_cancel").performClick()
+        rule.onNodeWithText("Sign out?").assertDoesNotExist()
+        assertEquals("Cancel signs nothing out", 0, signedOut)
+
+        rule.onNodeWithTag("settings_sign_out").performScrollTo().performClick()
+        rule.onNodeWithTag("sign_out_confirm").performClick()
+        rule.onNodeWithText("Sign out?").assertDoesNotExist()
+        assertEquals(1, signedOut)
+    }
+
+    /** Item 2: while signing out the title reads "Signing out…" and a second tap does nothing. */
+    @Test fun while_signing_out_a_second_tap_does_nothing() {
+        var signedOut = 0
+        rule.setContent { Shot(1f) { SettingsFrame(SettingsFixtures.SIGNED_IN.copy(signingOut = true), SettingsActions(onSignOut = { signedOut++ })) } }
+        rule.onNodeWithTag("settings_sign_out").performScrollTo()
+        assertEquals("Signing out…", text("settings_sign_out_title"))
+        rule.onNodeWithTag("settings_sign_out").performClick()
+        rule.onNodeWithText("Sign out?").assertDoesNotExist()
+        assertEquals(0, signedOut)
+    }
+
+    @Test fun the_sign_out_confirm_buttons_are_full_size() {
+        rule.setContent { Shot(1f) { SignOutConfirm({}, {}) } }
+        val d = rule.density.density
+        for (tag in listOf("sign_out_cancel", "sign_out_confirm")) {
+            val n = rule.onNodeWithTag(tag).assertHasClickAction().fetchSemanticsNode()
+            assertTrue("$tag is ${n.size.height / d}dp tall", n.size.height / d >= 47.9f)
+            assertTrue("$tag is ${n.size.width / d}dp wide", n.size.width / d >= 47.9f)
+        }
     }
 }

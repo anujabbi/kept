@@ -1901,3 +1901,27 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
     `settings_360_settings_end` at font 1.0 and 2.0. New: `onboarding_account`,
     `onboarding_account_error`, `onboarding_360_account_error_font2.0`,
     `settings_sign_in_error`. Every other golden is byte-identical to `main`.
+
+- **Settings shows the signed-in account and signs out (story #194, feature #190).** Built to the
+  planner's mockups on #194.
+  - *Sign out asks first (owner decision, 2026-11-27).* The plan had no confirmation, since
+    nothing is lost. The owner overruled it: tapping "Sign out" opens "Sign out?" with "Your
+    habits, check-ins and progress stay on this phone." and Cancel / Sign out, in the settings
+    confirm's cream card (`LockChangeConfirm`, `DeleteGoalConfirm`). "Sign out" is purple, not
+    the red of a costly change, because nothing is lost. Cancel keeps the session.
+  - *Never stuck signed in.* `AccountRepository.signOut()` calls Supabase `auth.signOut()`
+    (`/auth/v1/logout`); if that throws (offline, a 5xx) it clears the stored session on the
+    phone with `clearSession()` and logs the cause under `KeptAccount`. No error is shown. Google
+    is then told to forget the choice (Credential Manager `clearCredentialState()`), and a
+    failure there is logged and ignored, since the KEPT session is already gone.
+  - *Copy.* Account row: the Google name, the email under it; the email alone without a name;
+    "Signed in" with neither. "Sign out", hint "Your habits stay on this phone.", "Signing out…"
+    while it runs. The G sits in the row's middle, and level with the name's first line once the
+    name or email wraps (the planner's font 2.0 note). The name and email are the user's own
+    text, so unlike our copy they may break inside a word when one word is wider than the row
+    ("Featherstonehaugh" at 360dp and font 2.0); they are never cut off.
+  - *SettingsPage.account* is now the `AccountState` itself rather than the `SettingsAccount`
+    enum, so the signed-in row has the name and email; signed out and Restoring behave as in #193.
+  - *Goldens.* New: `settings_account_signed_in` and `settings_sign_out_confirm` at font 1.0 and
+    2.0. The dialog golden is taken with Roborazzi's `captureScreenRoboImage`, which includes the
+    dialog's window. Every other golden is byte-identical to `main`.

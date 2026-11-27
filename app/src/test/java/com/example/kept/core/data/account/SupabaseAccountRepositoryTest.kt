@@ -24,6 +24,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -63,8 +64,18 @@ class SupabaseAccountRepositoryTest {
     private fun engine(fail: Throwable? = null, status: HttpStatusCode = HttpStatusCode.OK) = MockEngine { req ->
         sent += Sent(req.method.value, req.url.encodedPath, req.url.encodedQuery, String(req.body.toByteArray()))
         if (fail != null) throw fail
+        if (req.url.encodedPath == "/auth/v1/logout" && status == HttpStatusCode.OK) return@MockEngine respond("", HttpStatusCode.NoContent)
         if (status != HttpStatusCode.OK) respondError(status, """{"error_code":"bad_jwt","msg":"Bad ID token"}""", headersOf(HttpHeaders.ContentType, "application/json"))
         else respond(sessionJson, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+    }
+
+    private fun stored(): UserSession = Json { ignoreUnknownKeys = true }.decodeFromString(UserSession.serializer(), sessionJson)
+
+    /** A token source that counts how often Google was told to forget the account (#194, item 4). */
+    private class Forgetting : GoogleIdTokenSource {
+        var cleared = 0
+        override suspend fun idToken(activityContext: android.content.Context, hashedNonce: String): IdTokenResult = IdTokenResult.Token("google-id-token")
+        override suspend fun clear() { cleared++ }
     }
 
     private fun repo(
@@ -82,6 +93,11 @@ class SupabaseAccountRepositoryTest {
         scope,
         nonce = { Nonce.of("raw-nonce") },
     )
+
+    /** The state flow follows the session a moment later; waits for it to read signed out. */
+    private fun awaitSignedOut(r: AccountRepository) = runBlocking {
+        assertEquals(AccountState.SignedOut, withTimeoutOrNull(5_000) { r.account.first { it == AccountState.SignedOut } } ?: r.account.value)
+    }
 
     private fun settled(r: AccountRepository): AccountState = runBlocking {
         withTimeout(5_000) { r.account.first { it != AccountState.Restoring } }
@@ -248,5 +264,128 @@ class SupabaseAccountRepositoryTest {
     @Test fun a_rejected_publishable_key_is_a_non_offline_failure() = runBlocking {
         val r = repo(engine = engine(status = HttpStatusCode.Unauthorized)).signInWithGoogle(ctx)
         assertTrue("$r", r is SignInResult.Failed && !r.offline)
+    }
+
+    // Sign out (#194) ---------------------------------------------------------------------------
+
+    /** Items 3 and 4: sign out calls /auth/v1/logout, clears the stored session, and Google forgets the choice. */
+    @Test fun signing_out_ends_the_session_clears_it_and_google_forgets_the_account() = runBlocking {
+        val sessions = MemorySessionManager(stored())
+        val tokens = Forgetting()
+        val r = repo(tokens = tokens, sessions = sessions)
+        assertTrue(settled(r) is AccountState.SignedIn)
+
+        r.signOut()
+
+        awaitSignedOut(r)
+        assertEquals(null, sessions.loadSession())
+        assertEquals(1, tokens.cleared)
+        val logout = sent.single()
+        assertEquals("POST", logout.method)
+        assertEquals("/auth/v1/logout", logout.path)
+    }
+
+    /** Item 3: offline, sign out still clears the session on the phone and raises nothing. */
+    @Test fun signing_out_offline_still_signs_out_on_the_phone() = runBlocking {
+        val sessions = MemorySessionManager(stored())
+        val tokens = Forgetting()
+        val r = repo(tokens = tokens, engine = engine(fail = IOException("Unable to resolve host")), sessions = sessions)
+        assertTrue(settled(r) is AccountState.SignedIn)
+
+        r.signOut()
+
+        awaitSignedOut(r)
+        assertEquals(null, sessions.loadSession())
+        assertEquals(1, tokens.cleared)
+    }
+
+    /** Item 3: a server error on logout does not keep the user signed in either. */
+    @Test fun signing_out_when_the_server_fails_still_signs_out_on_the_phone() = runBlocking {
+        val sessions = MemorySessionManager(stored())
+        val r = repo(engine = engine(status = HttpStatusCode.InternalServerError), sessions = sessions)
+        assertTrue(settled(r) is AccountState.SignedIn)
+
+        r.signOut()
+
+        awaitSignedOut(r)
+        assertEquals(null, sessions.loadSession())
+    }
+
+    /** Item 4: Google failing to forget the account does not keep the user signed in. */
+    @Test fun google_failing_to_forget_still_signs_out() = runBlocking {
+        val sessions = MemorySessionManager(stored())
+        val tokens = object : GoogleIdTokenSource {
+            override suspend fun idToken(activityContext: android.content.Context, hashedNonce: String): IdTokenResult = IdTokenResult.Cancelled
+            override suspend fun clear() = throw IllegalStateException("Play services gone")
+        }
+        val r = repo(tokens = tokens, sessions = sessions)
+        assertTrue(settled(r) is AccountState.SignedIn)
+        r.signOut()
+        awaitSignedOut(r)
+        assertEquals(null, sessions.loadSession())
+    }
+
+    /** Item 6: a fresh start over the same storage after a sign out is signed out, with no sheet. */
+    @Test fun after_signing_out_a_restart_stays_signed_out() = runBlocking {
+        val sessions = MemorySessionManager(stored())
+        val first = repo(sessions = sessions)
+        assertTrue(settled(first) is AccountState.SignedIn)
+        first.signOut()
+        var sheetShown = 0
+        val restarted = repo(tokens = { _, _ -> sheetShown++; IdTokenResult.Cancelled }, sessions = sessions)
+        assertEquals(AccountState.SignedOut, settled(restarted))
+        assertEquals(0, sheetShown)
+    }
+
+    /** Item 7: after signing out, signing in again exchanges a new token and is signed in. */
+    @Test fun after_signing_out_signing_in_again_works() = runBlocking {
+        val r = repo(sessions = MemorySessionManager(stored()))
+        assertTrue(settled(r) is AccountState.SignedIn)
+        r.signOut()
+        awaitSignedOut(r)
+        assertEquals(SignInResult.Success, r.signInWithGoogle(ctx))
+        assertEquals(AccountState.SignedIn("sam@example.com", "Sam Rivera"), r.account.first { it is AccountState.SignedIn })
+    }
+
+    /** Item 5: sign out leaves every habit row and setting as it was, and makes auth calls only. */
+    @Test fun signing_out_leaves_habits_and_preferences_untouched() = runBlocking {
+        val db = Room.inMemoryDatabaseBuilder(ctx, KeptDatabase::class.java).allowMainThreadQueries().build()
+        try {
+            val prefs = KeptPreferences(ctx)
+            prefs.clearAll()
+            val habits = HabitRepository(db.habitDao(), db.habitEntryDao(), db.dayRecordDao(), prefs, TimeSource(Clock.systemUTC()))
+            habits.addHabitWithinLimit("Read", "book", ProofType.MANUAL, 10, "pages")
+            prefs.updateSettings { it.copy(lockFromMinute = 8 * 60, analyticsEnabled = false) }
+            fun tables() = listOf("habits", "habit_entries", "day_records", "allowed_apps", "weekly_goals", "weekly_goal_entries", "gallery", "lock_breaks", "protection_gaps").associateWith { t ->
+                db.openHelper.readableDatabase.query("SELECT * FROM $t").use { c ->
+                    buildList { while (c.moveToNext()) add((0 until c.columnCount).joinToString("|") { c.getString(it).orEmpty() }) }
+                }
+            }
+            val tablesBefore = tables()
+            val settingsBefore = prefs.currentSettings()
+            val r = repo(sessions = MemorySessionManager(stored()))
+            assertTrue(settled(r) is AccountState.SignedIn)
+
+            r.signOut()
+
+            awaitSignedOut(r)
+            assertEquals(tablesBefore, tables())
+            assertEquals(settingsBefore, prefs.currentSettings())
+            assertEquals(listOf("Read"), habits.observeHabits().first().map { it.title })
+            assertTrue(sent.isNotEmpty())
+            for (s in sent) assertTrue("${s.path} is not an auth call", s.path.startsWith("/auth/v1/"))
+        } finally {
+            db.close()
+        }
+    }
+
+    /** Without a key there is no session to end; sign out still asks Google to forget, and stays signed out. */
+    @Test fun signing_out_without_a_key_is_harmless() = runBlocking {
+        val tokens = Forgetting()
+        val r = repo(tokens = tokens, key = "")
+        r.signOut()
+        assertEquals(AccountState.SignedOut, r.account.value)
+        assertEquals(1, tokens.cleared)
+        assertTrue(sent.isEmpty())
     }
 }

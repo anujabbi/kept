@@ -49,9 +49,11 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 
 data class SettingsUi(
@@ -169,6 +171,28 @@ class SettingsViewModel @Inject constructor(
         if (_signIn.value == SignInUi.Busy) return
         _signIn.value = SignInUi.Busy
         viewModelScope.launch { _signIn.value = accounts.signInWithGoogle(activityContext).toUi() }
+    }
+
+    private val _signingOut = MutableStateFlow(false)
+    /** True while a sign out runs (#194); a second tap meanwhile does nothing. */
+    val signingOut: StateFlow<Boolean> = _signingOut
+
+    /**
+     * Signs out (#194), after the user confirmed it. Busy until the account has left signed in, so
+     * "Sign out" never flashes back before the group turns into "Sign in with Google".
+     */
+    fun signOut() {
+        if (_signingOut.value) return
+        _signingOut.value = true
+        _signIn.value = SignInUi.Idle
+        viewModelScope.launch {
+            try {
+                accounts.signOut()
+                withTimeoutOrNull(2_000) { accounts.account.first { it !is AccountState.SignedIn } }
+            } finally {
+                _signingOut.value = false
+            }
+        }
     }
 
     private val _pendingLockChange = MutableStateFlow<PendingLockChange?>(null)

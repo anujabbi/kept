@@ -43,13 +43,20 @@ fun SignInResult.toUi(): SignInUi = when (this) {
 
 /**
  * The account layer. Signing in touches nothing but the auth session: no habit, check-in, goal,
- * photo or setting is read or sent (#193, item 7). #194 adds sign out, #195 delete.
+ * photo or setting is read or sent (#193, item 7). Signing out (#194) touches only the session too.
  */
 interface AccountRepository {
     val account: StateFlow<AccountState>
 
     /** Runs the provider's account sheet from [activityContext], then opens a session. */
     suspend fun signInWithGoogle(activityContext: Context): SignInResult
+
+    /**
+     * Ends the session (#194). Always ends [AccountState.SignedOut] on the phone, also offline or
+     * when the server fails, and never throws: a user must never be stuck signed in. Google is
+     * told to forget the choice, so the next sign-in shows the account chooser.
+     */
+    suspend fun signOut()
 }
 
 /** What the account sheet gave back. */
@@ -65,6 +72,9 @@ sealed interface IdTokenResult {
  */
 fun interface GoogleIdTokenSource {
     suspend fun idToken(activityContext: Context, hashedNonce: String): IdTokenResult
+
+    /** Forgets the account last chosen (#194), so the next [idToken] shows the chooser. */
+    suspend fun clear() {}
 }
 
 /** The nonce pair for an ID-token sign-in: Google signs the hash, Supabase checks the raw value against it. */
