@@ -9,13 +9,18 @@ plugins {
     alias(libs.plugins.roborazzi)
 }
 
-val posthogProperties = Properties().apply {
+// Public client config from an environment variable or the git-ignored root .env (.env.example).
+// A blank value builds fine: PostHog stays a no-op and Sign in with Google shows its error.
+val envProperties = Properties().apply {
     rootProject.file(".env").takeIf { it.exists() }?.inputStream()?.use(::load)
 }
-val posthogProjectToken = providers.environmentVariable("POSTHOG_PROJECT_TOKEN").orNull
-    ?: posthogProperties.getProperty("POSTHOG_PROJECT_TOKEN").orEmpty()
-val posthogHost = providers.environmentVariable("POSTHOG_HOST").orNull
-    ?: posthogProperties.getProperty("POSTHOG_HOST").orEmpty()
+fun envValue(key: String): String = providers.environmentVariable(key).orNull ?: envProperties.getProperty(key).orEmpty()
+val posthogProjectToken = envValue("POSTHOG_PROJECT_TOKEN")
+val posthogHost = envValue("POSTHOG_HOST")
+val supabaseUrl = envValue("SUPABASE_URL").ifBlank { "https://kyoxnvrgrydqyftpyovp.supabase.co" }
+val supabasePublishableKey = envValue("SUPABASE_PUBLISHABLE_KEY")
+// The Google OAuth web client Supabase verifies ID tokens against. Public by design.
+val googleWebClientId = envValue("GOOGLE_WEB_CLIENT_ID").ifBlank { "879061011325-jn85hk51r5kr20daf7of0aus8lqfcd25.apps.googleusercontent.com" }
 
 // Release signing. Secrets never live in the repo: they come from a git-ignored
 // keystore.properties (see keystore.properties.example) or, on CI, from environment
@@ -51,6 +56,9 @@ android {
         testInstrumentationRunner = "com.example.kept.HiltTestRunner"
         buildConfigField("String", "POSTHOG_PROJECT_TOKEN", "\"$posthogProjectToken\"")
         buildConfigField("String", "POSTHOG_HOST", "\"$posthogHost\"")
+        buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
+        buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"$supabasePublishableKey\"")
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
         vectorDrawables { useSupportLibrary = true }
     }
 
@@ -149,8 +157,18 @@ dependencies {
     implementation(libs.coroutines.android)
     implementation("com.posthog:posthog-android:3.64.0")
 
+    // Sign in with Google (#193): Credential Manager for the Google ID token, Supabase Auth for
+    // the session. Auth only: no postgrest-kt, so nothing here can read or write a table.
+    implementation(platform(libs.supabase.bom))
+    implementation(libs.supabase.auth)
+    implementation(libs.ktor.client.android)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services)
+    implementation(libs.googleid)
+
     testImplementation(libs.junit)
     testImplementation(libs.turbine)
+    testImplementation(libs.ktor.client.mock)
     testImplementation(libs.coroutines.test)
     testImplementation(libs.robolectric)
     testImplementation(libs.roborazzi)

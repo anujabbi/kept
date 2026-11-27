@@ -8,6 +8,7 @@ import com.example.kept.core.analytics.Analytics
 import com.example.kept.core.data.HabitRepository
 import com.example.kept.core.data.TimeSource
 import com.example.kept.core.data.WeeklyGoalRepository
+import com.example.kept.core.data.account.NoAccount
 import com.example.kept.core.data.db.KeptDatabase
 import com.example.kept.core.data.prefs.KeptPreferences
 import com.example.kept.core.domain.ProofType
@@ -68,7 +69,7 @@ class OnboardingStartTodayTest {
      */
     private fun startToday(walk: OnboardingViewModel.() -> Unit = {}) {
         val vm = viewModels.create {
-            OnboardingViewModel(ctx, prefs, habits, weekly, WorkScheduler(ctx, prefs, time), time, Permissions(ctx), NoAnalytics)
+            OnboardingViewModel(ctx, prefs, habits, weekly, WorkScheduler(ctx, prefs, time), time, Permissions(ctx), NoAnalytics, NoAccount)
         }
         vm.walk()
         var done = false

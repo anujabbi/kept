@@ -58,8 +58,8 @@ private val D = DaybreakColors
 /** Which page a shared body is drawn for: an onboarding step, or its Settings page. */
 enum class BodyMode { ONBOARDING, SETTINGS }
 
-/** "What stays open?" is onboarding step 4. */
-const val EXCEPTIONS_STEP = 4
+/** "What stays open?" is onboarding step 5. */
+const val EXCEPTIONS_STEP = 5
 
 /** Settings → What stays open (`A12-Exceptions-settings`): the shared body in settings mode. */
 @Composable

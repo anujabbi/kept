@@ -5,7 +5,7 @@ import kotlin.math.floor
 import kotlin.math.sqrt
 
 /**
- * Onboarding step 2, "When does the lock run?" (`A11-Onb-Rule`): the lock window on a 6 am to
+ * Onboarding step 3, "When does the lock run?" (`A11-Onb-Rule`): the lock window on a 6 am to
  * midnight bar, moved with − / + in 30 minute steps. The rules are the design script's, in
  * minutes of the day: the start never goes before 6:00 am, give-up never after 11:30 pm, and
  * give-up stays at least two hours after the start.
@@ -51,7 +51,7 @@ object LockWindowRules {
 
 /** Onboarding copy (spec, Welcome and Onboarding; `A1`, `A10`–`A14`). Final; do not reword here. */
 object OnboardingCopy {
-    const val STEPS = 6
+    const val STEPS = 7
     private const val NBSP = ' '
 
     // Welcome (A1)
@@ -254,7 +254,7 @@ object WelcomeLayout {
 }
 
 /**
- * Step 6, "How Sprig works" (`A14-Onb-Ready`): a 300dp dawn sky with the title at (24, 96),
+ * Step 7, "How Sprig works" (`A14-Onb-Ready`): a 300dp dawn sky with the title at (24, 96),
  * 170dp wide, and Sprig 190dp on the right (`left: 186px` in a 390 frame, so 14dp from the edge)
  * with its top at 92, i.e. its bottom 30dp under the crest at 252.
  *

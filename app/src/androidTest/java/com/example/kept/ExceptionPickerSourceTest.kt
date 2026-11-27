@@ -9,6 +9,7 @@ import com.example.kept.core.data.LockRepository
 import com.example.kept.core.data.PromiseRepository
 import com.example.kept.core.data.SprigRepository
 import com.example.kept.core.data.TimeSource
+import com.example.kept.core.data.account.AccountRepository
 import com.example.kept.core.data.db.KeptDatabase
 import com.example.kept.core.data.prefs.KeptPreferences
 import com.example.kept.core.di.ApplicationScope
@@ -65,6 +66,7 @@ class ExceptionPickerSourceTest {
     @Inject lateinit var reminders: ReminderPoster
     @Inject lateinit var time: TimeSource
     @Inject lateinit var permissions: Permissions
+    @Inject lateinit var accounts: AccountRepository
     @Inject lateinit var promises: PromiseRepository
 
     @Before fun setUp() {
@@ -77,6 +79,7 @@ class ExceptionPickerSourceTest {
         // Nothing reported: this test only cares where the picker reads its exempt set from.
         NoOpAnalytics(),
         promises,
+        accounts,
         appScope,
     )
 

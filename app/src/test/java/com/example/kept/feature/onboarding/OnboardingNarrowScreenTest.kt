@@ -38,6 +38,7 @@ class OnboardingNarrowScreenTest {
     @Test fun exceptions_font2() = shots.shot("exceptions", 2f)
     @Test fun permissionsMissing() = shots.shot("permissions_missing", 1f)
     @Test fun permissionsMissing_font2() = shots.shot("permissions_missing", 2f)
+    @Test fun accountError_font2() = shots.shot("account_error", 2f)
     @Test fun ready() = shots.shot("ready", 1f)
     @Test fun ready_font2() = shots.shot("ready", 2f)
     @Test fun readyWeekly_font2() = shots.shot("ready_weekly", 2f)

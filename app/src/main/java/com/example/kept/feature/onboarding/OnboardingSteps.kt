@@ -44,6 +44,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.SpanStyle
@@ -57,6 +59,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import com.example.kept.core.domain.AccountCopy
 import com.example.kept.core.domain.HabitLimits
 import com.example.kept.core.domain.LockWindowRules
 import com.example.kept.core.domain.NightCopy
@@ -64,12 +67,15 @@ import com.example.kept.core.domain.NightSetting
 import com.example.kept.core.domain.NightSliders
 import com.example.kept.core.domain.OnboardingCopy
 import com.example.kept.core.domain.ReadySprig
+import com.example.kept.core.domain.SignInUi
 import com.example.kept.core.domain.SprigForm
 import com.example.kept.core.domain.SprigPose
 import com.example.kept.core.domain.WelcomeLayout
 import com.example.kept.core.ui.DaybreakColors
 import com.example.kept.core.ui.DaybreakIcons
 import com.example.kept.core.ui.DaybreakType
+import com.example.kept.core.ui.GoogleMark
+import com.example.kept.core.ui.GoogleSignInButton
 import com.example.kept.core.ui.HabitIcons
 import com.example.kept.core.ui.HabitTemplate
 import com.example.kept.core.ui.HabitTemplates
@@ -192,7 +198,71 @@ private fun WelcomeText(width: Dp, modifier: Modifier = Modifier) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Step 1: habits (A10)
+// Step 1: Sign in with Google (#193; no mockup, built on the step page like the shutdown step)
+
+/**
+ * "Sign in with Google", optional: what an account is and what stays on the phone, the Google
+ * button and Skip in the footer. A failed or cancelled attempt leaves one short line in the body
+ * (read out by TalkBack) and both buttons usable. Already signed in ([signedInAs]), the step
+ * says who and offers Continue instead. First of the steps, after the welcome screen (owner
+ * decision 2026-11-25).
+ */
+@Composable
+internal fun AccountStep(
+    signIn: SignInUi,
+    signedInAs: String?,
+    onSignIn: () -> Unit,
+    onBack: () -> Unit,
+    onContinue: () -> Unit,
+    onSkip: () -> Unit,
+) {
+    StepPage(
+        header = PageHeader.Progress(OnboardingStep.ACCOUNT, OnboardingCopy.STEPS, onBack),
+        title = AccountCopy.STEP_TITLE,
+        line = AccountCopy.STEP_LINE,
+        modifier = Modifier.testTag("onboarding_account"),
+        bodySpacing = 18.dp,
+        footer = {
+            if (signedInAs != null) {
+                PrimaryButton(OnboardingCopy.CONTINUE, onClick = onContinue, modifier = Modifier.testTag("onboarding_next"))
+            } else {
+                GoogleSignInButton(busy = signIn == SignInUi.Busy, onClick = onSignIn, modifier = Modifier.testTag("account_sign_in"))
+                QuietButton(OnboardingCopy.SKIP, onClick = onSkip, modifier = Modifier.fillMaxWidth().testTag("onboarding_skip"))
+            }
+        },
+    ) {
+        item(key = "fact_account") {
+            RuleLine(GoogleMark, D.white, AccountCopy.FACT_ACCOUNT_BOLD, AccountCopy.FACT_ACCOUNT, iconSize = 20.dp)
+        }
+        item(key = "fact_phone") {
+            RuleLine(DaybreakIcons.Phone, D.greenTint, AccountCopy.FACT_PHONE_BOLD, AccountCopy.FACT_PHONE, tint = D.green, iconSize = 20.dp)
+        }
+        if (signedInAs != null) {
+            item(key = "signed_in") {
+                Text(
+                    AccountCopy.signedInAs(signedInAs),
+                    Modifier.testTag("account_signed_in"),
+                    style = DaybreakType.body,
+                    fontWeight = FontWeight.Bold,
+                    color = D.green,
+                )
+            }
+        }
+        if (signIn is SignInUi.Error) {
+            item(key = "error") {
+                Text(
+                    signIn.message,
+                    Modifier.testTag("account_error").semantics { liveRegion = LiveRegionMode.Polite },
+                    style = DaybreakType.body,
+                    color = D.danger,
+                )
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Step 2: habits (A10)
 
 /**
  * "What habits will you keep?" (`A10-Onb-Habits`, #205): the presets and any habit added with
@@ -296,7 +366,7 @@ internal fun OnboardingPromisePage(s: OnboardingState, onDone: (PromiseDraft) ->
 }
 
 // ---------------------------------------------------------------------------------------------
-// Step 2: lock window (A11)
+// Step 3: lock window (A11)
 
 /**
  * "When does the lock run?" (`A11-Onb-Rule`): the 6 am to midnight bar with the locked band, the
@@ -466,7 +536,7 @@ private fun StepButton(sign: String, description: String, enabled: Boolean, styl
 }
 
 // ---------------------------------------------------------------------------------------------
-// Step 3: shutdown time (#164, #218)
+// Step 4: shutdown time (#164, #218)
 
 /**
  * "Pick a shutdown time" (#218, after the lock window): Sprig's note, then a card with two
@@ -550,7 +620,7 @@ private fun SliderTime(label: String, minute: Int, tag: String) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Step 6: how Sprig works (A14)
+// Step 7: how Sprig works (A14)
 
 /**
  * "How Sprig works" (`A14-Onb-Ready`): a dawn sky with the header, the title and Sprig (stage 0)
@@ -632,10 +702,11 @@ private fun RuleLine(
     rest: String,
     tint: Color = Color.Unspecified,
     tag: String? = null,
+    iconSize: Dp = 24.dp,
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         Box(Modifier.size(40.dp).clip(CircleShape).background(tile), contentAlignment = Alignment.Center) {
-            Icon(icon, null, Modifier.size(24.dp), tint = tint)
+            Icon(icon, null, Modifier.size(iconSize), tint = tint)
         }
         Text(
             buildAnnotatedString {

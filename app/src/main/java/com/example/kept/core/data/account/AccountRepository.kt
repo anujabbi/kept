@@ -1,0 +1,81 @@
+package com.example.kept.core.data.account
+
+import android.content.Context
+import com.example.kept.core.domain.SignInUi
+import java.io.IOException
+import kotlinx.coroutines.flow.StateFlow
+import java.security.MessageDigest
+import java.security.SecureRandom
+
+/**
+ * Who is signed in (#193). An account is optional: [SignedOut] is the normal state and every
+ * screen works the same in it. [Restoring] lasts only while a stored session is read on start,
+ * so a signed-in user never sees "Sign in with Google" flash up.
+ */
+sealed interface AccountState {
+    data object Restoring : AccountState
+    data object SignedOut : AccountState
+    data class SignedIn(val email: String?, val displayName: String?) : AccountState
+}
+
+/** How one sign-in attempt ended. The app stays usable, and signed out, on anything but [Success]. */
+sealed interface SignInResult {
+    data object Success : SignInResult
+    /** The person closed the account sheet. */
+    data object Cancelled : SignInResult
+    /**
+     * No network, no account on the device, a missing key, or the server said no. [offline] is
+     * true only when the cause is a connection failure (an `IOException` anywhere in its chain).
+     */
+    data class Failed(val cause: Throwable? = null, val offline: Boolean = isConnectionFailure(cause)) : SignInResult
+
+    companion object {
+        fun isConnectionFailure(cause: Throwable?): Boolean = generateSequence(cause) { it.cause }.take(8).any { it is IOException }
+    }
+}
+
+/** What a finished attempt leaves on screen: nothing after success, else one short line. */
+fun SignInResult.toUi(): SignInUi = when (this) {
+    SignInResult.Success -> SignInUi.Idle
+    SignInResult.Cancelled -> SignInUi.failed(cancelled = true)
+    is SignInResult.Failed -> SignInUi.failed(cancelled = false, offline = offline)
+}
+
+/**
+ * The account layer. Signing in touches nothing but the auth session: no habit, check-in, goal,
+ * photo or setting is read or sent (#193, item 7). #194 adds sign out, #195 delete.
+ */
+interface AccountRepository {
+    val account: StateFlow<AccountState>
+
+    /** Runs the provider's account sheet from [activityContext], then opens a session. */
+    suspend fun signInWithGoogle(activityContext: Context): SignInResult
+}
+
+/** What the account sheet gave back. */
+sealed interface IdTokenResult {
+    data class Token(val idToken: String) : IdTokenResult
+    data object Cancelled : IdTokenResult
+    data class Failed(val cause: Throwable? = null) : IdTokenResult
+}
+
+/**
+ * Gets a Google ID token for [hashedNonce] (the SHA-256 hex of the raw nonce the server is given).
+ * On the device this is Credential Manager; tests fake it.
+ */
+fun interface GoogleIdTokenSource {
+    suspend fun idToken(activityContext: Context, hashedNonce: String): IdTokenResult
+}
+
+/** The nonce pair for an ID-token sign-in: Google signs the hash, Supabase checks the raw value against it. */
+data class Nonce(val raw: String, val hashed: String) {
+    companion object {
+        fun random(random: SecureRandom = SecureRandom()): Nonce {
+            val bytes = ByteArray(32).also(random::nextBytes)
+            return of(bytes.joinToString("") { "%02x".format(it) })
+        }
+
+        fun of(raw: String): Nonce =
+            Nonce(raw, MessageDigest.getInstance("SHA-256").digest(raw.toByteArray()).joinToString("") { "%02x".format(it) })
+    }
+}

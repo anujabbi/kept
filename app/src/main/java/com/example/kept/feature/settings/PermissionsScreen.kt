@@ -68,8 +68,8 @@ val permissionCards = listOf(
     PermissionCardInfo(PermissionKind.CAMERA, "Camera", "Only used when a habit needs a photo.", false),
 )
 
-/** "Let KEPT do its job" is onboarding step 5. */
-const val PERMISSIONS_STEP = 5
+/** "Let KEPT do its job" is onboarding step 6. */
+const val PERMISSIONS_STEP = 6
 
 /** Re-evaluates permission state every time the screen comes back to the foreground. */
 @Composable

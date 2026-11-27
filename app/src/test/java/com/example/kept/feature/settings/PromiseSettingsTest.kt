@@ -23,6 +23,7 @@ import com.example.kept.core.data.PromiseRepository
 import com.example.kept.core.data.SprigRepository
 import com.example.kept.core.data.TimeSource
 import com.example.kept.core.data.WeeklyGoalRepository
+import com.example.kept.core.data.account.NoAccount
 import com.example.kept.core.data.db.KeptDatabase
 import com.example.kept.core.data.db.WeeklyGoalEntity
 import com.example.kept.core.data.prefs.KeptPreferences
@@ -101,7 +102,7 @@ class PromiseSettingsTest {
             SettingsViewModel(
                 ctx, prefs, habits, lock, sprig, DayRepository(db.dayRecordDao(), time), InstalledAppsSource(ctx), AllowlistResolver(ctx),
                 WorkScheduler(ctx, prefs, time), ReminderPoster(habits, prefs, KeptNotifications(ctx), time), time, Permissions(ctx), NoAnalytics,
-                PromiseRepository(db.promiseDao(), habits, time), scope,
+                PromiseRepository(db.promiseDao(), habits, time), NoAccount, scope,
             )
         }
     }

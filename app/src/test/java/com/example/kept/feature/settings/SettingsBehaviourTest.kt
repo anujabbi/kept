@@ -15,7 +15,9 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasTestTag
+import com.example.kept.core.data.account.AccountState
 import com.example.kept.core.domain.SettingsCopy
+import com.example.kept.core.domain.SignInUi
 import com.example.kept.core.lock.PermissionKind
 import com.example.kept.core.ui.shots.Shot
 import org.junit.Assert.assertEquals
@@ -224,5 +226,61 @@ class SettingsBehaviourTest {
         rule.onNodeWithTag("change_anyway").performClick()
         assertEquals(1, confirmed)
         assertEquals(1, cancelled)
+    }
+
+    // Sign in with Google (#193) ---------------------------------------------------------------
+
+    @Test fun signed_out_settings_offers_sign_in_with_google_and_tapping_it_signs_in() {
+        var asked = 0
+        rule.setContent { Shot(1f) { SettingsFrame(SettingsFixtures.ALL_SET, SettingsActions(onSignIn = { asked++ })) } }
+        rule.onNodeWithTag("settings_sign_in").performScrollTo().assertHasClickAction()
+        assertEquals("Sign in with Google", text("settings_sign_in_title"))
+        assertEquals("Optional. Your habits stay on this phone.", text("settings_sign_in_hint"))
+        rule.onNodeWithTag("settings_sign_in").performClick()
+        assertEquals(1, asked)
+        rule.onNodeWithTag("settings_sign_in_error").assertDoesNotExist()
+    }
+
+    @Test fun signed_in_or_still_restoring_the_row_is_gone() {
+        var page by mutableStateOf(SettingsFixtures.ALL_SET.copy(account = SettingsAccount.SIGNED_IN))
+        rule.setContent { Shot(1f) { SettingsFrame(page) } }
+        rule.onNodeWithTag("settings_sign_in").assertDoesNotExist()
+        rule.onNodeWithTag("settings_history").assertExists()
+        page = page.copy(account = SettingsAccount.UNKNOWN)
+        rule.waitForIdle()
+        rule.onNodeWithTag("settings_sign_in").assertDoesNotExist()
+        page = page.copy(account = SettingsAccount.SIGNED_OUT)
+        rule.waitForIdle()
+        rule.onNodeWithTag("settings_sign_in").assertExists()
+    }
+
+    @Test fun a_failed_sign_in_leaves_one_line_and_the_row_usable() {
+        var asked = 0
+        var page by mutableStateOf(SettingsFixtures.ALL_SET.copy(signIn = SignInUi.Busy))
+        rule.setContent { Shot(1f) { SettingsFrame(page, SettingsActions(onSignIn = { asked++ })) } }
+        rule.onNodeWithTag("settings_sign_in").performScrollTo()
+        assertEquals("Signing in…", text("settings_sign_in_title"))
+        rule.onNodeWithTag("settings_sign_in").performClick()
+        assertEquals("a second tap while the sheet is open does nothing", 0, asked)
+
+        page = page.copy(signIn = SignInUi.failed(cancelled = true))
+        rule.waitForIdle()
+        rule.onNodeWithTag("settings_sign_in_error").performScrollTo()
+        assertEquals("Sign-in cancelled.", text("settings_sign_in_error"))
+        page = page.copy(signIn = SignInUi.failed(cancelled = false, offline = true))
+        rule.waitForIdle()
+        assertEquals("Couldn't sign in. Check your connection and try again.", text("settings_sign_in_error"))
+        page = page.copy(signIn = SignInUi.failed(cancelled = false))
+        rule.waitForIdle()
+        assertEquals("Couldn't sign in. Try again in a moment.", text("settings_sign_in_error"))
+        rule.onNodeWithTag("settings_sign_in").performScrollTo().performClick()
+        assertEquals(1, asked)
+    }
+
+    @Test fun the_settings_page_reads_the_account_state() {
+        val ui = SettingsUi()
+        assertEquals(SettingsAccount.SIGNED_OUT, SettingsPage.of(ui, 0, account = AccountState.SignedOut).account)
+        assertEquals(SettingsAccount.SIGNED_IN, SettingsPage.of(ui, 0, account = AccountState.SignedIn("a@b.c", null)).account)
+        assertEquals(SettingsAccount.UNKNOWN, SettingsPage.of(ui, 0, account = AccountState.Restoring).account)
     }
 }

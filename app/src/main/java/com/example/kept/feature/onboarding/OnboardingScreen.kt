@@ -19,6 +19,10 @@ import com.example.kept.core.analytics.Screens
 import com.example.kept.core.data.HabitRepository
 import com.example.kept.core.data.TimeSource
 import com.example.kept.core.data.WeeklyGoalRepository
+import com.example.kept.core.data.account.AccountRepository
+import com.example.kept.core.data.account.AccountState
+import com.example.kept.core.data.account.SignInResult
+import com.example.kept.core.data.account.toUi
 import com.example.kept.core.data.prefs.KeptPreferences
 import com.example.kept.core.data.prefs.Settings
 import com.example.kept.core.domain.HabitLimits
@@ -29,6 +33,7 @@ import com.example.kept.core.domain.ProofType
 import com.example.kept.core.domain.PromiseDraft
 import com.example.kept.core.domain.PromiseLimits
 import com.example.kept.core.domain.PromiseRules
+import com.example.kept.core.domain.SignInUi
 import com.example.kept.core.domain.WeeklyGoalRules
 import com.example.kept.core.lock.ForegroundWatcherService
 import com.example.kept.core.lock.PermissionKind
@@ -51,25 +56,27 @@ import javax.inject.Inject
 /** Onboarding's screens, in order: [WELCOME], then steps 1 to [ONBOARDING_STEPS]. */
 object OnboardingStep {
     const val WELCOME = 0
-    const val HABITS = 1
-    const val LOCK_WINDOW = 2
-    const val SHUTDOWN = 3
-    const val EXCEPTIONS = 4
-    const val PERMISSIONS = 5
-    const val READY = 6
+    /** Sign in with Google, optional (#193): the first step, owner decision 2026-11-25. */
+    const val ACCOUNT = 1
+    const val HABITS = 2
+    const val LOCK_WINDOW = 3
+    const val SHUTDOWN = 4
+    const val EXCEPTIONS = 5
+    const val PERMISSIONS = 6
+    const val READY = 7
 }
 
 data class OnboardingState(
-    /** [OnboardingStep.WELCOME], or the step number the progress bar shows (1 to 6). */
+    /** [OnboardingStep.WELCOME], or the step number the progress bar shows (1 to 7). */
     val step: Int = OnboardingStep.WELCOME,
     val chosen: List<HabitTemplate> = listOf(HabitTemplates.list[0], HabitTemplates.list[1]),
     /**
-     * Step 3's night window on its two sliders, 11:00 pm to 7:00 am to begin with (#218).
+     * The shutdown step's night window on its two sliders, 11:00 pm to 7:00 am to begin with (#218).
      * Continue turns it on and Skip off; Back keeps both times. "Start today" writes it
      * ([onboardingShutdown]).
      */
     val shutdown: NightSetting = NightSetting(enabled = true),
-    /** Step 2's window: the stored one (brought inside the bar) until the person moves it. */
+    /** The lock window step's window: the stored one (brought inside the bar) until the person moves it. */
     val window: LockWindowRules.Window = LockWindowRules.normalize(Settings().lockFromMinute, Settings().dueMinute),
     /** True once the person moved the window; only then does "Start today" write it. */
     val windowTouched: Boolean = false,
@@ -81,6 +88,8 @@ data class OnboardingState(
     val weeklyDays: Map<String, Int> = mapOf(OnboardingCadence.EXERCISE to OnboardingCadence.EXERCISE_DAYS),
     /** The promise (#218), while it is open: for a ticked habit's chip, or for "Add your own". */
     val promise: OnboardingPromise? = null,
+    /** The sign-in step's button and its error line (#193). */
+    val signIn: SignInUi = SignInUi.Idle,
 ) {
     /** Every ticked habit: the camera permission step asks for any photo habit, weekly or not. */
     val hasPhotoHabit: Boolean get() = chosen.any { it.proofType == ProofType.PHOTO }
@@ -119,7 +128,7 @@ data class OnboardingState(
 /** The open promise: for ticked habit [title], or a new habit ("Add your own") when null. */
 data class OnboardingPromise(val title: String?, val draft: PromiseDraft)
 
-/** Step 1's how-often rules (#205). */
+/** The habits step's how-often rules (#205). */
 object OnboardingCadence {
     /** The one preset that starts weekly, matched by title. */
     const val EXERCISE = "Exercise"
@@ -189,7 +198,23 @@ object OnboardingFlow {
 
     fun setWindow(s: OnboardingState, w: LockWindowRules.Window): OnboardingState = s.copy(window = w, windowTouched = true)
 
-    /** Step 1 holds until one habit is every day. */
+    /** "Sign in with Google" tapped: the button waits until the account layer answers (#193). */
+    fun startSignIn(s: OnboardingState): OnboardingState = s.copy(signIn = SignInUi.Busy)
+
+    /**
+     * Signed in goes on to the habits step; anything else stays, with one short line and Skip.
+     * An answer that lands after the person went back a step only clears the button.
+     */
+    fun signInFinished(s: OnboardingState, r: SignInResult): OnboardingState = when {
+        s.step != OnboardingStep.ACCOUNT -> s.copy(signIn = SignInUi.Idle)
+        r == SignInResult.Success -> next(s.copy(signIn = SignInUi.Idle))
+        else -> s.copy(signIn = r.toUi())
+    }
+
+    /** "Skip" on the sign-in step: nothing is asked of the account layer. */
+    fun skipAccount(s: OnboardingState): OnboardingState = next(s.copy(signIn = SignInUi.Idle))
+
+    /** The habits step holds until one habit is every day. */
     fun next(s: OnboardingState): OnboardingState =
         if (s.step == OnboardingStep.HABITS && !s.canContinue) s
         else s.copy(step = (s.step + 1).coerceAtMost(ONBOARDING_STEPS), promise = null)
@@ -224,12 +249,16 @@ class OnboardingViewModel @Inject constructor(
     private val time: TimeSource,
     val permissions: Permissions,
     private val analytics: Analytics,
+    private val accounts: AccountRepository,
 ) : ViewModel() {
     private val _state = MutableStateFlow(OnboardingState())
     val state: StateFlow<OnboardingState> = _state
 
+    /** Who is signed in, for the sign-in step (#193). */
+    val account: StateFlow<AccountState> = accounts.account
+
     init {
-        // Step 2 starts from the stored window, which a re-run of onboarding may have changed.
+        // The lock window step starts from the stored window, which a re-run of onboarding may have changed.
         viewModelScope.launch {
             val s = prefs.currentSettings()
             _state.update { if (it.windowTouched) it else it.copy(window = LockWindowRules.normalize(s.lockFromMinute, s.dueMinute)) }
@@ -248,9 +277,20 @@ class OnboardingViewModel @Inject constructor(
     fun setWindow(w: LockWindowRules.Window) = _state.update { OnboardingFlow.setWindow(it, w) }
     fun next() = _state.update(OnboardingFlow::next)
     fun back() = _state.update(OnboardingFlow::back)
+    fun skipAccount() = _state.update(OnboardingFlow::skipAccount)
+
+    /** Runs the Google sheet from [activityContext]; a second tap while it is open does nothing. */
+    fun signIn(activityContext: Context) {
+        if (_state.value.signIn == SignInUi.Busy) return
+        _state.update(OnboardingFlow::startSignIn)
+        viewModelScope.launch {
+            val r = accounts.signInWithGoogle(activityContext)
+            _state.update { OnboardingFlow.signInFinished(it, r) }
+        }
+    }
 
     /**
-     * Onboarding is one nav destination but six screens to the person walking it, so the step —
+     * Onboarding is one nav destination but seven screens to the person walking it, so the step —
      * not the route — is what a funnel needs (issue #10). Steps are numbered as the progress bar
      * shows them, from 1; the welcome screen before them is not a step.
      */
@@ -266,7 +306,7 @@ class OnboardingViewModel @Inject constructor(
     )
 
     /**
-     * Persists the every-day habits and the first-use date when leaving step 1 so the
+     * Persists the every-day habits and the first-use date when leaving the habits step so the
      * exceptions/permission steps can already use them. Weekly goals, the shutdown time and the
      * lock window are written on "Start today" (the window only if it was moved): see
      * [weeklyGoalPlans], [onboardingShutdown] and [onboardingLockWindow].
@@ -296,7 +336,7 @@ class OnboardingViewModel @Inject constructor(
 }
 
 /**
- * Onboarding in Daybreak (spec, Welcome and Onboarding): the welcome screen, then six steps with
+ * Onboarding in Daybreak (spec, Welcome and Onboarding): the welcome screen, then seven steps with
  * a progress bar and a back arrow. System back goes back a step (closing Add a habit first) and
  * keeps every choice; on the welcome screen it leaves the app as before.
  */
@@ -305,7 +345,7 @@ fun OnboardingScreen(onDone: () -> Unit, vm: OnboardingViewModel = hiltViewModel
     val s by vm.state.collectAsStateWithLifecycle()
     val ctx = LocalContext.current
 
-    LaunchedEffect(s.step) { if (s.step >= OnboardingStep.HABITS) vm.reportStepViewed(s.step) }
+    LaunchedEffect(s.step) { if (s.step > OnboardingStep.WELCOME) vm.reportStepViewed(s.step) }
     BackHandler(enabled = s.step > OnboardingStep.WELCOME) { vm.back() }
 
     AnimatedContent(
@@ -318,6 +358,17 @@ fun OnboardingScreen(onDone: () -> Unit, vm: OnboardingViewModel = hiltViewModel
     ) { step ->
         when (step) {
             OnboardingStep.WELCOME -> WelcomeStep(onStart = vm::next)
+            OnboardingStep.ACCOUNT -> {
+                val account by vm.account.collectAsStateWithLifecycle()
+                AccountStep(
+                    s.signIn,
+                    signedInAs = (account as? AccountState.SignedIn)?.let { it.email ?: it.displayName ?: "" },
+                    onSignIn = { vm.signIn(ctx) },
+                    onBack = vm::back,
+                    onContinue = vm::next,
+                    onSkip = vm::skipAccount,
+                )
+            }
             OnboardingStep.HABITS -> {
                 val promise = s.promise
                 if (promise != null) {

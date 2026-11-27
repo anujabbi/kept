@@ -10,6 +10,9 @@ import com.example.kept.core.data.LockRepository
 import com.example.kept.core.data.PromiseRepository
 import com.example.kept.core.data.SprigRepository
 import com.example.kept.core.data.TimeSource
+import com.example.kept.core.data.account.AccountRepository
+import com.example.kept.core.data.account.AccountState
+import com.example.kept.core.data.account.toUi
 import com.example.kept.core.data.db.AllowedAppEntity
 import com.example.kept.core.data.db.DayRecordEntity
 import com.example.kept.core.data.db.HabitEntity
@@ -25,6 +28,7 @@ import com.example.kept.core.domain.NightSetting
 import com.example.kept.core.domain.PromiseDraft
 import com.example.kept.core.domain.PromiseSwitch
 import com.example.kept.core.domain.ProofType
+import com.example.kept.core.domain.SignInUi
 import com.example.kept.core.domain.SprigState
 import com.example.kept.core.domain.WeeklyGoalLockEdit
 import com.example.kept.core.lock.AllowlistResolver
@@ -134,6 +138,7 @@ class SettingsViewModel @Inject constructor(
     val permissions: Permissions,
     private val analytics: Analytics,
     private val promises: PromiseRepository,
+    private val accounts: AccountRepository,
     /** Habit writes outlive the page: Add and Edit habit close as soon as they save (issue #134). */
     @ApplicationScope private val appScope: CoroutineScope,
 ) : ViewModel() {
@@ -152,6 +157,19 @@ class SettingsViewModel @Inject constructor(
             mustDoGoals = s.weeklyMustDo.map { it.id }.toSet(),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LockHold())
+
+    /** Who is signed in, for the "Sign in with Google" row (#193). */
+    val account: StateFlow<AccountState> = accounts.account
+
+    private val _signIn = MutableStateFlow<SignInUi>(SignInUi.Idle)
+    val signIn: StateFlow<SignInUi> = _signIn
+
+    /** Runs the Google sheet from [activityContext]; a tap while it is open does nothing. */
+    fun signIn(activityContext: Context) {
+        if (_signIn.value == SignInUi.Busy) return
+        _signIn.value = SignInUi.Busy
+        viewModelScope.launch { _signIn.value = accounts.signInWithGoogle(activityContext).toUi() }
+    }
 
     private val _pendingLockChange = MutableStateFlow<PendingLockChange?>(null)
     val pendingLockChange: StateFlow<PendingLockChange?> = _pendingLockChange

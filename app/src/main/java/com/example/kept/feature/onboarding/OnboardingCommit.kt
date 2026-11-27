@@ -18,7 +18,7 @@ const val ONBOARDING_STEPS = OnboardingCopy.STEPS
 /**
  * What leaving the habits step records. Only the first-use date: the break length is not asked
  * for during onboarding (issue #37), and the lock window is written by [onboardingLockWindow]
- * only if the person moved it on step 2, and night lockdown by [onboardingShutdown].
+ * only if the person moved it on the lock window step, and night lockdown by [onboardingShutdown].
  */
 fun Settings.onboardingDraft(today: LocalDate): Settings = copy(firstUseDate = firstUseDate ?: today)
 
@@ -45,7 +45,7 @@ fun Settings.onboardingShutdown(night: NightSetting): Settings =
 fun Settings.onboardingFinished(today: LocalDate): Settings =
     onboardingDraft(today).copy(onboardingDone = true, onboardingStep = ONBOARDING_STEPS, firstLandingPending = true)
 
-/** What Continue on step 1 writes through `HabitRepository.replaceAll`: the every-day habits only (#205). */
+/** What Continue on the habits step writes through `HabitRepository.replaceAll`: the every-day habits only (#205). */
 fun OnboardingState.dailyHabitRows(nowMillis: Long): List<HabitEntity> = daily.map {
     HabitEntity(title = it.title, iconKey = it.iconKey, proofType = it.proofType, targetValue = it.targetValue, unit = it.unit, createdAt = nowMillis)
 }

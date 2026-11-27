@@ -24,6 +24,7 @@ import com.example.kept.core.data.PromiseRepository
 import com.example.kept.core.data.SprigRepository
 import com.example.kept.core.data.TimeSource
 import com.example.kept.core.data.WeeklyGoalRepository
+import com.example.kept.core.data.account.NoAccount
 import com.example.kept.core.data.db.DayRecordEntity
 import com.example.kept.core.data.db.HabitEntity
 import com.example.kept.core.data.db.HabitEntryEntity
@@ -117,7 +118,7 @@ class PromiseSwitchTest {
             SettingsViewModel(
                 ctx, prefs, habits, lock, sprig, DayRepository(db.dayRecordDao(), time), InstalledAppsSource(ctx), AllowlistResolver(ctx),
                 WorkScheduler(ctx, prefs, time), ReminderPoster(habits, prefs, KeptNotifications(ctx), time), time, Permissions(ctx), NoAnalytics,
-                promises, scope,
+                promises, NoAccount, scope,
             )
         }
     }

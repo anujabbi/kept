@@ -17,6 +17,7 @@ import com.example.kept.core.domain.HillEdge
 import com.example.kept.core.domain.LockWindowRules
 import com.example.kept.core.domain.NightSetting
 import com.example.kept.core.domain.ProofType
+import com.example.kept.core.domain.SignInUi
 import com.example.kept.core.lock.InstalledApp
 import com.example.kept.core.lock.PermissionKind
 import com.example.kept.core.ui.HabitTemplate
@@ -68,6 +69,8 @@ val onboardingScreens: List<Pair<String, @Composable () -> Unit>> = listOf(
     "exceptions" to { ExceptionsContent(BodyMode.ONBOARDING, emptyList(), OnboardingFixtures.apps, "", {}, { _, _ -> }, {}, {}) },
     "permissions_missing" to { permissions(BodyMode.ONBOARDING, OnboardingFixtures.oneRequiredMissing) },
     "permissions_all" to { permissions(BodyMode.ONBOARDING, OnboardingFixtures.allGranted) },
+    "account" to { AccountStep(SignInUi.Idle, null, {}, {}, {}, {}) },
+    "account_error" to { AccountStep(SignInUi.failed(cancelled = false, offline = true), null, {}, {}, {}, {}) },
     "ready" to { ReadyStep(saving = false, hasWeeklyGoal = false, onBack = {}, onStart = {}) },
     "ready_weekly" to { ReadyStep(saving = false, hasWeeklyGoal = true, onBack = {}, onStart = {}) },
     "exceptions_settings" to { ExceptionsContent(BodyMode.SETTINGS, emptyList(), OnboardingFixtures.apps, "", {}, { _, _ -> }, {}, {}) },
@@ -161,8 +164,9 @@ class OnboardingShots(private val rule: ComposeContentTestRule, private val pref
                 "ready_weekly" -> assertOnScreen(at, "onboarding_finish")
                 else -> {
                     assertNoWordSplit(rule, "page_title", at)
-                    if (!name.endsWith("_settings")) assertOnScreen(at, "onboarding_next")
-                    if (name.startsWith("shutdown")) assertOnScreen(at, "onboarding_skip")
+                    if (name.startsWith("account")) assertOnScreen(at, "account_sign_in")
+                    else if (!name.endsWith("_settings")) assertOnScreen(at, "onboarding_next")
+                    if (name.startsWith("shutdown") || name.startsWith("account")) assertOnScreen(at, "onboarding_skip")
                 }
             }
             if (name == "shutdown") {
