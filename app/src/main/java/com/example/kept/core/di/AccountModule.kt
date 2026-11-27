@@ -8,7 +8,9 @@ import com.example.kept.core.data.account.SupabaseClients
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import android.content.Context
 import io.ktor.client.engine.android.Android
 import kotlinx.coroutines.CoroutineScope
 import javax.inject.Singleton
@@ -18,9 +20,9 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object AccountModule {
     @Provides @Singleton
-    fun accountRepository(@ApplicationScope scope: CoroutineScope): AccountRepository = SupabaseAccountRepository(
+    fun accountRepository(@ApplicationContext ctx: Context, @ApplicationScope scope: CoroutineScope): AccountRepository = SupabaseAccountRepository(
         client = SupabaseClients.create(BuildConfig.SUPABASE_URL, BuildConfig.SUPABASE_PUBLISHABLE_KEY, Android.create()),
-        tokens = CredentialManagerGoogleIdTokenSource(BuildConfig.GOOGLE_WEB_CLIENT_ID),
+        tokens = CredentialManagerGoogleIdTokenSource(ctx, BuildConfig.GOOGLE_WEB_CLIENT_ID),
         scope = scope,
     )
 }

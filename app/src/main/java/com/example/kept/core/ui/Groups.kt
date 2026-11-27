@@ -92,7 +92,7 @@ fun RowGroup(title: String?, modifier: Modifier = Modifier, content: @Composable
 }
 
 /** Draws the 1.5dp rule above a row that is not the first in its card. */
-private fun Modifier.ruleAbove(show: Boolean): Modifier =
+fun Modifier.ruleAbove(show: Boolean): Modifier =
     if (!show) this else drawBehind { drawRect(D.lineSoft, size = Size(size.width, RULE.toPx())) }
 
 private val titleStyle = DaybreakType.rowTitle

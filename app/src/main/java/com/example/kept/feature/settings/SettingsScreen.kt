@@ -75,6 +75,7 @@ import com.example.kept.core.ui.KeptChip
 import com.example.kept.core.ui.QuietButton
 import com.example.kept.core.ui.RowGroup
 import com.example.kept.core.ui.RowValue
+import com.example.kept.core.ui.ruleAbove
 import com.example.kept.core.ui.Sky
 import com.example.kept.core.ui.SkyScaffold
 import com.example.kept.core.ui.SwitchRow
@@ -85,9 +86,6 @@ import com.example.kept.core.ui.fitLongestWord
 import com.example.kept.core.ui.sprig.SprigView
 import kotlin.math.ceil
 import com.example.kept.core.ui.DaybreakColors as D
-
-/** Whether the Settings tab offers "Sign in with Google" (#193). Unknown while a stored session loads. */
-enum class SettingsAccount { SIGNED_OUT, SIGNED_IN, UNKNOWN }
 
 /** Everything the Settings tab shows, read from the real stores (`A7-Settings`). */
 data class SettingsPage(
@@ -107,10 +105,15 @@ data class SettingsPage(
     val wilted: Boolean = false,
     /** Night lockdown (issue #164): off, 11:00 pm to 7:00 am, until changed. */
     val night: NightSetting = NightSetting(),
-    /** Signed out shows the "Sign in with Google" row (#193); #194 adds the signed-in row. */
-    val account: SettingsAccount = SettingsAccount.SIGNED_OUT,
+    /**
+     * Signed out shows the "Sign in with Google" row (#193); signed in, the account and Sign out
+     * (#194); while a stored session loads ([AccountState.Restoring]), neither.
+     */
+    val account: AccountState = AccountState.SignedOut,
     /** The sign-in row's state and its error line. */
     val signIn: SignInUi = SignInUi.Idle,
+    /** True while a sign out runs: the row reads "Signing out…" and ignores taps (#194). */
+    val signingOut: Boolean = false,
 ) {
     companion object {
         fun of(
@@ -119,6 +122,7 @@ data class SettingsPage(
             weeklyGoals: Int = 0,
             account: AccountState = AccountState.SignedOut,
             signIn: SignInUi = SignInUi.Idle,
+            signingOut: Boolean = false,
         ) = SettingsPage(
             habits = s.habits.size,
             weeklyGoals = weeklyGoals,
@@ -133,12 +137,9 @@ data class SettingsPage(
             form = s.sprig.form,
             wilted = s.sprig.wilted,
             night = NightSetting(s.settings.nightLockEnabled, s.settings.nightFromMinute, s.settings.nightUntilMinute),
-            account = when (account) {
-                AccountState.SignedOut -> SettingsAccount.SIGNED_OUT
-                is AccountState.SignedIn -> SettingsAccount.SIGNED_IN
-                AccountState.Restoring -> SettingsAccount.UNKNOWN
-            },
+            account = account,
             signIn = signIn,
+            signingOut = signingOut,
         )
     }
 }
@@ -159,6 +160,8 @@ data class SettingsActions(
     val onAnalytics: (Boolean) -> Unit = {},
     val onOpenHistory: () -> Unit = {},
     val onSignIn: () -> Unit = {},
+    /** Runs the sign out, once the user has confirmed it (#194). */
+    val onSignOut: () -> Unit = {},
 )
 
 private enum class Editor { LOCK_FROM, GIVE_UP, BREAK, NIGHT_START, NIGHT_START_CUSTOM, NIGHT_END }
@@ -178,8 +181,9 @@ fun SettingsScreen(
     var editor by rememberSaveable { mutableStateOf<Editor?>(null) }
     val account by vm.account.collectAsStateWithLifecycle()
     val signIn by vm.signIn.collectAsStateWithLifecycle()
+    val signingOut by vm.signingOut.collectAsStateWithLifecycle()
     val activity = LocalContext.current
-    val page = SettingsPage.of(s, perms.count { !it.value }, goals.goals.size, account, signIn)
+    val page = SettingsPage.of(s, perms.count { !it.value }, goals.goals.size, account, signIn, signingOut)
 
     SettingsContent(
         page,
@@ -197,6 +201,7 @@ fun SettingsScreen(
             onAnalytics = { vm.setAnalyticsEnabled(it) },
             onOpenHistory = onOpenHistory,
             onSignIn = { vm.signIn(activity) },
+            onSignOut = vm::signOut,
         ),
     )
 
@@ -323,7 +328,9 @@ private fun Groups(page: SettingsPage, a: SettingsActions) {
             SwitchRow(SettingsCopy.REMINDERS, SettingsCopy.REMINDERS_HINT, page.reminders, a.onReminders, first = true, tag = "reminders_toggle")
             SwitchRow(SettingsCopy.ANALYTICS, SettingsCopy.ANALYTICS_HINT, page.analytics, a.onAnalytics, tag = "analytics_toggle")
         }
-        if (page.account == SettingsAccount.SIGNED_OUT) {
+        val account = page.account
+        if (account is AccountState.SignedIn) SignedInGroup(account, page.signingOut, a.onSignOut)
+        if (account == AccountState.SignedOut) {
             RowGroup(AccountCopy.GROUP) { SignInRow(page.signIn, a.onSignIn) }
             if (page.signIn is SignInUi.Error) {
                 Text(
@@ -373,6 +380,101 @@ private fun SignInRow(signIn: SignInUi, onSignIn: () -> Unit) {
         }
         Icon(DaybreakIcons.Chevron, null, Modifier.size(18.dp), tint = D.faint)
     }
+}
+
+/**
+ * The Account group signed in (#194): who is signed in, then Sign out, which asks first (owner
+ * decision 2026-11-27). One composable for the signed-in state, so Delete account (#195) adds a
+ * row here.
+ */
+@Composable
+private fun SignedInGroup(who: AccountState.SignedIn, signingOut: Boolean, onSignOut: () -> Unit) {
+    var asking by rememberSaveable { mutableStateOf(false) }
+    RowGroup(AccountCopy.GROUP) {
+        AccountRow(who)
+        SignOutRow(signingOut, onClick = { asking = true })
+    }
+    if (asking && !signingOut) {
+        SignOutConfirm(onConfirm = { asking = false; onSignOut() }, onCancel = { asking = false })
+    }
+}
+
+/**
+ * The signed-in account (#194): Google's G, the name with the email under it (or the email alone,
+ * or "Signed in"). Not a button. Both lines wrap rather than cut off; when they do, the G stays
+ * level with the first line instead of the row's middle.
+ */
+@Composable
+private fun AccountRow(who: AccountState.SignedIn) {
+    val title = AccountCopy.accountTitle(who.displayName, who.email)
+    val line = AccountCopy.accountLine(who.displayName, who.email)
+    var titleLines by remember(title) { mutableIntStateOf(1) }
+    var lineLines by remember(line) { mutableIntStateOf(1) }
+    val wraps = titleLines > 1 || lineLines > 1
+    val markTop = with(LocalDensity.current) { ((DaybreakType.rowTitle.lineHeight.toDp() - 20.dp) / 2).coerceAtLeast(0.dp) }
+    Row(
+        Modifier.fillMaxWidth().testTag("settings_account").semantics(mergeDescendants = true) {}
+            .heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = if (wraps) Alignment.Top else Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(GoogleMark, null, Modifier.padding(top = if (wraps) markTop else 0.dp).size(20.dp), tint = Color.Unspecified)
+        Column(Modifier.weight(1f)) {
+            Text(
+                title, Modifier.testTag("settings_account_title"), style = DaybreakType.rowTitle, color = D.ink,
+                onTextLayout = { titleLines = it.lineCount },
+            )
+            if (line != null) {
+                Text(
+                    line, Modifier.testTag("settings_account_email"), style = DaybreakType.caption, color = D.muted,
+                    onTextLayout = { lineLines = it.lineCount },
+                )
+            }
+        }
+    }
+}
+
+/** "Sign out" (#194): a purple action title, the hint under it, no chevron. "Signing out…" ignores taps. */
+@Composable
+private fun SignOutRow(busy: Boolean, onClick: () -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().testTag("settings_sign_out").ruleAbove(true)
+            .clickable(enabled = !busy, role = Role.Button, onClick = onClick)
+            .heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            if (busy) AccountCopy.SIGNING_OUT else AccountCopy.SIGN_OUT,
+            Modifier.testTag("settings_sign_out_title"),
+            style = DaybreakType.rowTitle,
+            color = if (busy) D.muted else D.purple,
+        )
+        Text(AccountCopy.SIGN_OUT_HINT, Modifier.testTag("settings_sign_out_hint"), style = DaybreakType.caption, color = D.muted)
+    }
+}
+
+/**
+ * "Sign out?" (owner decision 2026-11-27): the settings confirm's cream card. Nothing is lost, so
+ * "Sign out" is purple, not the red of a costly change; Cancel keeps the user signed in.
+ */
+@Composable
+internal fun SignOutConfirm(onConfirm: () -> Unit, onCancel: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onCancel,
+        title = { Text(AccountCopy.SIGN_OUT_TITLE, style = DaybreakType.section, color = D.ink) },
+        text = { Text(AccountCopy.SIGN_OUT_BODY, style = DaybreakType.body, color = D.muted) },
+        confirmButton = {
+            TextButton(onClick = onConfirm, Modifier.heightIn(min = 48.dp).testTag("sign_out_confirm")) {
+                Text(AccountCopy.SIGN_OUT, style = DaybreakType.button, fontWeight = FontWeight.Bold, color = D.purple)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onCancel, Modifier.heightIn(min = 48.dp).testTag("sign_out_cancel")) {
+                Text(AccountCopy.CANCEL, style = DaybreakType.button, color = D.ink)
+            }
+        },
+        containerColor = D.cream,
+    )
 }
 
 /**

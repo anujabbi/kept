@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import java.io.IOException
+import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
@@ -18,9 +19,17 @@ import kotlinx.coroutines.CancellationException
  * The Google account sheet through Credential Manager (#193). `GetSignInWithGoogleOption` is the
  * option for a "Sign in with Google" button: it always shows the sheet, also on a device where
  * no account has used KEPT before. [serverClientId] is the OAuth web client Supabase checks the
- * token's audience against.
+ * token's audience against. [appContext] is used only to forget the account on sign out (#194).
  */
-class CredentialManagerGoogleIdTokenSource(private val serverClientId: String) : GoogleIdTokenSource {
+class CredentialManagerGoogleIdTokenSource(
+    private val appContext: Context,
+    private val serverClientId: String,
+) : GoogleIdTokenSource {
+
+    /** Credential Manager's sign-out call: the next sheet shows the chooser instead of signing straight back in. */
+    override suspend fun clear() {
+        CredentialManager.create(appContext).clearCredentialState(ClearCredentialStateRequest())
+    }
 
     override suspend fun idToken(activityContext: Context, hashedNonce: String): IdTokenResult {
         val option = GetSignInWithGoogleOption.Builder(serverClientId).setNonce(hashedNonce).build()

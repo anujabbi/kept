@@ -82,6 +82,27 @@ class SupabaseAccountRepository(
         }
     }
 
+    override suspend fun signOut() {
+        client?.auth?.let { auth ->
+            try {
+                auth.signOut()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Offline or a server error: the session still ends on the phone (#194, item 3).
+                Log.w(TAG, "Sign out could not reach the server; clearing the session on the phone", e)
+                auth.clearSession()
+            }
+        }
+        try {
+            tokens.clear()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Google could not forget the account", e)
+        }
+    }
+
     companion object {
         private const val TAG = "KeptAccount"
 

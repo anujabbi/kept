@@ -15,11 +15,13 @@ import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.text.TextLayoutResult
+import com.example.kept.core.data.account.AccountState
 import com.example.kept.core.data.db.DayRecordEntity
 import com.example.kept.core.domain.HillEdge
 import com.example.kept.core.domain.NightSetting
@@ -31,9 +33,12 @@ import com.example.kept.core.ui.KeptTab
 import com.example.kept.core.ui.KeptTabBar
 import com.example.kept.core.ui.shots.Shot
 import com.example.kept.core.ui.shots.assertNoWordSplit
+import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
 import com.github.takahirom.roborazzi.captureRoboImage
+import com.github.takahirom.roborazzi.captureScreenRoboImage
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.robolectric.RuntimeEnvironment
 
 object SettingsFixtures {
     /** The design's values (`A7-Settings`): 7:00 am to 9:00 pm, 2 exceptions, 30 min; and Your promises' 4 habits and 2 weekly goals (#236). */
@@ -47,6 +52,12 @@ object SettingsFixtures {
 
     /** Signed out after a sign-in that failed (#193): the Account group with its error line. */
     val SIGN_IN_FAILED = ALL_SET.copy(signIn = SignInUi.failed(cancelled = false, offline = true))
+
+    /** Signed in (#194): the planner's mockup account, name over email, then Sign out. */
+    val SIGNED_IN = ALL_SET.copy(account = AccountState.SignedIn("sam.rivera@gmail.com", "Sam Rivera"))
+
+    /** Signed in with a long name and email (#194), which wrap and are never cut off. */
+    val SIGNED_IN_LONG = ALL_SET.copy(account = AccountState.SignedIn("alexandra.featherstonehaugh@gmail.com", "Alexandra Featherstonehaugh"))
 
     /** Two permissions off, reminders off, one exception, a 15 minute break. */
     val MISSING = ALL_SET.copy(permissionsOff = 2, reminders = false, analytics = true, exceptions = 1, breakMinutes = 15)
@@ -109,6 +120,7 @@ internal val settingsScreens: List<Pair<String, @Composable () -> Unit>> = listO
     "settings_missing" to { SettingsFrame(SettingsFixtures.MISSING) },
     "settings_night" to { SettingsFrame(SettingsFixtures.NIGHT_ON) },
     "settings_sign_in_error" to { SettingsFrame(SettingsFixtures.SIGN_IN_FAILED) },
+    "settings_account_signed_in" to { SettingsFrame(SettingsFixtures.SIGNED_IN_LONG) },
     "history" to { HistoryContent(SettingsFixtures.HISTORY, 12, {}, {}) },
     "history_empty" to { HistoryContent(emptyList(), 0, {}, {}) },
     "history_weekly" to { HistoryContent(SettingsFixtures.HISTORY_WEEKLY, 12, {}, {}) },
@@ -165,6 +177,34 @@ class SettingsShots(private val rule: ComposeContentTestRule, private val prefix
         rule.onNodeWithTag("settings_sign_in_error").performScrollTo()
         rule.waitForIdle()
         rule.onRoot().captureRoboImage("src/test/screenshots/settings${prefix}_sign_in_error_font$fontScale.png")
+    }
+
+    /**
+     * The Account group signed in (#194), scrolled into view: the mockup's account at font 1.0,
+     * the long name and email at 2.0, as in the planner's two mockups.
+     */
+    fun accountShot(fontScale: Float) {
+        val page = if (fontScale > 1f) SettingsFixtures.SIGNED_IN_LONG else SettingsFixtures.SIGNED_IN
+        rule.setContent { Shot(fontScale) { SettingsFrame(page) } }
+        rule.onNodeWithTag("settings_history").performScrollTo()
+        rule.onNodeWithTag("settings_sign_out").performScrollTo()
+        rule.waitForIdle()
+        rule.onRoot().captureRoboImage("src/test/screenshots/settings${prefix}_account_signed_in_font$fontScale.png")
+    }
+
+    /**
+     * "Sign out?" (owner decision 2026-11-27) over the signed-in tab, dialog window included.
+     * Robolectric draws the dialog window full width without its scrim or rounded card; the
+     * emulator screenshots on the PR show the real look.
+     */
+    @OptIn(ExperimentalRoborazziApi::class)
+    fun signOutConfirmShot(fontScale: Float) {
+        // The dialog is its own window with the configuration's density, which [Shot] does not reach.
+        RuntimeEnvironment.setFontScale(fontScale)
+        rule.setContent { Shot(fontScale) { SettingsFrame(SettingsFixtures.SIGNED_IN) } }
+        rule.onNodeWithTag("settings_sign_out").performScrollTo().performClick()
+        rule.waitForIdle()
+        captureScreenRoboImage("src/test/screenshots/settings${prefix}_sign_out_confirm_font$fontScale.png")
     }
 
     /** History scrolled to its last day. */
@@ -272,12 +312,34 @@ class SettingsShots(private val rule: ComposeContentTestRule, private val prefix
             assertNoWordSplit(rule, "${row}_title", at, unmerged = true)
             assertOneLine(at, "${row}_value", unmerged = true)
         }
-        // The sign-in row (#193): its title never splits a word and it is a full row tall.
-        rule.onNodeWithTag("settings_sign_in").performScrollTo()
-        rule.waitForIdle()
-        assertNoWordSplit(rule, "settings_sign_in_title", at, unmerged = true)
-        val signIn = bounds("settings_sign_in")
-        assertTrue("$at: the sign-in row $signIn is off the screen or too small", signIn.left >= 0f && signIn.right <= w + 0.5f && signIn.height >= 55.9f)
+        if (rule.onAllNodesWithTag("settings_account").fetchSemanticsNodes().isNotEmpty()) {
+            // Signed in (#194): the name and the email are the user's own, so they may break inside
+            // a word (a 17-letter surname at 360dp and font 2.0 does); they wrap but are never cut
+            // off or run off the card, and both rows are full rows.
+            rule.onNodeWithTag("settings_sign_out").performScrollTo()
+            rule.onNodeWithTag("settings_account").performScrollTo()
+            rule.waitForIdle()
+            val card = bounds("settings_account")
+            for (tag in listOf("settings_account_title", "settings_account_email")) {
+                val l = layout(tag, unmerged = true)
+                assertFalse("$at: $tag is cut off", l.hasVisualOverflow)
+                val b = bounds(tag, unmerged = true)
+                assertTrue("$at: $tag $b runs off the card $card", b.left >= card.left && b.right <= card.right + 0.5f)
+            }
+            assertTrue("$at: the account row $card is too small or off the screen", card.left >= 0f && card.right <= w + 0.5f && card.height >= 55.9f)
+            rule.onNodeWithTag("settings_sign_out").performScrollTo()
+            rule.waitForIdle()
+            assertNoWordSplit(rule, "settings_sign_out_title", at, unmerged = true)
+            val out = bounds("settings_sign_out")
+            assertTrue("$at: the sign-out row $out is off the screen or too small", out.left >= 0f && out.right <= w + 0.5f && out.height >= 55.9f)
+        } else {
+            // The sign-in row (#193): its title never splits a word and it is a full row tall.
+            rule.onNodeWithTag("settings_sign_in").performScrollTo()
+            rule.waitForIdle()
+            assertNoWordSplit(rule, "settings_sign_in_title", at, unmerged = true)
+            val signIn = bounds("settings_sign_in")
+            assertTrue("$at: the sign-in row $signIn is off the screen or too small", signIn.left >= 0f && signIn.right <= w + 0.5f && signIn.height >= 55.9f)
+        }
         if (rule.onAllNodesWithTag("settings_sign_in_error").fetchSemanticsNodes().isNotEmpty()) {
             rule.onNodeWithTag("settings_sign_in_error").performScrollTo()
             rule.waitForIdle()

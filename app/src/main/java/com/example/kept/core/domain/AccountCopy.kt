@@ -22,6 +22,18 @@ object AccountCopy {
     const val GROUP = "Account"
     const val ROW_HINT = "Optional. Your habits stay on this phone."
 
+    // Settings, signed in (#194)
+    /** The account row's title when Google gave neither a name nor an email. */
+    const val SIGNED_IN = "Signed in"
+    const val SIGN_OUT = "Sign out"
+    const val SIGNING_OUT = "Signing out…"
+    const val SIGN_OUT_HINT = "Your habits stay on this phone."
+
+    // "Sign out?" (owner decision 2026-11-27)
+    const val SIGN_OUT_TITLE = "Sign out?"
+    const val SIGN_OUT_BODY = "Your habits, check-ins and progress stay on this phone."
+    const val CANCEL = "Cancel"
+
     // Errors: one short line, and the app stays usable and signed out. "Check your connection"
     // only when the connection is what failed.
     const val CANCELLED = "Sign-in cancelled."
@@ -29,6 +41,14 @@ object AccountCopy {
     const val FAILED = "Couldn't sign in. Try again in a moment."
 
     fun signedInAs(who: String): String = "$SIGNED_IN_AS $who"
+
+    /** The account row's title: the name, else the email, else "Signed in" (#194). */
+    fun accountTitle(name: String?, email: String?): String =
+        name?.takeIf(String::isNotBlank) ?: email?.takeIf(String::isNotBlank) ?: SIGNED_IN
+
+    /** The line under it: the email, only when the name is the title. */
+    fun accountLine(name: String?, email: String?): String? =
+        email?.takeIf { it.isNotBlank() && !name.isNullOrBlank() }
 }
 
 /** Where a sign-in attempt is, as a screen shows it. */
