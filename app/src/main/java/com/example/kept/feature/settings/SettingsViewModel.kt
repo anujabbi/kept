@@ -12,6 +12,7 @@ import com.example.kept.core.data.SprigRepository
 import com.example.kept.core.data.TimeSource
 import com.example.kept.core.data.account.AccountRepository
 import com.example.kept.core.data.account.AccountState
+import com.example.kept.core.data.account.DeleteResult
 import com.example.kept.core.data.account.toUi
 import com.example.kept.core.data.db.AllowedAppEntity
 import com.example.kept.core.data.db.DayRecordEntity
@@ -19,6 +20,7 @@ import com.example.kept.core.data.db.HabitEntity
 import com.example.kept.core.data.prefs.KeptPreferences
 import com.example.kept.core.data.prefs.Settings
 import com.example.kept.core.domain.Allowlist
+import com.example.kept.core.domain.DeleteUi
 import com.example.kept.core.domain.HabitDraft
 import com.example.kept.core.domain.HabitsCopy
 import com.example.kept.core.domain.LockWindowEdit
@@ -44,6 +46,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -170,6 +173,7 @@ class SettingsViewModel @Inject constructor(
     fun signIn(activityContext: Context) {
         if (_signIn.value == SignInUi.Busy) return
         _signIn.value = SignInUi.Busy
+        clearDeleted()
         viewModelScope.launch { _signIn.value = accounts.signInWithGoogle(activityContext).toUi() }
     }
 
@@ -182,9 +186,10 @@ class SettingsViewModel @Inject constructor(
      * "Sign out" never flashes back before the group turns into "Sign in with Google".
      */
     fun signOut() {
-        if (_signingOut.value) return
+        if (_signingOut.value || _delete.value == DeleteUi.Busy) return
         _signingOut.value = true
         _signIn.value = SignInUi.Idle
+        _delete.value = DeleteUi.Idle
         viewModelScope.launch {
             try {
                 accounts.signOut()
@@ -193,6 +198,32 @@ class SettingsViewModel @Inject constructor(
                 _signingOut.value = false
             }
         }
+    }
+
+    private val _delete = MutableStateFlow<DeleteUi>(DeleteUi.Idle)
+    /** Delete account (#195): busy while it runs, then the line it leaves under the group. */
+    val delete: StateFlow<DeleteUi> = _delete
+
+    /**
+     * Deletes the account (#195), after the user confirmed it. The server call and the local
+     * sign-out run on the app scope, so leaving Settings midway cannot split them. Busy until the
+     * account has left signed in, so "Delete account" never flashes back before the group turns
+     * into "Sign in with Google".
+     */
+    fun deleteAccount() {
+        if (_delete.value == DeleteUi.Busy || _signingOut.value) return
+        _delete.value = DeleteUi.Busy
+        _signIn.value = SignInUi.Idle
+        viewModelScope.launch {
+            val result = appScope.async { accounts.deleteAccount() }.await()
+            if (result == DeleteResult.Success) withTimeoutOrNull(2_000) { accounts.account.first { it !is AccountState.SignedIn } }
+            _delete.value = result.toUi()
+        }
+    }
+
+    /** The user left the Settings tab: "Your account was deleted." goes (#195, item 4). */
+    fun clearDeleted() {
+        if (_delete.value == DeleteUi.Deleted) _delete.value = DeleteUi.Idle
     }
 
     private val _pendingLockChange = MutableStateFlow<PendingLockChange?>(null)

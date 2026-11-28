@@ -10,6 +10,9 @@ import io.github.jan.supabase.auth.providers.Google
 import io.github.jan.supabase.auth.providers.builtin.IDToken
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.createSupabaseClient
+import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.postgrest.postgrest
+import io.github.jan.supabase.postgrest.rpc
 import io.ktor.client.engine.HttpClientEngine
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -21,11 +24,14 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 
 /**
- * The one place the Supabase client is built (#193). Only the Auth plugin is installed: there is
- * no table client in the app, so nothing built on this can read or write a row (#193, item 7).
+ * The one place the Supabase client is built (#193). Auth, plus Postgrest (#195) for exactly one
+ * call: the `delete_my_account` RPC in [SupabaseAccountRepository.deleteAccount]. Nothing in the
+ * app calls `from(...)`, so no table is read or written from here (#193, item 7), and the
+ * request-path test fails on any other `/rest/v1/` request.
  * A blank URL or key gives no client, and sign-in then fails with the usual error.
  */
 object SupabaseClients {
@@ -34,6 +40,7 @@ object SupabaseClients {
         return createSupabaseClient(url, key) {
             httpEngine = engine
             install(Auth) { auth() }
+            install(Postgrest)
         }
     }
 }
@@ -94,6 +101,10 @@ class SupabaseAccountRepository(
                 auth.clearSession()
             }
         }
+        forgetGoogleChoice()
+    }
+
+    private suspend fun forgetGoogleChoice() {
         try {
             tokens.clear()
         } catch (e: CancellationException) {
@@ -103,8 +114,38 @@ class SupabaseAccountRepository(
         }
     }
 
+    override suspend fun deleteAccount(): DeleteResult {
+        val c = client ?: return DeleteResult.Failed(IllegalStateException("No Supabase key in this build"))
+        try {
+            // The only Postgrest call in the app (#195). It goes through the Auth plugin, which
+            // sends the user's access token (refreshed first if it expired) and the apikey. The
+            // server deletes auth.users for auth.uid() in one statement; a retry after a lost
+            // response deletes 0 rows and still succeeds (item 6).
+            c.postgrest.rpc(DELETE_RPC, buildJsonObject {})
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            val failed = DeleteResult.Failed(e)
+            Log.w(TAG, "Delete account failed (offline=${failed.offline}); still signed in", e)
+            return failed
+        }
+        // The user no longer exists, so there is no server session to log out of (#195, item 4).
+        try {
+            c.auth.clearSession()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Account deleted, but the session could not be cleared on the phone", e)
+        }
+        forgetGoogleChoice()
+        return DeleteResult.Success
+    }
+
     companion object {
         private const val TAG = "KeptAccount"
+
+        /** The one server function the app calls (#195); its SQL is in PR #209's migration. */
+        const val DELETE_RPC = "delete_my_account"
 
         /**
          * A refresh that failed (offline at start with an expired token) keeps the stored session,

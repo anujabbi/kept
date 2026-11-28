@@ -9,4 +9,5 @@ object NoAccount : AccountRepository {
     override val account: StateFlow<AccountState> = MutableStateFlow(AccountState.SignedOut)
     override suspend fun signInWithGoogle(activityContext: Context): SignInResult = SignInResult.Failed()
     override suspend fun signOut() = Unit
+    override suspend fun deleteAccount(): DeleteResult = DeleteResult.Failed()
 }

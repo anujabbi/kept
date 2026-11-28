@@ -158,9 +158,11 @@ dependencies {
     implementation("com.posthog:posthog-android:3.64.0")
 
     // Sign in with Google (#193): Credential Manager for the Google ID token, Supabase Auth for
-    // the session. Auth only: no postgrest-kt, so nothing here can read or write a table.
+    // the session. postgrest-kt (#195) only for the one `delete_my_account` RPC: the app never
+    // calls `from(...)`, and SupabaseAccountRepositoryTest fails on any other /rest/v1/ request.
     implementation(platform(libs.supabase.bom))
     implementation(libs.supabase.auth)
+    implementation(libs.supabase.postgrest)
     implementation(libs.ktor.client.android)
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services)

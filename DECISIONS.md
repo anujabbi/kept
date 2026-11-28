@@ -1925,3 +1925,32 @@ The kickoff Q&A answers are recorded first; everything after was decided during 
   - *Goldens.* New: `settings_account_signed_in` and `settings_sign_out_confirm` at font 1.0 and
     2.0. The dialog golden is taken with Roborazzi's `captureScreenRoboImage`, which includes the
     dialog's window. Every other golden is byte-identical to `main`.
+
+- **Delete account from inside the app (story #195, feature #190).** Built to the planner's
+  mockups on #195.
+  - *postgrest-kt for one call.* `postgrest-kt` comes in from the supabase-kt 3.1.4 BOM and the
+    client installs `Postgrest` next to `Auth`, as the plan chose, so the RPC gets the user's
+    access token, the `apikey`, and a refresh first when the token has expired. Its only use is
+    `postgrest.rpc("delete_my_account", {})` in `SupabaseAccountRepository.deleteAccount()`;
+    nothing calls `from(...)`. The empty JSON object is passed explicitly so the body is `{}`.
+    The existing `io.github.jan.supabase.**` R8 rules cover it; no new rule was needed.
+  - *Request-path test.* #193's `only_auth_calls_leave_the_phone_and_none_carries_habit_data`
+    now runs sign-in, restore, sign-out and delete. Every request is under `/auth/v1/`, except
+    exactly one `POST /rest/v1/rpc/delete_my_account` with body `{}`, made during the delete.
+  - *Order.* The session is cleared on the phone (`auth.clearSession()`, not `/auth/v1/logout`,
+    since the user no longer exists) and Google is told to forget the choice only after the RPC
+    returns 2xx. Any failure keeps the session and the Google choice and shows one red line:
+    the connection line only for an `IOException` in the cause chain, as for sign-in.
+  - *Busy rows.* While a delete runs, "Delete account" reads "Deleting account…" and neither it
+    nor Sign out takes a tap; while a sign out runs, Delete account ignores taps too. The
+    server call runs on the app scope, so leaving Settings mid-delete cannot split the server
+    delete from the local sign-out.
+  - *The green line* "Your account was deleted. Your habits are still here." clears when the
+    Settings screen leaves composition (another tab) or a sign-in starts.
+  - *Confirm strength.* A single red "Delete account" in the standard cream confirm, as the
+    plan proposed; the owner posted no other decision on #195.
+  - *Goldens.* Changed: `settings_account_signed_in` at font 1.0 and 2.0 (the third row), and
+    `settings_sign_out_confirm` at 1.0 and 2.0 (the tab behind the dialog now has the Delete
+    row, so it scrolls differently). New: `settings_delete_confirm` at 1.0 and 2.0,
+    `settings_delete_failed` and `settings_deleted` at 1.0. Every other golden is byte-identical
+    to `main`.

@@ -34,6 +34,19 @@ object AccountCopy {
     const val SIGN_OUT_BODY = "Your habits, check-ins and progress stay on this phone."
     const val CANCEL = "Cancel"
 
+    // Delete account (#195): the row, its confirm, and the one line each outcome leaves.
+    const val DELETE = "Delete account"
+    const val DELETING = "Deleting account…"
+    const val DELETE_HINT = "Erases your name and email from our server."
+    const val DELETE_TITLE = "Delete your account?"
+    const val DELETE_BODY = "This permanently deletes your KEPT account, your Google name and email, from our server. It can't be undone."
+    /** Shown in bold, so the reassurance is not missed. */
+    const val DELETE_KEEP_BOLD = "Your habits, check-ins and progress stay on this phone."
+    const val DELETE_KEEP = " You can keep using KEPT signed out."
+    const val DELETE_FAILED_OFFLINE = "Couldn't delete your account. Check your connection and try again."
+    const val DELETE_FAILED = "Couldn't delete your account. Try again in a moment."
+    const val DELETED = "Your account was deleted. Your habits are still here."
+
     // Errors: one short line, and the app stays usable and signed out. "Check your connection"
     // only when the connection is what failed.
     const val CANCELLED = "Sign-in cancelled."
@@ -66,5 +79,19 @@ sealed interface SignInUi {
                 else -> AccountCopy.FAILED
             },
         )
+    }
+}
+
+/** Where a delete is (#195), as Settings shows it: the row's busy title, or the line under the group. */
+sealed interface DeleteUi {
+    data object Idle : DeleteUi
+    data object Busy : DeleteUi
+    /** Still signed in; the red line under the group. */
+    data class Error(val message: String) : DeleteUi
+    /** Signed out by the delete; the green line under "Sign in with Google" until the tab is left. */
+    data object Deleted : DeleteUi
+
+    companion object {
+        fun failed(offline: Boolean): DeleteUi = Error(if (offline) AccountCopy.DELETE_FAILED_OFFLINE else AccountCopy.DELETE_FAILED)
     }
 }

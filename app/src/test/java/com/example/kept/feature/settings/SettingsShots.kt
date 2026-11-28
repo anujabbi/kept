@@ -23,6 +23,7 @@ import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.text.TextLayoutResult
 import com.example.kept.core.data.account.AccountState
 import com.example.kept.core.data.db.DayRecordEntity
+import com.example.kept.core.domain.DeleteUi
 import com.example.kept.core.domain.HillEdge
 import com.example.kept.core.domain.NightSetting
 import com.example.kept.core.domain.SignInUi
@@ -58,6 +59,10 @@ object SettingsFixtures {
 
     /** Signed in with a long name and email (#194), which wrap and are never cut off. */
     val SIGNED_IN_LONG = ALL_SET.copy(account = AccountState.SignedIn("alexandra.featherstonehaugh@gmail.com", "Alexandra Featherstonehaugh"))
+    /** Just deleted (#195): signed out, with the green line under "Sign in with Google". */
+    val DELETED = ALL_SET.copy(account = AccountState.SignedOut, delete = DeleteUi.Deleted)
+    /** A delete that failed offline (#195): still signed in, the red line under the group. */
+    val DELETE_FAILED = SIGNED_IN.copy(delete = DeleteUi.failed(offline = true))
 
     /** Two permissions off, reminders off, one exception, a 15 minute break. */
     val MISSING = ALL_SET.copy(permissionsOff = 2, reminders = false, analytics = true, exceptions = 1, breakMinutes = 15)
@@ -121,6 +126,8 @@ internal val settingsScreens: List<Pair<String, @Composable () -> Unit>> = listO
     "settings_night" to { SettingsFrame(SettingsFixtures.NIGHT_ON) },
     "settings_sign_in_error" to { SettingsFrame(SettingsFixtures.SIGN_IN_FAILED) },
     "settings_account_signed_in" to { SettingsFrame(SettingsFixtures.SIGNED_IN_LONG) },
+    "settings_delete_failed" to { SettingsFrame(SettingsFixtures.DELETE_FAILED) },
+    "settings_deleted" to { SettingsFrame(SettingsFixtures.DELETED) },
     "history" to { HistoryContent(SettingsFixtures.HISTORY, 12, {}, {}) },
     "history_empty" to { HistoryContent(emptyList(), 0, {}, {}) },
     "history_weekly" to { HistoryContent(SettingsFixtures.HISTORY_WEEKLY, 12, {}, {}) },
@@ -181,13 +188,14 @@ class SettingsShots(private val rule: ComposeContentTestRule, private val prefix
 
     /**
      * The Account group signed in (#194), scrolled into view: the mockup's account at font 1.0,
-     * the long name and email at 2.0, as in the planner's two mockups.
+     * the long name and email at 2.0, as in the planner's two mockups. Since #195 the group ends
+     * with Delete account.
      */
     fun accountShot(fontScale: Float) {
         val page = if (fontScale > 1f) SettingsFixtures.SIGNED_IN_LONG else SettingsFixtures.SIGNED_IN
         rule.setContent { Shot(fontScale) { SettingsFrame(page) } }
         rule.onNodeWithTag("settings_history").performScrollTo()
-        rule.onNodeWithTag("settings_sign_out").performScrollTo()
+        rule.onNodeWithTag("settings_delete").performScrollTo()
         rule.waitForIdle()
         rule.onRoot().captureRoboImage("src/test/screenshots/settings${prefix}_account_signed_in_font$fontScale.png")
     }
@@ -205,6 +213,29 @@ class SettingsShots(private val rule: ComposeContentTestRule, private val prefix
         rule.onNodeWithTag("settings_sign_out").performScrollTo().performClick()
         rule.waitForIdle()
         captureScreenRoboImage("src/test/screenshots/settings${prefix}_sign_out_confirm_font$fontScale.png")
+    }
+
+    /**
+     * The Account group after a delete (#195), scrolled into view: [failed] is still signed in
+     * with the red line, else signed out with the green one.
+     */
+    fun deleteLineShot(failed: Boolean, fontScale: Float) {
+        val page = if (failed) SettingsFixtures.DELETE_FAILED else SettingsFixtures.DELETED
+        rule.setContent { Shot(fontScale) { SettingsFrame(page) } }
+        rule.onNodeWithTag("settings_history").performScrollTo()
+        rule.onNodeWithTag(if (failed) "settings_delete_error" else "settings_deleted").performScrollTo()
+        rule.waitForIdle()
+        rule.onRoot().captureRoboImage("src/test/screenshots/settings${prefix}_${if (failed) "delete_failed" else "deleted"}_font$fontScale.png")
+    }
+
+    /** "Delete your account?" (#195) over the signed-in tab, dialog window included, as [signOutConfirmShot]. */
+    @OptIn(ExperimentalRoborazziApi::class)
+    fun deleteConfirmShot(fontScale: Float) {
+        RuntimeEnvironment.setFontScale(fontScale)
+        rule.setContent { Shot(fontScale) { SettingsFrame(SettingsFixtures.SIGNED_IN) } }
+        rule.onNodeWithTag("settings_delete").performScrollTo().performClick()
+        rule.waitForIdle()
+        captureScreenRoboImage("src/test/screenshots/settings${prefix}_delete_confirm_font$fontScale.png")
     }
 
     /** History scrolled to its last day. */
