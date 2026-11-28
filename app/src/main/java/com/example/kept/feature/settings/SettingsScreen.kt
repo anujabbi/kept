@@ -28,6 +28,7 @@ import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TimePickerDefaults
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -46,13 +47,17 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.kept.core.data.account.AccountState
 import com.example.kept.core.domain.AccountCopy
+import com.example.kept.core.domain.DeleteUi
 import com.example.kept.core.domain.LockWindowField
 import com.example.kept.core.domain.NightCopy
 import com.example.kept.core.domain.NightEdit
@@ -114,6 +119,8 @@ data class SettingsPage(
     val signIn: SignInUi = SignInUi.Idle,
     /** True while a sign out runs: the row reads "Signing out…" and ignores taps (#194). */
     val signingOut: Boolean = false,
+    /** Delete account (#195): busy, or the red or green line under the Account group. */
+    val delete: DeleteUi = DeleteUi.Idle,
 ) {
     companion object {
         fun of(
@@ -123,6 +130,7 @@ data class SettingsPage(
             account: AccountState = AccountState.SignedOut,
             signIn: SignInUi = SignInUi.Idle,
             signingOut: Boolean = false,
+            delete: DeleteUi = DeleteUi.Idle,
         ) = SettingsPage(
             habits = s.habits.size,
             weeklyGoals = weeklyGoals,
@@ -140,6 +148,7 @@ data class SettingsPage(
             account = account,
             signIn = signIn,
             signingOut = signingOut,
+            delete = delete,
         )
     }
 }
@@ -162,6 +171,8 @@ data class SettingsActions(
     val onSignIn: () -> Unit = {},
     /** Runs the sign out, once the user has confirmed it (#194). */
     val onSignOut: () -> Unit = {},
+    /** Runs the account delete, once the user has confirmed it (#195). */
+    val onDeleteAccount: () -> Unit = {},
 )
 
 private enum class Editor { LOCK_FROM, GIVE_UP, BREAK, NIGHT_START, NIGHT_START_CUSTOM, NIGHT_END }
@@ -182,8 +193,11 @@ fun SettingsScreen(
     val account by vm.account.collectAsStateWithLifecycle()
     val signIn by vm.signIn.collectAsStateWithLifecycle()
     val signingOut by vm.signingOut.collectAsStateWithLifecycle()
+    val delete by vm.delete.collectAsStateWithLifecycle()
     val activity = LocalContext.current
-    val page = SettingsPage.of(s, perms.count { !it.value }, goals.goals.size, account, signIn, signingOut)
+    val page = SettingsPage.of(s, perms.count { !it.value }, goals.goals.size, account, signIn, signingOut, delete)
+    // "Your account was deleted." stays only until the user leaves the Settings tab (#195, item 4).
+    DisposableEffect(vm) { onDispose { vm.clearDeleted() } }
 
     SettingsContent(
         page,
@@ -202,6 +216,7 @@ fun SettingsScreen(
             onOpenHistory = onOpenHistory,
             onSignIn = { vm.signIn(activity) },
             onSignOut = vm::signOut,
+            onDeleteAccount = vm::deleteAccount,
         ),
     )
 
@@ -329,18 +344,14 @@ private fun Groups(page: SettingsPage, a: SettingsActions) {
             SwitchRow(SettingsCopy.ANALYTICS, SettingsCopy.ANALYTICS_HINT, page.analytics, a.onAnalytics, tag = "analytics_toggle")
         }
         val account = page.account
-        if (account is AccountState.SignedIn) SignedInGroup(account, page.signingOut, a.onSignOut)
+        if (account is AccountState.SignedIn) {
+            SignedInGroup(account, page.signingOut, page.delete, a.onSignOut, a.onDeleteAccount)
+            if (page.delete is DeleteUi.Error) GroupNote(page.delete.message, D.danger, "settings_delete_error")
+        }
         if (account == AccountState.SignedOut) {
             RowGroup(AccountCopy.GROUP) { SignInRow(page.signIn, a.onSignIn) }
-            if (page.signIn is SignInUi.Error) {
-                Text(
-                    page.signIn.message,
-                    Modifier.padding(horizontal = 4.dp).offset(y = (-12).dp).testTag("settings_sign_in_error")
-                        .semantics { liveRegion = LiveRegionMode.Polite },
-                    style = DaybreakType.bodySmall,
-                    color = D.danger,
-                )
-            }
+            if (page.signIn is SignInUi.Error) GroupNote(page.signIn.message, D.danger, "settings_sign_in_error")
+            else if (page.delete == DeleteUi.Deleted) GroupNote(AccountCopy.DELETED, D.green, "settings_deleted")
         }
         RowGroup(null) {
             ValueRow(SettingsCopy.HISTORY, RowValue(SettingsCopy.bestStreak(page.bestStreak)), a.onOpenHistory, first = true, tag = "settings_history")
@@ -352,6 +363,18 @@ private fun Groups(page: SettingsPage, a: SettingsActions) {
             color = D.muted,
         )
     }
+}
+
+/** One short line under the Account group (#193, #195): an error in red, or "deleted" in green. Read out when it appears. */
+@Composable
+private fun GroupNote(message: String, color: Color, tag: String) {
+    Text(
+        message,
+        Modifier.padding(horizontal = 4.dp).offset(y = (-12).dp).testTag(tag)
+            .semantics { liveRegion = LiveRegionMode.Polite },
+        style = DaybreakType.bodySmall,
+        color = color,
+    )
 }
 
 /**
@@ -383,21 +406,35 @@ private fun SignInRow(signIn: SignInUi, onSignIn: () -> Unit) {
 }
 
 /**
- * The Account group signed in (#194): who is signed in, then Sign out, which asks first (owner
- * decision 2026-11-27). One composable for the signed-in state, so Delete account (#195) adds a
- * row here.
+ * The Account group signed in (#194): who is signed in, then Sign out and Delete account (#195),
+ * each of which asks first. While either runs, both rows ignore taps.
  */
 @Composable
-private fun SignedInGroup(who: AccountState.SignedIn, signingOut: Boolean, onSignOut: () -> Unit) {
-    var asking by rememberSaveable { mutableStateOf(false) }
+private fun SignedInGroup(
+    who: AccountState.SignedIn,
+    signingOut: Boolean,
+    delete: DeleteUi,
+    onSignOut: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    var asking by rememberSaveable { mutableStateOf<AccountAsk?>(null) }
+    val deleting = delete == DeleteUi.Busy
+    val busy = signingOut || deleting
     RowGroup(AccountCopy.GROUP) {
         AccountRow(who)
-        SignOutRow(signingOut, onClick = { asking = true })
+        SignOutRow(signingOut, enabled = !busy, onClick = { asking = AccountAsk.SIGN_OUT })
+        DeleteAccountRow(deleting, enabled = !busy, onClick = { asking = AccountAsk.DELETE })
     }
-    if (asking && !signingOut) {
-        SignOutConfirm(onConfirm = { asking = false; onSignOut() }, onCancel = { asking = false })
+    if (!busy) {
+        when (asking) {
+            AccountAsk.SIGN_OUT -> SignOutConfirm(onConfirm = { asking = null; onSignOut() }, onCancel = { asking = null })
+            AccountAsk.DELETE -> DeleteAccountConfirm(onConfirm = { asking = null; onDelete() }, onCancel = { asking = null })
+            null -> Unit
+        }
     }
 }
+
+private enum class AccountAsk { SIGN_OUT, DELETE }
 
 /**
  * The signed-in account (#194): Google's G, the name with the email under it (or the email alone,
@@ -436,10 +473,10 @@ private fun AccountRow(who: AccountState.SignedIn) {
 
 /** "Sign out" (#194): a purple action title, the hint under it, no chevron. "Signing out…" ignores taps. */
 @Composable
-private fun SignOutRow(busy: Boolean, onClick: () -> Unit) {
+private fun SignOutRow(busy: Boolean, enabled: Boolean, onClick: () -> Unit) {
     Column(
         Modifier.fillMaxWidth().testTag("settings_sign_out").ruleAbove(true)
-            .clickable(enabled = !busy, role = Role.Button, onClick = onClick)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.Center,
     ) {
@@ -451,6 +488,63 @@ private fun SignOutRow(busy: Boolean, onClick: () -> Unit) {
         )
         Text(AccountCopy.SIGN_OUT_HINT, Modifier.testTag("settings_sign_out_hint"), style = DaybreakType.caption, color = D.muted)
     }
+}
+
+/** "Delete account" (#195): Sign out's shape with a red title, the hint under it, no chevron. "Deleting account…" ignores taps. */
+@Composable
+private fun DeleteAccountRow(busy: Boolean, enabled: Boolean, onClick: () -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().testTag("settings_delete").ruleAbove(true)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            if (busy) AccountCopy.DELETING else AccountCopy.DELETE,
+            Modifier.testTag("settings_delete_title"),
+            style = DaybreakType.rowTitle,
+            color = if (busy) D.muted else D.danger,
+        )
+        Text(AccountCopy.DELETE_HINT, Modifier.testTag("settings_delete_hint"), style = DaybreakType.caption, color = D.muted)
+    }
+}
+
+/**
+ * "Delete your account?" (#195): the settings confirm's cream card, like [SignOutConfirm] and
+ * [DeleteGoalConfirm]. What goes, then what stays, its first sentence in bold so it is not
+ * missed. The delete is red; Cancel or a tap outside does nothing.
+ */
+@Composable
+internal fun DeleteAccountConfirm(onConfirm: () -> Unit, onCancel: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onCancel,
+        title = { Text(AccountCopy.DELETE_TITLE, style = DaybreakType.section, color = D.ink) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(AccountCopy.DELETE_BODY, Modifier.testTag("delete_account_body"), style = DaybreakType.body, color = D.muted)
+                Text(
+                    buildAnnotatedString {
+                        withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = D.ink)) { append(AccountCopy.DELETE_KEEP_BOLD) }
+                        append(AccountCopy.DELETE_KEEP)
+                    },
+                    Modifier.testTag("delete_account_keep"),
+                    style = DaybreakType.body,
+                    color = D.muted,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm, Modifier.heightIn(min = 48.dp).testTag("delete_account_confirm")) {
+                Text(AccountCopy.DELETE, style = DaybreakType.button, fontWeight = FontWeight.Bold, color = D.danger)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onCancel, Modifier.heightIn(min = 48.dp).testTag("delete_account_cancel")) {
+                Text(AccountCopy.CANCEL, style = DaybreakType.button, color = D.ink)
+            }
+        },
+        containerColor = D.cream,
+    )
 }
 
 /**

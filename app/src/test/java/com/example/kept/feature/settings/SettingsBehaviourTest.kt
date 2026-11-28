@@ -17,6 +17,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasTestTag
 import com.example.kept.core.data.account.AccountState
+import com.example.kept.core.domain.DeleteUi
 import com.example.kept.core.domain.SettingsCopy
 import com.example.kept.core.domain.SignInUi
 import com.example.kept.core.lock.PermissionKind
@@ -252,11 +253,13 @@ class SettingsBehaviourTest {
         rule.onNodeWithTag("settings_sign_in").assertDoesNotExist()
         rule.onNodeWithTag("settings_account").assertDoesNotExist()
         rule.onNodeWithTag("settings_sign_out").assertDoesNotExist()
+        rule.onNodeWithTag("settings_delete").assertDoesNotExist()
         page = page.copy(account = AccountState.SignedOut)
         rule.waitForIdle()
         rule.onNodeWithTag("settings_sign_in").assertExists()
         rule.onNodeWithTag("settings_account").assertDoesNotExist()
         rule.onNodeWithTag("settings_sign_out").assertDoesNotExist()
+        rule.onNodeWithTag("settings_delete").assertDoesNotExist()
     }
 
     @Test fun a_failed_sign_in_leaves_one_line_and_the_row_usable() {
@@ -355,6 +358,116 @@ class SettingsBehaviourTest {
         rule.setContent { Shot(1f) { SignOutConfirm({}, {}) } }
         val d = rule.density.density
         for (tag in listOf("sign_out_cancel", "sign_out_confirm")) {
+            val n = rule.onNodeWithTag(tag).assertHasClickAction().fetchSemanticsNode()
+            assertTrue("$tag is ${n.size.height / d}dp tall", n.size.height / d >= 47.9f)
+            assertTrue("$tag is ${n.size.width / d}dp wide", n.size.width / d >= 47.9f)
+        }
+    }
+
+    // Delete account (#195) --------------------------------------------------------------------
+
+    /** Item 1: signed in, a third row "Delete account" with its hint, under Sign out. */
+    @Test fun signed_in_settings_offers_delete_account() {
+        rule.setContent { Shot(1f) { SettingsFrame(SettingsFixtures.SIGNED_IN) } }
+        rule.onNodeWithTag("settings_delete").performScrollTo().assertHasClickAction()
+        assertEquals("Delete account", text("settings_delete_title"))
+        assertEquals("Erases your name and email from our server.", text("settings_delete_hint"))
+        val signOut = rule.onNodeWithTag("settings_sign_out").fetchSemanticsNode().boundsInRoot
+        val delete = rule.onNodeWithTag("settings_delete").fetchSemanticsNode().boundsInRoot
+        assertTrue("Delete account sits under Sign out", delete.top >= signOut.bottom - 1f)
+        rule.onNodeWithTag("settings_delete_error").assertDoesNotExist()
+    }
+
+    /** Item 2: the row asks first; Cancel does nothing, confirming deletes. */
+    @Test fun delete_account_asks_first_and_cancel_does_nothing() {
+        var deleted = 0
+        rule.setContent { Shot(1f) { SettingsFrame(SettingsFixtures.SIGNED_IN, SettingsActions(onDeleteAccount = { deleted++ })) } }
+        rule.onNodeWithTag("settings_delete").performScrollTo().performClick()
+        rule.onNodeWithText("Delete your account?").assertExists()
+        assertEquals(
+            "This permanently deletes your KEPT account, your Google name and email, from our server. It can't be undone.",
+            text("delete_account_body"),
+        )
+        assertEquals(
+            "Your habits, check-ins and progress stay on this phone. You can keep using KEPT signed out.",
+            text("delete_account_keep"),
+        )
+        rule.onNodeWithTag("delete_account_cancel").performClick()
+        rule.onNodeWithText("Delete your account?").assertDoesNotExist()
+        assertEquals("Cancel deletes nothing", 0, deleted)
+
+        rule.onNodeWithTag("settings_delete").performScrollTo().performClick()
+        rule.onNodeWithTag("delete_account_confirm").performClick()
+        rule.onNodeWithText("Delete your account?").assertDoesNotExist()
+        assertEquals(1, deleted)
+    }
+
+    /** Item 3: while the delete runs the row reads "Deleting account…", and it and Sign out ignore taps. */
+    @Test fun while_deleting_neither_row_takes_a_tap() {
+        var deleted = 0
+        var signedOut = 0
+        rule.setContent {
+            Shot(1f) {
+                SettingsFrame(
+                    SettingsFixtures.SIGNED_IN.copy(delete = DeleteUi.Busy),
+                    SettingsActions(onDeleteAccount = { deleted++ }, onSignOut = { signedOut++ }),
+                )
+            }
+        }
+        rule.onNodeWithTag("settings_delete").performScrollTo()
+        assertEquals("Deleting account…", text("settings_delete_title"))
+        rule.onNodeWithTag("settings_delete").performClick()
+        rule.onNodeWithText("Delete your account?").assertDoesNotExist()
+        rule.onNodeWithTag("settings_sign_out").performClick()
+        rule.onNodeWithText("Sign out?").assertDoesNotExist()
+        assertEquals(0, deleted)
+        assertEquals(0, signedOut)
+    }
+
+    /** While signing out, Delete account ignores taps too. */
+    @Test fun while_signing_out_delete_does_nothing() {
+        rule.setContent { Shot(1f) { SettingsFrame(SettingsFixtures.SIGNED_IN.copy(signingOut = true)) } }
+        rule.onNodeWithTag("settings_delete").performScrollTo().performClick()
+        rule.onNodeWithText("Delete your account?").assertDoesNotExist()
+    }
+
+    /** Item 5: a failed delete leaves one red line, still signed in, and the row can be tapped again. */
+    @Test fun a_failed_delete_leaves_one_line_and_the_row_usable() {
+        var deleted = 0
+        var page by mutableStateOf(SettingsFixtures.SIGNED_IN.copy(delete = DeleteUi.failed(offline = true)))
+        rule.setContent { Shot(1f) { SettingsFrame(page, SettingsActions(onDeleteAccount = { deleted++ })) } }
+        rule.onNodeWithTag("settings_delete_error").performScrollTo()
+        assertEquals("Couldn't delete your account. Check your connection and try again.", text("settings_delete_error"))
+        rule.onNodeWithTag("settings_account").assertExists()
+        assertEquals("Delete account", text("settings_delete_title"))
+        page = page.copy(delete = DeleteUi.failed(offline = false))
+        rule.waitForIdle()
+        assertEquals("Couldn't delete your account. Try again in a moment.", text("settings_delete_error"))
+        rule.onNodeWithTag("settings_delete").performScrollTo().performClick()
+        rule.onNodeWithTag("delete_account_confirm").performClick()
+        assertEquals(1, deleted)
+    }
+
+    /** Item 4: after a delete, Settings is signed out with the green line under the group. */
+    @Test fun after_a_delete_settings_is_signed_out_with_the_deleted_line() {
+        rule.setContent { Shot(1f) { SettingsFrame(SettingsFixtures.DELETED) } }
+        rule.onNodeWithTag("settings_deleted").performScrollTo()
+        assertEquals("Your account was deleted. Your habits are still here.", text("settings_deleted"))
+        rule.onNodeWithTag("settings_sign_in").assertExists()
+        rule.onNodeWithTag("settings_account").assertDoesNotExist()
+        rule.onNodeWithTag("settings_delete").assertDoesNotExist()
+    }
+
+    @Test fun the_settings_page_carries_the_delete_state() {
+        val ui = SettingsUi()
+        assertEquals(DeleteUi.Idle, SettingsPage.of(ui, 0).delete)
+        assertEquals(DeleteUi.Busy, SettingsPage.of(ui, 0, account = AccountState.SignedIn("a@b.c", null), delete = DeleteUi.Busy).delete)
+    }
+
+    @Test fun the_delete_confirm_buttons_are_full_size() {
+        rule.setContent { Shot(1f) { DeleteAccountConfirm({}, {}) } }
+        val d = rule.density.density
+        for (tag in listOf("delete_account_cancel", "delete_account_confirm")) {
             val n = rule.onNodeWithTag(tag).assertHasClickAction().fetchSemanticsNode()
             assertTrue("$tag is ${n.size.height / d}dp tall", n.size.height / d >= 47.9f)
             assertTrue("$tag is ${n.size.width / d}dp wide", n.size.width / d >= 47.9f)

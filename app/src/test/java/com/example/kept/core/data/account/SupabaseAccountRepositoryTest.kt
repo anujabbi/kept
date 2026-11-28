@@ -6,6 +6,7 @@ import com.example.kept.core.data.HabitRepository
 import com.example.kept.core.data.TimeSource
 import com.example.kept.core.data.db.KeptDatabase
 import com.example.kept.core.data.prefs.KeptPreferences
+import com.example.kept.core.domain.DeleteUi
 import com.example.kept.core.domain.ProofType
 import io.github.jan.supabase.auth.MemoryCodeVerifierCache
 import io.github.jan.supabase.auth.MemorySessionManager
@@ -51,7 +52,7 @@ class SupabaseAccountRepositoryTest {
 
     @After fun stop() = scope.cancel()
 
-    private class Sent(val method: String, val path: String, val query: String, val body: String)
+    private class Sent(val method: String, val path: String, val query: String, val body: String, val bearer: String? = null, val apikey: String? = null)
 
     private val sent = mutableListOf<Sent>()
 
@@ -61,8 +62,27 @@ class SupabaseAccountRepositoryTest {
                  "user_metadata":{"full_name":"Sam Rivera","email":"sam@example.com"}}}
     """.trimIndent()
 
-    private fun engine(fail: Throwable? = null, status: HttpStatusCode = HttpStatusCode.OK) = MockEngine { req ->
-        sent += Sent(req.method.value, req.url.encodedPath, req.url.encodedQuery, String(req.body.toByteArray()))
+    /** The one RPC the app may call (#195). */
+    private val rpcPath = "/rest/v1/rpc/delete_my_account"
+
+    /**
+     * [fail] and [status] answer the auth calls. [rpc] answers `delete_my_account` (#195): it is
+     * given how many times the RPC was called before this one, and returns a status or throws.
+     */
+    private fun engine(
+        fail: Throwable? = null,
+        status: HttpStatusCode = HttpStatusCode.OK,
+        rpc: (Int) -> HttpStatusCode = { HttpStatusCode.NoContent },
+    ) = MockEngine { req ->
+        sent += Sent(
+            req.method.value, req.url.encodedPath, req.url.encodedQuery, String(req.body.toByteArray()),
+            req.headers[HttpHeaders.Authorization], req.headers["apikey"],
+        )
+        if (req.url.encodedPath == rpcPath) {
+            val code = rpc(sent.count { it.path == rpcPath } - 1)
+            return@MockEngine if (code.value < 300) respond("", code)
+            else respondError(code, """{"code":"XX000","message":"boom"}""", headersOf(HttpHeaders.ContentType, "application/json"))
+        }
         if (fail != null) throw fail
         if (req.url.encodedPath == "/auth/v1/logout" && status == HttpStatusCode.OK) return@MockEngine respond("", HttpStatusCode.NoContent)
         if (status != HttpStatusCode.OK) respondError(status, """{"error_code":"bad_jwt","msg":"Bad ID token"}""", headersOf(HttpHeaders.ContentType, "application/json"))
@@ -172,14 +192,33 @@ class SupabaseAccountRepositoryTest {
         assertTrue(sent.isEmpty())
     }
 
-    /** Item 7: sign-in and restore make auth calls only, and no body carries habit data. */
+    /**
+     * Item 7 (#193, updated for #195): sign-in, restore and sign-out make auth calls only; the one
+     * exception is exactly one `POST /rest/v1/rpc/delete_my_account` with body `{}`, and only
+     * during a delete. No body carries habit data.
+     */
     @Test fun only_auth_calls_leave_the_phone_and_none_carries_habit_data() = runBlocking {
         val stored = Json { ignoreUnknownKeys = true }.decodeFromString(UserSession.serializer(), sessionJson)
         settled(repo(sessions = MemorySessionManager(stored)))
-        repo().signInWithGoogle(ctx)
-        assertTrue(sent.isNotEmpty())
+        val r = repo()
+        r.signInWithGoogle(ctx)
+        r.signOut()
+        awaitSignedOut(r)
+        val beforeDelete = sent.size
+        assertTrue(beforeDelete > 0)
+        assertTrue("no /rest/v1/ call outside a delete", sent.none { it.path.startsWith("/rest/") })
+
+        val d = repo(sessions = MemorySessionManager(stored))
+        assertTrue(settled(d) is AccountState.SignedIn)
+        assertEquals(DeleteResult.Success, d.deleteAccount())
+        val duringDelete = sent.drop(beforeDelete)
+        val rpc = duringDelete.single { !it.path.startsWith("/auth/v1/") }
+        assertEquals(rpcPath, rpc.path)
+        assertEquals("POST", rpc.method)
+        assertEquals("{}", rpc.body)
+
         for (s in sent) {
-            assertTrue("${s.path} is not an auth call", s.path.startsWith("/auth/v1/"))
+            assertTrue("${s.path} is not an auth call or the delete RPC", s.path.startsWith("/auth/v1/") || s === rpc)
             for (word in listOf("habit", "check", "entry", "goal", "photo", "streak", "exception", "lock", "settings")) {
                 assertTrue("${s.path} sends '$word': ${s.body}", !s.body.contains(word, ignoreCase = true))
             }
@@ -387,5 +426,133 @@ class SupabaseAccountRepositoryTest {
         assertEquals(AccountState.SignedOut, r.account.value)
         assertEquals(1, tokens.cleared)
         assertTrue(sent.isEmpty())
+    }
+
+    // Delete account (#195) ---------------------------------------------------------------------
+
+    /** Items 3 and 4: one RPC with the user's token, then signed out on the phone, no logout call, Google forgets. */
+    @Test fun deleting_calls_the_rpc_once_then_signs_out_on_the_phone() = runBlocking {
+        val sessions = MemorySessionManager(stored())
+        val tokens = Forgetting()
+        val r = repo(tokens = tokens, sessions = sessions)
+        assertTrue(settled(r) is AccountState.SignedIn)
+
+        assertEquals(DeleteResult.Success, r.deleteAccount())
+
+        val rpc = sent.single()
+        assertEquals("POST", rpc.method)
+        assertEquals(rpcPath, rpc.path)
+        assertEquals("Bearer access-1", rpc.bearer)
+        assertEquals("publishable-key", rpc.apikey)
+        assertEquals("{}", rpc.body)
+        assertTrue("the deleted user is not logged out on the server", sent.none { it.path == "/auth/v1/logout" })
+        awaitSignedOut(r)
+        assertEquals(null, sessions.loadSession())
+        assertEquals(1, tokens.cleared)
+    }
+
+    /** Item 4: a restart after a delete stays signed out, with no sheet. */
+    @Test fun after_deleting_a_restart_stays_signed_out() = runBlocking {
+        val sessions = MemorySessionManager(stored())
+        val first = repo(sessions = sessions)
+        assertTrue(settled(first) is AccountState.SignedIn)
+        assertEquals(DeleteResult.Success, first.deleteAccount())
+        var sheetShown = 0
+        val restarted = repo(tokens = { _, _ -> sheetShown++; IdTokenResult.Cancelled }, sessions = sessions)
+        assertEquals(AccountState.SignedOut, settled(restarted))
+        assertEquals(0, sheetShown)
+    }
+
+    /** Item 5: offline, the delete fails as offline and nothing on the phone changes. */
+    @Test fun deleting_offline_fails_and_keeps_the_user_signed_in() = runBlocking {
+        val sessions = MemorySessionManager(stored())
+        val tokens = Forgetting()
+        val r = repo(tokens = tokens, sessions = sessions, engine = engine(rpc = { throw IOException("Unable to resolve host") }))
+        assertTrue(settled(r) is AccountState.SignedIn)
+
+        val result = r.deleteAccount()
+
+        assertTrue("$result is an offline failure", result is DeleteResult.Failed && result.offline)
+        assertEquals(DeleteUi.Error("Couldn't delete your account. Check your connection and try again."), result.toUi())
+        assertStillSignedIn(r, sessions, tokens)
+    }
+
+    /** Item 5: a server error fails as not offline, and nothing on the phone changes. */
+    @Test fun a_server_error_fails_the_delete_and_keeps_the_user_signed_in() = runBlocking {
+        val sessions = MemorySessionManager(stored())
+        val tokens = Forgetting()
+        val r = repo(tokens = tokens, sessions = sessions, engine = engine(rpc = { HttpStatusCode.InternalServerError }))
+        assertTrue(settled(r) is AccountState.SignedIn)
+
+        val result = r.deleteAccount()
+
+        assertTrue("$result is a non-offline failure", result is DeleteResult.Failed && !result.offline)
+        assertEquals(DeleteUi.Error("Couldn't delete your account. Try again in a moment."), result.toUi())
+        assertStillSignedIn(r, sessions, tokens)
+    }
+
+    /** Item 6: the first response is lost; a second tap calls the RPC again and signs out. */
+    @Test fun a_retry_after_a_lost_response_signs_out() = runBlocking {
+        val sessions = MemorySessionManager(stored())
+        val r = repo(sessions = sessions, engine = engine(rpc = { n -> if (n == 0) throw IOException("connection reset") else HttpStatusCode.NoContent }))
+        assertTrue(settled(r) is AccountState.SignedIn)
+
+        assertTrue(r.deleteAccount() is DeleteResult.Failed)
+        assertTrue(r.account.value is AccountState.SignedIn)
+        assertEquals(DeleteResult.Success, r.deleteAccount())
+
+        awaitSignedOut(r)
+        assertEquals(null, sessions.loadSession())
+        assertEquals(listOf(rpcPath, rpcPath), sent.map { it.path })
+        assertEquals(listOf("Bearer access-1", "Bearer access-1"), sent.map { it.bearer })
+    }
+
+    /** No key, no client: the delete fails without a request. */
+    @Test fun deleting_without_a_key_fails_and_sends_nothing() = runBlocking {
+        val r = repo(key = "")
+        assertTrue(r.deleteAccount() is DeleteResult.Failed)
+        assertTrue(sent.isEmpty())
+    }
+
+    /** Item 7: every habit row and setting are the same after a delete, whether it worked or failed. */
+    @Test fun deleting_leaves_habits_and_preferences_untouched() = runBlocking {
+        val db = Room.inMemoryDatabaseBuilder(ctx, KeptDatabase::class.java).allowMainThreadQueries().build()
+        try {
+            val prefs = KeptPreferences(ctx)
+            prefs.clearAll()
+            val habits = HabitRepository(db.habitDao(), db.habitEntryDao(), db.dayRecordDao(), prefs, TimeSource(Clock.systemUTC()))
+            habits.addHabitWithinLimit("Read", "book", ProofType.MANUAL, 10, "pages")
+            prefs.updateSettings { it.copy(lockFromMinute = 8 * 60, analyticsEnabled = false) }
+            fun tables() = listOf("habits", "habit_entries", "day_records", "allowed_apps", "weekly_goals", "weekly_goal_entries", "gallery", "lock_breaks", "protection_gaps").associateWith { t ->
+                db.openHelper.readableDatabase.query("SELECT * FROM $t").use { c ->
+                    buildList { while (c.moveToNext()) add((0 until c.columnCount).joinToString("|") { c.getString(it).orEmpty() }) }
+                }
+            }
+            val tablesBefore = tables()
+            val settingsBefore = prefs.currentSettings()
+
+            val failing = repo(sessions = MemorySessionManager(stored()), engine = engine(rpc = { HttpStatusCode.InternalServerError }))
+            assertTrue(settled(failing) is AccountState.SignedIn)
+            assertTrue(failing.deleteAccount() is DeleteResult.Failed)
+            assertEquals(tablesBefore, tables())
+            assertEquals(settingsBefore, prefs.currentSettings())
+
+            val r = repo(sessions = MemorySessionManager(stored()))
+            assertTrue(settled(r) is AccountState.SignedIn)
+            assertEquals(DeleteResult.Success, r.deleteAccount())
+            awaitSignedOut(r)
+            assertEquals(tablesBefore, tables())
+            assertEquals(settingsBefore, prefs.currentSettings())
+            assertEquals(listOf("Read"), habits.observeHabits().first().map { it.title })
+        } finally {
+            db.close()
+        }
+    }
+
+    private fun assertStillSignedIn(r: AccountRepository, sessions: MemorySessionManager, tokens: Forgetting) = runBlocking {
+        assertEquals(AccountState.SignedIn("sam@example.com", "Sam Rivera"), r.account.value)
+        assertEquals("access-1", sessions.loadSession()?.accessToken)
+        assertEquals("Google still remembers the choice", 0, tokens.cleared)
+        assertTrue(sent.none { it.path == "/auth/v1/logout" })
     }
 }

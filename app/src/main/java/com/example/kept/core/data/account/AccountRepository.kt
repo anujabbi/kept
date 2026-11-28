@@ -1,6 +1,7 @@
 package com.example.kept.core.data.account
 
 import android.content.Context
+import com.example.kept.core.domain.DeleteUi
 import com.example.kept.core.domain.SignInUi
 import java.io.IOException
 import kotlinx.coroutines.flow.StateFlow
@@ -41,9 +42,24 @@ fun SignInResult.toUi(): SignInUi = when (this) {
     is SignInResult.Failed -> SignInUi.failed(cancelled = false, offline = offline)
 }
 
+/** How one delete attempt ended (#195). On [Failed] the user is still signed in and nothing changed. */
+sealed interface DeleteResult {
+    data object Success : DeleteResult
+    /** [offline] as in [SignInResult.Failed]: true only for a connection failure. */
+    data class Failed(val cause: Throwable? = null, val offline: Boolean = SignInResult.isConnectionFailure(cause)) : DeleteResult
+}
+
+/** What a finished delete leaves on screen: the green line after success, else the red one. */
+fun DeleteResult.toUi(): DeleteUi = when (this) {
+    DeleteResult.Success -> DeleteUi.Deleted
+    is DeleteResult.Failed -> DeleteUi.failed(offline)
+}
+
 /**
  * The account layer. Signing in touches nothing but the auth session: no habit, check-in, goal,
  * photo or setting is read or sent (#193, item 7). Signing out (#194) touches only the session too.
+ * Deleting the account (#195) makes one server call, the `delete_my_account()` RPC, and then ends
+ * the session on the phone; it never touches habit data either.
  */
 interface AccountRepository {
     val account: StateFlow<AccountState>
@@ -57,6 +73,14 @@ interface AccountRepository {
      * told to forget the choice, so the next sign-in shows the account chooser.
      */
     suspend fun signOut()
+
+    /**
+     * Deletes the signed-in user's account on the server (#195), then, only if that succeeded,
+     * ends the session on the phone and tells Google to forget the choice, as [signOut] does.
+     * On failure the session and the Google choice are kept, so the user can try again. Never
+     * throws (except cancellation).
+     */
+    suspend fun deleteAccount(): DeleteResult
 }
 
 /** What the account sheet gave back. */
